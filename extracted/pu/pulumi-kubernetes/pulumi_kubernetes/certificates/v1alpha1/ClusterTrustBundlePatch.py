@@ -92,6 +92,7 @@ class ClusterTrustBundlePatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:certificates.k8s.io/v1alpha1:ClusterTrustBundlePatch")
 class ClusterTrustBundlePatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,
@@ -173,6 +174,8 @@ class ClusterTrustBundlePatch(pulumi.CustomResource):
             __props__.__dict__["kind"] = 'ClusterTrustBundle'
             __props__.__dict__["metadata"] = metadata
             __props__.__dict__["spec"] = spec
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:certificates.k8s.io/v1beta1:ClusterTrustBundlePatch")])
+        opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ClusterTrustBundlePatch, __self__).__init__(
             'kubernetes:certificates.k8s.io/v1alpha1:ClusterTrustBundlePatch',
             resource_name,

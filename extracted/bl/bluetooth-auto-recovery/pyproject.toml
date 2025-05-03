@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "bluetooth-auto-recovery"
-version = "1.4.5"
+version = "1.5.0"
 description = "Recover bluetooth adapters that are in an stuck state"
 authors = ["J. Nick Koston <nick@koston.org>"]
 license = "MIT"
@@ -23,7 +23,7 @@ packages = [
 "Changelog" = "https://github.com/bluetooth-devices/bluetooth-auto-recovery/blob/main/CHANGELOG.md"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">=3.9,<3.14"
 
 # Documentation Dependencies
 Sphinx = {version = ">=5,<8", optional = true}
@@ -44,15 +44,15 @@ docs = [
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.3"
-pytest-cov = "^6.0"
+pytest-cov = "^6.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest-asyncio = ">=0.23.5"
 
 [tool.semantic_release]
 branch = "main"
-version_toml = "pyproject.toml:tool.poetry.version"
-version_variable = "src/bluetooth_auto_recovery/__init__.py:__version__"
+version_toml = ["pyproject.toml:tool.poetry.version"]
+version_variables = ["src/bluetooth_auto_recovery/__init__.py:__version__"]
 build_command = "pip install poetry && poetry build"
 
 [tool.pytest.ini_options]

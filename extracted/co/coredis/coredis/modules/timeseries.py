@@ -2,24 +2,18 @@ from __future__ import annotations
 
 import itertools
 from datetime import datetime, timedelta
-from typing import List
 
 from deprecated.sphinx import versionadded
 
 from coredis.typing import (
     AnyStr,
     CommandArgList,
-    Dict,
     KeyT,
     Literal,
     Mapping,
-    Optional,
     Parameters,
     ResponseType,
-    Set,
     StringT,
-    Tuple,
-    Union,
     ValueT,
 )
 
@@ -50,7 +44,7 @@ from .response._callbacks.timeseries import (
 )
 
 
-def normalized_timestamp(ts: Union[int, datetime, StringT]) -> Union[StringT, int]:
+def normalized_timestamp(ts: int | datetime | StringT) -> StringT | int:
     if isinstance(ts, (bytes, str)):
         return ts
     return normalized_time_milliseconds(ts)
@@ -59,8 +53,8 @@ def normalized_timestamp(ts: Union[int, datetime, StringT]) -> Union[StringT, in
 class RedisTimeSeries(Module[AnyStr]):
     NAME = "timeseries"
     FULL_NAME = "RedisTimeSeries"
-    DESCRIPTION = """RedisTimeSeries is a Redis module that implements a time series 
-data structure. It is designed to be used as a database for time series data, 
+    DESCRIPTION = """RedisTimeSeries is a Redis module that implements a time series
+data structure. It is designed to be used as a database for time series data,
 and is optimized for fast insertion and retrieval of time series data.
     """
     DOCUMENTATION_URL = "https://redis.io/docs/stack/timeseries/"
@@ -80,12 +74,11 @@ class TimeSeries(ModuleGroup[AnyStr]):
     async def create(
         self,
         key: KeyT,
-        retention: Optional[Union[int, timedelta]] = None,
-        encoding: Optional[
-            Literal[PureToken.COMPRESSED, PureToken.UNCOMPRESSED]
-        ] = None,
-        chunk_size: Optional[int] = None,
-        duplicate_policy: Optional[
+        retention: int | timedelta | None = None,
+        encoding: Literal[PureToken.COMPRESSED, PureToken.UNCOMPRESSED] | None = None,
+        chunk_size: int | None = None,
+        duplicate_policy: None
+        | (
             Literal[
                 PureToken.BLOCK,
                 PureToken.FIRST,
@@ -94,8 +87,8 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.MIN,
                 PureToken.SUM,
             ]
-        ] = None,
-        labels: Optional[Mapping[StringT, ValueT]] = None,
+        ) = None,
+        labels: Mapping[StringT, ValueT] | None = None,
     ) -> bool:
         """
         Create a new time series with the given key.
@@ -140,8 +133,8 @@ class TimeSeries(ModuleGroup[AnyStr]):
     async def delete(
         self,
         key: KeyT,
-        fromtimestamp: Union[int, datetime, StringT],
-        totimestamp: Union[int, datetime, StringT],
+        fromtimestamp: int | datetime | StringT,
+        totimestamp: int | datetime | StringT,
     ) -> int:
         """
         Delete all samples between two timestamps for a given time series.
@@ -168,10 +161,11 @@ class TimeSeries(ModuleGroup[AnyStr]):
     async def alter(
         self,
         key: KeyT,
-        labels: Optional[Mapping[StringT, StringT]] = None,
-        retention: Optional[int] = None,
-        chunk_size: Optional[int] = None,
-        duplicate_policy: Optional[
+        labels: Mapping[StringT, StringT] | None = None,
+        retention: int | None = None,
+        chunk_size: int | None = None,
+        duplicate_policy: None
+        | (
             Literal[
                 PureToken.BLOCK,
                 PureToken.FIRST,
@@ -180,7 +174,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.MIN,
                 PureToken.SUM,
             ]
-        ] = None,
+        ) = None,
     ) -> bool:
         """
         Update the retention, chunk size, duplicate policy, and labels of an existing time series.
@@ -221,14 +215,13 @@ class TimeSeries(ModuleGroup[AnyStr]):
     async def add(
         self,
         key: KeyT,
-        timestamp: Union[int, datetime, StringT],
-        value: Union[int, float],
-        retention: Optional[int] = None,
-        encoding: Optional[
-            Literal[PureToken.COMPRESSED, PureToken.UNCOMPRESSED]
-        ] = None,
-        chunk_size: Optional[int] = None,
-        duplicate_policy: Optional[
+        timestamp: int | datetime | StringT,
+        value: int | float,
+        retention: int | None = None,
+        encoding: Literal[PureToken.COMPRESSED, PureToken.UNCOMPRESSED] | None = None,
+        chunk_size: int | None = None,
+        duplicate_policy: None
+        | (
             Literal[
                 PureToken.BLOCK,
                 PureToken.FIRST,
@@ -237,8 +230,8 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.MIN,
                 PureToken.SUM,
             ]
-        ] = None,
-        labels: Optional[Mapping[StringT, ValueT]] = None,
+        ) = None,
+        labels: Mapping[StringT, ValueT] | None = None,
     ) -> int:
         """
         Add a sample to a time series.
@@ -285,9 +278,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         module=MODULE,
     )
-    async def madd(
-        self, ktvs: Parameters[Tuple[AnyStr, int, Union[int, float]]]
-    ) -> Tuple[int, ...]:
+    async def madd(self, ktvs: Parameters[tuple[AnyStr, int, int | float]]) -> tuple[int, ...]:
         """
         Append new samples to one or more time series.
 
@@ -311,12 +302,12 @@ class TimeSeries(ModuleGroup[AnyStr]):
     async def incrby(
         self,
         key: KeyT,
-        value: Union[int, float],
-        labels: Optional[Mapping[StringT, ValueT]] = None,
-        timestamp: Optional[Union[datetime, int, StringT]] = None,
-        retention: Optional[Union[int, timedelta]] = None,
-        uncompressed: Optional[bool] = None,
-        chunk_size: Optional[int] = None,
+        value: int | float,
+        labels: Mapping[StringT, ValueT] | None = None,
+        timestamp: datetime | int | StringT | None = None,
+        retention: int | timedelta | None = None,
+        uncompressed: bool | None = None,
+        chunk_size: int | None = None,
     ) -> int:
         """
         Increments the value of the sample with the maximum existing timestamp, or creates
@@ -365,12 +356,12 @@ class TimeSeries(ModuleGroup[AnyStr]):
     async def decrby(
         self,
         key: KeyT,
-        value: Union[int, float],
-        labels: Optional[Mapping[StringT, ValueT]] = None,
-        timestamp: Optional[Union[datetime, int, StringT]] = None,
-        retention: Optional[Union[int, timedelta]] = None,
-        uncompressed: Optional[bool] = None,
-        chunk_size: Optional[int] = None,
+        value: int | float,
+        labels: Mapping[StringT, ValueT] | None = None,
+        timestamp: datetime | int | StringT | None = None,
+        retention: int | timedelta | None = None,
+        uncompressed: bool | None = None,
+        chunk_size: int | None = None,
     ) -> int:
         """
         Decrease the value of the sample with the maximum existing timestamp, or create a new
@@ -439,8 +430,8 @@ class TimeSeries(ModuleGroup[AnyStr]):
             PureToken.VAR_P,
             PureToken.VAR_S,
         ],
-        bucketduration: Union[int, timedelta],
-        aligntimestamp: Optional[int] = None,
+        bucketduration: int | timedelta,
+        aligntimestamp: int | None = None,
     ) -> bool:
         """
         Create a compaction rule
@@ -507,14 +498,15 @@ class TimeSeries(ModuleGroup[AnyStr]):
     async def range(
         self,
         key: KeyT,
-        fromtimestamp: Union[datetime, int, StringT],
-        totimestamp: Union[datetime, int, StringT],
+        fromtimestamp: datetime | int | StringT,
+        totimestamp: datetime | int | StringT,
         *,
-        filter_by_ts: Optional[Parameters[int]] = None,
-        min_value: Optional[Union[int, float]] = None,
-        max_value: Optional[Union[int, float]] = None,
-        count: Optional[int] = None,
-        aggregator: Optional[
+        filter_by_ts: Parameters[int] | None = None,
+        min_value: int | float | None = None,
+        max_value: int | float | None = None,
+        count: int | None = None,
+        aggregator: None
+        | (
             Literal[
                 PureToken.AVG,
                 PureToken.COUNT,
@@ -530,13 +522,13 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.VAR_P,
                 PureToken.VAR_S,
             ]
-        ] = None,
-        bucketduration: Optional[Union[int, timedelta]] = None,
-        align: Optional[Union[int, StringT]] = None,
-        buckettimestamp: Optional[StringT] = None,
-        empty: Optional[bool] = None,
-        latest: Optional[bool] = None,
-    ) -> Union[Tuple[Tuple[int, float], ...], Tuple[()]]:
+        ) = None,
+        bucketduration: int | timedelta | None = None,
+        align: int | StringT | None = None,
+        buckettimestamp: StringT | None = None,
+        empty: bool | None = None,
+        latest: bool | None = None,
+    ) -> tuple[tuple[int, float], ...] | tuple[()]:
         """
         Query a range in forward direction.
 
@@ -569,7 +561,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         if latest:
             pieces.append(b"LATEST")
         if filter_by_ts:
-            _ts: List[int] = list(filter_by_ts)
+            _ts: list[int] = list(filter_by_ts)
             pieces.extend([PrefixToken.FILTER_BY_TS, *_ts])
         if min_value is not None and max_value is not None:
             pieces.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
@@ -611,14 +603,15 @@ class TimeSeries(ModuleGroup[AnyStr]):
     async def revrange(
         self,
         key: KeyT,
-        fromtimestamp: Union[int, datetime, StringT],
-        totimestamp: Union[int, datetime, StringT],
+        fromtimestamp: int | datetime | StringT,
+        totimestamp: int | datetime | StringT,
         *,
-        filter_by_ts: Optional[Parameters[int]] = None,
-        min_value: Optional[Union[int, float]] = None,
-        max_value: Optional[Union[int, float]] = None,
-        count: Optional[int] = None,
-        aggregator: Optional[
+        filter_by_ts: Parameters[int] | None = None,
+        min_value: int | float | None = None,
+        max_value: int | float | None = None,
+        count: int | None = None,
+        aggregator: None
+        | (
             Literal[
                 PureToken.AVG,
                 PureToken.COUNT,
@@ -634,13 +627,13 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.VAR_P,
                 PureToken.VAR_S,
             ]
-        ] = None,
-        bucketduration: Optional[Union[int, timedelta]] = None,
-        align: Optional[Union[int, StringT]] = None,
-        buckettimestamp: Optional[StringT] = None,
-        empty: Optional[bool] = None,
-        latest: Optional[bool] = None,
-    ) -> Union[Tuple[Tuple[int, float], ...], Tuple[()]]:
+        ) = None,
+        bucketduration: int | timedelta | None = None,
+        align: int | StringT | None = None,
+        buckettimestamp: StringT | None = None,
+        empty: bool | None = None,
+        latest: bool | None = None,
+    ) -> tuple[tuple[int, float], ...] | tuple[()]:
         """
         Query a range in reverse direction from a RedisTimeSeries key.
 
@@ -670,7 +663,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         if latest:
             pieces.append(b"LATEST")
         if filter_by_ts:
-            _ts: List[int] = list(filter_by_ts)
+            _ts: list[int] = list(filter_by_ts)
             pieces.extend([PrefixToken.FILTER_BY_TS, *_ts])
         if min_value is not None and max_value is not None:
             pieces.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
@@ -716,18 +709,19 @@ class TimeSeries(ModuleGroup[AnyStr]):
     )
     async def mrange(
         self,
-        fromtimestamp: Union[int, datetime, StringT],
-        totimestamp: Union[int, datetime, StringT],
-        filters: Optional[Parameters[StringT]] = None,
+        fromtimestamp: int | datetime | StringT,
+        totimestamp: int | datetime | StringT,
+        filters: Parameters[StringT] | None = None,
         *,
-        filter_by_ts: Optional[Parameters[int]] = None,
-        min_value: Optional[Union[int, float]] = None,
-        max_value: Optional[Union[int, float]] = None,
-        withlabels: Optional[bool] = None,
-        selected_labels: Optional[Parameters[StringT]] = None,
-        count: Optional[int] = None,
-        align: Optional[Union[int, StringT]] = None,
-        aggregator: Optional[
+        filter_by_ts: Parameters[int] | None = None,
+        min_value: int | float | None = None,
+        max_value: int | float | None = None,
+        withlabels: bool | None = None,
+        selected_labels: Parameters[StringT] | None = None,
+        count: int | None = None,
+        align: int | StringT | None = None,
+        aggregator: None
+        | (
             Literal[
                 PureToken.AVG,
                 PureToken.COUNT,
@@ -743,11 +737,12 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.VAR_P,
                 PureToken.VAR_S,
             ]
-        ] = None,
-        bucketduration: Optional[Union[int, timedelta]] = None,
-        buckettimestamp: Optional[StringT] = None,
-        groupby: Optional[StringT] = None,
-        reducer: Optional[
+        ) = None,
+        bucketduration: int | timedelta | None = None,
+        buckettimestamp: StringT | None = None,
+        groupby: StringT | None = None,
+        reducer: None
+        | (
             Literal[
                 PureToken.AVG,
                 PureToken.COUNT,
@@ -762,12 +757,12 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.VAR_P,
                 PureToken.VAR_S,
             ]
-        ] = None,
-        empty: Optional[bool] = None,
-        latest: Optional[bool] = None,
-    ) -> Dict[
+        ) = None,
+        empty: bool | None = None,
+        latest: bool | None = None,
+    ) -> dict[
         AnyStr,
-        Tuple[Dict[AnyStr, AnyStr], Union[Tuple[Tuple[int, float], ...], Tuple[()]]],
+        tuple[dict[AnyStr, AnyStr], tuple[tuple[int, float], ...] | tuple[()]],
     ]:
         """
         Query a range across multiple time series by filters in forward direction.
@@ -807,14 +802,14 @@ class TimeSeries(ModuleGroup[AnyStr]):
         if latest:
             pieces.append(b"LATEST")
         if filter_by_ts:
-            _ts: List[int] = list(filter_by_ts)
+            _ts: list[int] = list(filter_by_ts)
             pieces.extend([PrefixToken.FILTER_BY_TS, *_ts])
         if min_value is not None and max_value is not None:
             pieces.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
         if withlabels:
             pieces.append(PureToken.WITHLABELS)
         if selected_labels:
-            _labels: List[StringT] = list(selected_labels)
+            _labels: list[StringT] = list(selected_labels)
             pieces.extend([PureToken.SELECTED_LABELS, *_labels])
         if count is not None:
             pieces.extend([PrefixToken.COUNT, count])
@@ -834,7 +829,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
             if empty:
                 pieces.append(PureToken.EMPTY)
         if filters:
-            _filters: List[StringT] = list(filters)
+            _filters: list[StringT] = list(filters)
             pieces.extend([PrefixToken.FILTER, *_filters])
         if groupby and reducer:
             pieces.extend([PureToken.GROUPBY, groupby, b"REDUCE", reducer])
@@ -858,25 +853,24 @@ class TimeSeries(ModuleGroup[AnyStr]):
             "empty": {"version_introduced": "1.8.0"},
         },
         module=MODULE,
-        cluster=ClusterCommandConfig(
-            route=NodeFlag.PRIMARIES, combine=ClusterMergeTimeSeries()
-        ),
+        cluster=ClusterCommandConfig(route=NodeFlag.PRIMARIES, combine=ClusterMergeTimeSeries()),
         flags={CommandFlag.READONLY},
     )
     async def mrevrange(
         self,
-        fromtimestamp: Union[int, datetime, StringT],
-        totimestamp: Union[int, datetime, StringT],
-        filters: Optional[Parameters[StringT]] = None,
+        fromtimestamp: int | datetime | StringT,
+        totimestamp: int | datetime | StringT,
+        filters: Parameters[StringT] | None = None,
         *,
-        filter_by_ts: Optional[Parameters[int]] = None,
-        min_value: Optional[Union[int, float]] = None,
-        max_value: Optional[Union[int, float]] = None,
-        withlabels: Optional[bool] = None,
-        selected_labels: Optional[Parameters[StringT]] = None,
-        count: Optional[int] = None,
-        align: Optional[Union[int, StringT]] = None,
-        aggregator: Optional[
+        filter_by_ts: Parameters[int] | None = None,
+        min_value: int | float | None = None,
+        max_value: int | float | None = None,
+        withlabels: bool | None = None,
+        selected_labels: Parameters[StringT] | None = None,
+        count: int | None = None,
+        align: int | StringT | None = None,
+        aggregator: None
+        | (
             Literal[
                 PureToken.AVG,
                 PureToken.COUNT,
@@ -892,16 +886,16 @@ class TimeSeries(ModuleGroup[AnyStr]):
                 PureToken.VAR_P,
                 PureToken.VAR_S,
             ]
-        ] = None,
-        bucketduration: Optional[Union[int, timedelta]] = None,
-        buckettimestamp: Optional[StringT] = None,
-        groupby: Optional[StringT] = None,
-        reducer: Optional[StringT] = None,
-        empty: Optional[bool] = None,
-        latest: Optional[bool] = None,
-    ) -> Dict[
+        ) = None,
+        bucketduration: int | timedelta | None = None,
+        buckettimestamp: StringT | None = None,
+        groupby: StringT | None = None,
+        reducer: StringT | None = None,
+        empty: bool | None = None,
+        latest: bool | None = None,
+    ) -> dict[
         AnyStr,
-        Tuple[Dict[AnyStr, AnyStr], Union[Tuple[Tuple[int, float], ...], Tuple[()]]],
+        tuple[dict[AnyStr, AnyStr], tuple[tuple[int, float], ...] | tuple[()]],
     ]:
         """
         Query a range across multiple time series by filters in reverse direction.
@@ -941,14 +935,14 @@ class TimeSeries(ModuleGroup[AnyStr]):
         if latest:
             pieces.append(b"LATEST")
         if filter_by_ts:
-            _ts: List[int] = list(filter_by_ts)
+            _ts: list[int] = list(filter_by_ts)
             pieces.extend([PrefixToken.FILTER_BY_TS, *_ts])
         if min_value is not None and max_value is not None:
             pieces.extend([PureToken.FILTER_BY_VALUE, min_value, max_value])
         if withlabels:
             pieces.append(PureToken.WITHLABELS)
         if selected_labels:
-            _labels: List[StringT] = list(selected_labels)
+            _labels: list[StringT] = list(selected_labels)
             pieces.extend([PureToken.SELECTED_LABELS, *_labels])
         if count is not None:
             pieces.extend([PrefixToken.COUNT, count])
@@ -968,7 +962,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
             if empty:
                 pieces.append(PureToken.EMPTY)
         if filters:
-            _filters: List[StringT] = list(filters)
+            _filters: list[StringT] = list(filters)
             pieces.extend([PrefixToken.FILTER, *_filters])
         if groupby and reducer and reducer:
             pieces.extend([PureToken.GROUPBY, groupby, b"REDUCE", reducer])
@@ -989,9 +983,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         flags={CommandFlag.READONLY},
         cache_config=CacheConfig(lambda *a, **_: a[0]),
     )
-    async def get(
-        self, key: KeyT, latest: Optional[bool] = None
-    ) -> Union[Tuple[int, float], Tuple[()]]:
+    async def get(self, key: KeyT, latest: bool | None = None) -> tuple[int, float] | tuple[()]:
         """
         Get the sample with the highest timestamp from a given time series.
 
@@ -1026,10 +1018,10 @@ class TimeSeries(ModuleGroup[AnyStr]):
     async def mget(
         self,
         filters: Parameters[StringT],
-        withlabels: Optional[bool] = None,
-        selected_labels: Optional[Parameters[StringT]] = None,
-        latest: Optional[bool] = None,
-    ) -> Dict[AnyStr, Tuple[Dict[AnyStr, AnyStr], Union[Tuple[int, float], Tuple[()]]]]:
+        withlabels: bool | None = None,
+        selected_labels: Parameters[StringT] | None = None,
+        latest: bool | None = None,
+    ) -> dict[AnyStr, tuple[dict[AnyStr, AnyStr], tuple[int, float] | tuple[()]]]:
         """
         Get the sample with the highest timestamp from each time series matching a specific filter.
 
@@ -1058,7 +1050,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         if withlabels:
             pieces.append(PureToken.WITHLABELS)
         if selected_labels:
-            _labels: List[StringT] = list(selected_labels)
+            _labels: list[StringT] = list(selected_labels)
             pieces.extend([b"SELECTED_LABELS", *_labels])
         pieces.extend([PrefixToken.FILTER, *filters])
         return await self.execute_module_command(
@@ -1071,9 +1063,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         module=MODULE,
     )
-    async def info(
-        self, key: KeyT, debug: Optional[bool] = None
-    ) -> Dict[AnyStr, ResponseType]:
+    async def info(self, key: KeyT, debug: bool | None = None) -> dict[AnyStr, ResponseType]:
         """
         Return information and statistics for a time series.
 
@@ -1099,7 +1089,7 @@ class TimeSeries(ModuleGroup[AnyStr]):
         ),
         flags={CommandFlag.READONLY},
     )
-    async def queryindex(self, filters: Parameters[StringT]) -> Set[AnyStr]:
+    async def queryindex(self, filters: Parameters[StringT]) -> set[AnyStr]:
         """
         Get all time series keys matching a filter list.
 

@@ -9,14 +9,11 @@ from coredis.typing import (
     Awaitable,
     Callable,
     KeyT,
-    Optional,
     Parameters,
     Protocol,
     R,
     ResponseType,
     StringT,
-    Tuple,
-    Type,
     TypeVar,
     ValueT,
 )
@@ -30,7 +27,7 @@ class AbstractExecutor(Protocol):
         command: bytes,
         *args: ValueT,
         callback: Callable[..., R] = ...,
-        **options: Optional[ValueT],
+        **options: ValueT | None,
     ) -> R: ...
 
 
@@ -38,8 +35,8 @@ class AbstractExecutor(Protocol):
 class SupportsPipeline(Protocol):  # noqa
     async def pipeline(
         self,
-        transaction: Optional[bool] = True,
-        watches: Optional[Parameters[StringT]] = None,
+        transaction: bool | None = True,
+        watches: Parameters[StringT] | None = None,
     ) -> SupportsWatch: ...
 
 
@@ -48,15 +45,15 @@ class SupportsScript(Protocol[T_co]):  # noqa
     async def evalsha(
         self,
         sha1: StringT,
-        keys: Optional[Parameters[KeyT]] = ...,
-        args: Optional[Parameters[ValueT]] = ...,
+        keys: Parameters[KeyT] | None = ...,
+        args: Parameters[ValueT] | None = ...,
     ) -> ResponseType: ...
 
     async def evalsha_ro(
         self,
         sha1: StringT,
-        keys: Optional[Parameters[KeyT]] = ...,
-        args: Optional[Parameters[ValueT]] = ...,
+        keys: Parameters[KeyT] | None = ...,
+        args: Parameters[ValueT] | None = ...,
     ) -> ResponseType: ...
 
     async def script_load(self, script: StringT) -> T_co: ...
@@ -68,14 +65,14 @@ class SupportsWatch(Protocol):  # noqa
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
-    ) -> Awaitable[Optional[bool]]: ...
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> Awaitable[bool | None]: ...
 
     async def watch(self, *keys: KeyT) -> bool: ...
 
-    async def execute(self, raise_on_error: bool = True) -> Tuple[object, ...]: ...
+    async def execute(self, raise_on_error: bool = True) -> tuple[object, ...]: ...
 
 
 @runtime_checkable

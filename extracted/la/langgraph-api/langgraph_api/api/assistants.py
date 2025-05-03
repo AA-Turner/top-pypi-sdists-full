@@ -138,14 +138,19 @@ async def search_assistants(
     """List assistants."""
     payload = await request.json(AssistantSearchRequest)
     async with connect() as conn:
-        assistants_iter = await Assistants.search(
+        assistants_iter, total = await Assistants.search(
             conn,
             graph_id=payload.get("graph_id"),
             metadata=payload.get("metadata"),
             limit=int(payload.get("limit") or 10),
             offset=int(payload.get("offset") or 0),
+            sort_by=payload.get("sort_by"),
+            sort_order=payload.get("sort_order"),
         )
-    return ApiResponse([assistant async for assistant in assistants_iter])
+    return ApiResponse(
+        [assistant async for assistant in assistants_iter],
+        headers={"X-Pagination-Total": str(total)},
+    )
 
 
 @retry_db

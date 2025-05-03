@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: uritools
-Version: 4.0.3
+Version: 5.0.0
 Summary: URI parsing, classification and composition
 Home-page: https://github.com/tkem/uritools/
 Author: Thomas Kemmer
@@ -13,15 +13,15 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 License-File: LICENSE
+Dynamic: license-file
 
 uritools
 ========================================================================
@@ -53,6 +53,7 @@ uritools
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
    :target: https://github.com/psf/black
    :alt: Code style: black
+
 
 This module provides RFC 3986 compliant functions for parsing,
 classifying and composing URIs and URI references, largely replacing
@@ -116,10 +117,19 @@ Project Resources
 - `Change log`_
 
 
+Related Projects
+------------------------------------------------------------------------
+
+- rfc3986_: A Python implementation of RFC 3986 including validation
+  and authority parsing.
+- rfc3987_: Parsing and validation of URIs (RFC 3896) and IRIs (RFC
+  3987).
+
+
 License
 ------------------------------------------------------------------------
 
-Copyright (c) 2014-2023 Thomas Kemmer.
+Copyright (c) 2014-2025 Thomas Kemmer.
 
 Licensed under the `MIT License`_.
 
@@ -130,3 +140,6 @@ Licensed under the `MIT License`_.
 .. _Source code: https://github.com/tkem/uritools/
 .. _Change log: https://github.com/tkem/uritools/blob/master/CHANGELOG.rst
 .. _MIT License: https://raw.github.com/tkem/uritools/master/LICENSE
+
+.. _rfc3986: https://pypi.org/project/rfc3986/
+.. _rfc3987: https://pypi.org/project/rfc3987/

@@ -46,7 +46,8 @@ IsoDateTimeConverter = typing.Any
 ZipArchiveMode = typing.Any
 CompressionLevel = typing.Any
 
-QuantConnect_ExtendedDictionary_T = typing.TypeVar("QuantConnect_ExtendedDictionary_T")
+QuantConnect_ExtendedDictionary_TKey = typing.TypeVar("QuantConnect_ExtendedDictionary_TKey")
+QuantConnect_ExtendedDictionary_TValue = typing.TypeVar("QuantConnect_ExtendedDictionary_TValue")
 QuantConnect__EventContainer_Callable = typing.TypeVar("QuantConnect__EventContainer_Callable")
 QuantConnect__EventContainer_ReturnType = typing.TypeVar("QuantConnect__EventContainer_ReturnType")
 
@@ -569,14 +570,20 @@ class Symbol(System.Object, System.IEquatable[QuantConnect_Symbol], System.IComp
         ...
 
 
-class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_T], System.Object, QuantConnect.Interfaces.IExtendedDictionary[QuantConnect.Symbol, QuantConnect_ExtendedDictionary_T], metaclass=abc.ABCMeta):
-    """Provides a base class for types holding instances keyed by Symbol"""
+class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue], System.Object, QuantConnect.Interfaces.IExtendedDictionary[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue], metaclass=abc.ABCMeta):
+    """Provides a base class for types holding key value pairs with helper methods for easy usage in Python"""
 
     @property
     @abc.abstractmethod
-    def get_keys(self) -> typing.Iterable[QuantConnect.Symbol]:
+    def count(self) -> int:
+        """Gets the number of elements contained in the dictionary"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def get_keys(self) -> typing.Iterable[QuantConnect_ExtendedDictionary_TKey]:
         """
-        Gets an System.Collections.Generic.ICollection`1 containing the Symbol objects of the System.Collections.Generic.IDictionary`2.
+        Gets an System.Collections.Generic.ICollection`1 containing the key objects of the System.Collections.Generic.IDictionary`2.
         
         This property is protected.
         """
@@ -584,7 +591,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_T], Syst
 
     @property
     @abc.abstractmethod
-    def get_values(self) -> typing.Iterable[QuantConnect_ExtendedDictionary_T]:
+    def get_values(self) -> typing.Iterable[QuantConnect_ExtendedDictionary_TValue]:
         """
         Gets an System.Collections.Generic.ICollection`1 containing the values in the System.Collections.Generic.IDictionary`2.
         
@@ -597,43 +604,42 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_T], Syst
         """Gets a value indicating whether the IDictionary object is read-only."""
         ...
 
-    @overload
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect_ExtendedDictionary_T:
+    def __contains__(self, key: QuantConnect_ExtendedDictionary_TKey) -> bool:
         """
-        Indexer method for the base dictioanry to access the objects by their symbol.
+        Checks if the dictionary contains the specified key.
         
-        :param symbol: Symbol object indexer
-        :returns: Object of T.
+        :param key: The key to locate in the dictionary
+        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
         """
         ...
 
-    @overload
-    def __getitem__(self, ticker: str) -> QuantConnect_ExtendedDictionary_T:
+    def __getitem__(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
         """
         Indexer method for the base dictioanry to access the objects by their symbol.
         
-        :param ticker: string ticker symbol indexer
-        :returns: Object of T.
+        :param key: Key object indexer
+        :returns: Object of TValue.
         """
         ...
 
-    @overload
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect_ExtendedDictionary_T) -> None:
+    def __len__(self) -> int:
+        ...
+
+    def __setitem__(self, key: QuantConnect_ExtendedDictionary_TKey, value: QuantConnect_ExtendedDictionary_TValue) -> None:
         """
         Indexer method for the base dictioanry to access the objects by their symbol.
         
-        :param symbol: Symbol object indexer
-        :returns: Object of T.
+        :param key: Key object indexer
+        :returns: Object of TValue.
         """
         ...
 
-    @overload
-    def __setitem__(self, ticker: str, value: QuantConnect_ExtendedDictionary_T) -> None:
+    def check_for_implicitly_created_symbol(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> None:
         """
-        Indexer method for the base dictioanry to access the objects by their symbol.
+        Checks if the symbol is implicitly created from a string, in which case it is not in the symbol cache,
+        and throws a KeyNotFoundException.
         
-        :param ticker: string ticker symbol indexer
-        :returns: Object of T.
+        This method is protected.
         """
         ...
 
@@ -645,6 +651,15 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_T], Syst
         """Removes all items from the System.Collections.Generic.ICollection`1."""
         ...
 
+    def contains_key(self, key: QuantConnect_ExtendedDictionary_TKey) -> bool:
+        """
+        Checks if the dictionary contains the specified key.
+        
+        :param key: The key to locate in the dictionary
+        :returns: true if the dictionary contains an element with the specified key; otherwise, false.
+        """
+        ...
+
     def copy(self) -> typing.Dict[typing.Any, typing.Any]:
         """
         Creates a shallow copy of the IExtendedDictionary{TKey, TValue}.
@@ -654,7 +669,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_T], Syst
         ...
 
     @overload
-    def fromkeys(self, sequence: typing.List[QuantConnect.Symbol]) -> typing.Dict[typing.Any, typing.Any]:
+    def fromkeys(self, sequence: typing.List[QuantConnect_ExtendedDictionary_TKey]) -> typing.Dict[typing.Any, typing.Any]:
         """
         Creates a new dictionary from the given sequence of elements.
         
@@ -664,7 +679,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_T], Syst
         ...
 
     @overload
-    def fromkeys(self, sequence: typing.List[QuantConnect.Symbol], value: QuantConnect_ExtendedDictionary_T) -> typing.Dict[typing.Any, typing.Any]:
+    def fromkeys(self, sequence: typing.List[QuantConnect_ExtendedDictionary_TKey], value: QuantConnect_ExtendedDictionary_TValue) -> typing.Dict[typing.Any, typing.Any]:
         """
         Creates a new dictionary from the given sequence of elements with a value provided by the user.
         
@@ -675,117 +690,125 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_T], Syst
         ...
 
     @overload
-    def get(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect_ExtendedDictionary_T:
+    def get(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
         """
-        Returns the value for the specified Symbol if Symbol is in dictionary.
+        Returns the value for the specified key if key is in dictionary.
         
-        :param symbol: Symbol to be searched in the dictionary
-        :returns: The value for the specified Symbol if Symbol is in dictionary. None if the Symbol is not found and value is not specified.
+        :param key: key to be searched in the dictionary
+        :returns: The value for the specified key if key is in dictionary. None if the key is not found and value is not specified.
         """
         ...
 
     @overload
-    def get(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect_ExtendedDictionary_T) -> QuantConnect_ExtendedDictionary_T:
+    def get(self, key: QuantConnect_ExtendedDictionary_TKey, value: QuantConnect_ExtendedDictionary_TValue) -> QuantConnect_ExtendedDictionary_TValue:
         """
-        Returns the value for the specified Symbol if Symbol is in dictionary.
+        Returns the value for the specified key if key is in dictionary.
         
-        :param symbol: Symbol to be searched in the dictionary
-        :param value: Value to be returned if the Symbol is not found. The default value is null.
-        :returns: The value for the specified Symbol if Symbol is in dictionary. value if the Symbol is not found and value is specified.
+        :param key: key to be searched in the dictionary
+        :param value: Value to be returned if the key is not found. The default value is null.
+        :returns: The value for the specified key if key is in dictionary. value if the key is not found and value is specified.
+        """
+        ...
+
+    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect_ExtendedDictionary_TKey, QuantConnect_ExtendedDictionary_TValue]]:
+        """
+        Gets all the items in the dictionary
+        
+        :returns: All the items in the dictionary.
         """
         ...
 
     def items(self) -> typing.List[typing.Any]:
         """
-        Returns a view object that displays a list of dictionary's (Symbol, value) tuple pairs.
+        Returns a view object that displays a list of dictionary's (key, value) tuple pairs.
         
-        :returns: Returns a view object that displays a list of a given dictionary's (Symbol, value) tuple pair.
+        :returns: Returns a view object that displays a list of a given dictionary's (key, value) tuple pair.
         """
         ...
 
     def keys(self) -> typing.List[typing.Any]:
         """
-        Returns a view object that displays a list of all the Symbol objects in the dictionary
+        Returns a view object that displays a list of all the key objects in the dictionary
         
-        :returns: Returns a view object that displays a list of all the Symbol objects. When the dictionary is changed, the view object also reflect these changes.
+        :returns: Returns a view object that displays a list of all the key objects. When the dictionary is changed, the view object also reflect these changes.
         """
         ...
 
     @overload
-    def pop(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect_ExtendedDictionary_T:
+    def pop(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
         """
-        Removes and returns an element from a dictionary having the given Symbol.
+        Removes and returns an element from a dictionary having the given key.
         
-        :param symbol: Key which is to be searched for removal
-        :returns: If Symbol is found - removed/popped element from the dictionary If Symbol is not found - KeyError exception is raised.
+        :param key: Key which is to be searched for removal
+        :returns: If key is found - removed/popped element from the dictionary If key is not found - KeyError exception is raised.
         """
         ...
 
     @overload
-    def pop(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], default_value: QuantConnect_ExtendedDictionary_T) -> QuantConnect_ExtendedDictionary_T:
+    def pop(self, key: QuantConnect_ExtendedDictionary_TKey, default_value: QuantConnect_ExtendedDictionary_TValue) -> QuantConnect_ExtendedDictionary_TValue:
         """
-        Removes and returns an element from a dictionary having the given Symbol.
+        Removes and returns an element from a dictionary having the given key.
         
-        :param symbol: Key which is to be searched for removal
-        :param default_value: Value which is to be returned when the Symbol is not in the dictionary
-        :returns: If Symbol is found - removed/popped element from the dictionary If Symbol is not found - value specified as the second argument(default).
+        :param key: Key which is to be searched for removal
+        :param default_value: Value which is to be returned when the key is not in the dictionary
+        :returns: If key is found - removed/popped element from the dictionary If key is not found - value specified as the second argument(default).
         """
         ...
 
     def popitem(self) -> typing.Any:
         """
-        Returns and removes an arbitrary element (Symbol, value) pair from the dictionary.
+        Returns and removes an arbitrary element (key, value) pair from the dictionary.
         
-        :returns: Returns an arbitrary element (Symbol, value) pair from the dictionary removes an arbitrary element(the same element which is returned) from the dictionary. Note: Arbitrary elements and random elements are not same.The popitem() doesn't return a random element.
+        :returns: Returns an arbitrary element (key, value) pair from the dictionary removes an arbitrary element(the same element which is returned) from the dictionary. Note: Arbitrary elements and random elements are not same.The popitem() doesn't return a random element.
         """
         ...
 
-    def remove(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+    def remove(self, key: QuantConnect_ExtendedDictionary_TKey) -> bool:
         """
-        Removes the value with the specified Symbol
+        Removes the value with the specified key
         
-        :param symbol: The Symbol object of the element to remove.
+        :param key: The key object of the element to remove.
         :returns: true if the element is successfully found and removed; otherwise, false.
         """
         ...
 
     @overload
-    def setdefault(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect_ExtendedDictionary_T:
+    def setdefault(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
         """
-        Returns the value of a Symbol (if the Symbol is in dictionary). If not, it inserts Symbol with a value to the dictionary.
+        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
         
-        :param symbol: Key with null/None value is inserted to the dictionary if Symbol is not in the dictionary.
-        :returns: The value of the Symbol if it is in the dictionary None if Symbol is not in the dictionary.
+        :param key: Key with null/None value is inserted to the dictionary if key is not in the dictionary.
+        :returns: The value of the key if it is in the dictionary None if key is not in the dictionary.
         """
         ...
 
     @overload
-    def setdefault(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], default_value: QuantConnect_ExtendedDictionary_T) -> QuantConnect_ExtendedDictionary_T:
+    def setdefault(self, key: QuantConnect_ExtendedDictionary_TKey, default_value: QuantConnect_ExtendedDictionary_TValue) -> QuantConnect_ExtendedDictionary_TValue:
         """
-        Returns the value of a Symbol (if the Symbol is in dictionary). If not, it inserts Symbol with a value to the dictionary.
+        Returns the value of a key (if the key is in dictionary). If not, it inserts key with a value to the dictionary.
         
-        :param symbol: Key with a value default_value is inserted to the dictionary if Symbol is not in the dictionary.
+        :param key: Key with a value default_value is inserted to the dictionary if key is not in the dictionary.
         :param default_value: Default value
-        :returns: The value of the Symbol if it is in the dictionary default_value if Symbol is not in the dictionary and default_value is specified.
+        :returns: The value of the key if it is in the dictionary default_value if key is not in the dictionary and default_value is specified.
         """
         ...
 
-    def try_get_value(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: typing.Optional[QuantConnect_ExtendedDictionary_T]) -> typing.Tuple[bool, QuantConnect_ExtendedDictionary_T]:
+    def try_get_value(self, key: QuantConnect_ExtendedDictionary_TKey, value: typing.Optional[QuantConnect_ExtendedDictionary_TValue]) -> typing.Tuple[bool, QuantConnect_ExtendedDictionary_TValue]:
         """
-        Gets the value associated with the specified Symbol.
+        Gets the value associated with the specified key.
         
-        :param symbol: The Symbol whose value to get.
-        :param value: When this method returns, the value associated with the specified Symbol, if the Symbol is found; otherwise, the default value for the type of the  parameter. This parameter is passed uninitialized.
-        :returns: true if the object that implements System.Collections.Generic.IDictionary`2 contains an element with the specified Symbol; otherwise, false.
+        :param key: The key whose value to get.
+        :param value: When this method returns, the value associated with the specified key, if the key is found; otherwise, the default value for the type of the  parameter. This parameter is passed uninitialized.
+        :returns: true if the object that implements System.Collections.Generic.IDictionary`2 contains an element with the specified key; otherwise, false.
         """
         ...
 
     def update(self, other: typing.Any) -> None:
         """
-        Updates the dictionary with the elements from the another dictionary object or from an iterable of Symbol/value pairs.
-        The update() method adds element(s) to the dictionary if the Symbol is not in the dictionary.If the Symbol is in the dictionary, it updates the Symbol with the new value.
+        Updates the dictionary with the elements from the another dictionary object or from an iterable of key/value pairs.
+        The update() method adds element(s) to the dictionary if the key is not in the dictionary.If the key is in the dictionary, it updates the key with the new value.
         
-        :param other: Takes either a dictionary or an iterable object of Symbol/value pairs (generally tuples).
+        :param other: Takes either a dictionary or an iterable object of key/value pairs (generally tuples).
         """
         ...
 
@@ -10189,17 +10212,27 @@ class Messages(System.Object):
     class SecurityExchangeHours(System.Object):
         """Provides user-facing messages for the Securities.SecurityExchangeHours class and its consumers or related classes"""
 
-        unable_to_locate_next_market_open_in_two_weeks: str = "Unable to locate next market open within two weeks."
-        """String message saying: Unable to locate next market open within two weeks"""
-
-        unable_to_locate_next_market_close_in_two_weeks: str = "Unable to locate next market close within two weeks."
-        """String message saying: Unable to locate next market close within two weeks"""
-
         @staticmethod
         def last_market_open_not_found(local_date_time: typing.Union[datetime.datetime, datetime.date], is_market_always_open: bool) -> str:
             """
             Returns a string message saying it did not find last market open for the given local date time. It also mentions
             if the market is always open or not
+            """
+            ...
+
+        @staticmethod
+        def unable_to_locate_next_market_close_in_two_weeks(is_market_always_open: bool) -> str:
+            """
+            Returns an error message when the next market close could not be located within two weeks.
+            Includes additional guidance if the market is always open (e.g., crypto assets).
+            """
+            ...
+
+        @staticmethod
+        def unable_to_locate_next_market_open_in_two_weeks(is_market_always_open: bool) -> str:
+            """
+            Returns an error message when the next market open could not be located within two weeks.
+            Includes additional guidance if the market is always open (e.g., crypto assets).
             """
             ...
 

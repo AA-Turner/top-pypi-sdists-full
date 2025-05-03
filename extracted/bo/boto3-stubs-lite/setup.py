@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="boto3-stubs-lite",
-    version="1.38.7",
+    version="1.38.8",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Lite type annotations for boto3 1.38.7 generated with mypy-boto3-builder 8.10.1",
+    description="Lite type annotations for boto3 1.38.8 generated with mypy-boto3-builder 8.10.1",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -55,7 +55,7 @@ setup(
     ],
     extras_require={
         "full": ["boto3-stubs-full>=1.38.0, <1.39.0"],
-        "boto3": ["boto3==1.38.7"],
+        "boto3": ["boto3==1.38.8"],
         "all": [
             "mypy-boto3-accessanalyzer>=1.38.0, <1.39.0",
             "mypy-boto3-account>=1.38.0, <1.39.0",

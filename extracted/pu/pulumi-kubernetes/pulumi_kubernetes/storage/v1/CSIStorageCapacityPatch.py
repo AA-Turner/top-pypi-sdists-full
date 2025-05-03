@@ -154,6 +154,7 @@ class CSIStorageCapacityPatchArgs:
         pulumi.set(self, "storage_class_name", value)
 
 
+@pulumi.type_token("kubernetes:storage.k8s.io/v1:CSIStorageCapacityPatch")
 class CSIStorageCapacityPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

@@ -20,39 +20,32 @@ from coredis.exceptions import (
 from coredis.pool import ConnectionPool
 from coredis.typing import (
     AnyStr,
-    Dict,
     Generic,
     Iterable,
-    List,
     Literal,
-    Optional,
     StringT,
-    Tuple,
-    Type,
-    Union,
 )
 
 
 class SentinelManagedConnection(Connection, Generic[AnyStr]):
-
     def __init__(
         self,
         connection_pool: SentinelConnectionPool,
         host: str = "127.0.0.1",
         port: int = 6379,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        credential_provider: Optional[AbstractCredentialProvider] = None,
+        username: str | None = None,
+        password: str | None = None,
+        credential_provider: AbstractCredentialProvider | None = None,
         db: int = 0,
-        stream_timeout: Optional[float] = None,
-        connect_timeout: Optional[float] = None,
-        ssl_context: Optional[ssl.SSLContext] = None,
+        stream_timeout: float | None = None,
+        connect_timeout: float | None = None,
+        ssl_context: ssl.SSLContext | None = None,
         encoding: str = "utf-8",
         decode_responses: bool = False,
-        socket_keepalive: Optional[bool] = None,
-        socket_keepalive_options: Optional[Dict[int, Union[int, bytes]]] = None,
+        socket_keepalive: bool | None = None,
+        socket_keepalive_options: dict[int, int | bytes] | None = None,
         *,
-        client_name: Optional[str] = None,
+        client_name: str | None = None,
         protocol_version: Literal[2, 3] = 2,
     ):
         self.connection_pool: SentinelConnectionPool = weakref.proxy(connection_pool)
@@ -85,7 +78,7 @@ class SentinelManagedConnection(Connection, Generic[AnyStr]):
 
         return s
 
-    async def connect_to(self, address: Tuple[str, int]) -> None:
+    async def connect_to(self, address: tuple[str, int]) -> None:
         self.host, self.port = address
         await super().connect()
 
@@ -109,8 +102,8 @@ class SentinelConnectionPool(ConnectionPool):
     Sentinel backed connection pool.
     """
 
-    primary_address: Optional[Tuple[str, int]]
-    replica_counter: Optional[int]
+    primary_address: tuple[str, int] | None
+    replica_counter: int | None
 
     def __init__(
         self,
@@ -122,9 +115,10 @@ class SentinelConnectionPool(ConnectionPool):
     ):
         self.is_primary = is_primary
         kwargs["connection_class"] = cast(
-            Type[Connection],
+            type[Connection],
             kwargs.get(
-                "connection_class", SentinelManagedConnection[AnyStr]  # type: ignore
+                "connection_class",
+                SentinelManagedConnection[AnyStr],  # type: ignore
             ),
         )
         super().__init__(**kwargs)
@@ -145,10 +139,8 @@ class SentinelConnectionPool(ConnectionPool):
         self.primary_address = None
         self.replica_counter = None
 
-    async def get_primary_address(self) -> Tuple[str, int]:
-        primary_address = await self.sentinel_manager.discover_primary(
-            self.service_name
-        )
+    async def get_primary_address(self) -> tuple[str, int]:
+        primary_address = await self.sentinel_manager.discover_primary(self.service_name)
 
         if self.is_primary:
             if self.primary_address is None:
@@ -159,10 +151,10 @@ class SentinelConnectionPool(ConnectionPool):
 
         return primary_address
 
-    async def rotate_replicas(self) -> List[Tuple[str, int]]:
+    async def rotate_replicas(self) -> list[tuple[str, int]]:
         """Round-robin replicas balancer"""
         replicas = await self.sentinel_manager.discover_replicas(self.service_name)
-        replica_addresses: List[Tuple[str, int]] = []
+        replica_addresses: list[tuple[str, int]] = []
 
         if replicas:
             if self.replica_counter is None:
@@ -178,7 +170,7 @@ class SentinelConnectionPool(ConnectionPool):
             return [await self.get_primary_address()]
         except PrimaryNotFoundError:
             pass
-        raise ReplicaNotFoundError("No replica found for %r" % (self.service_name))
+        raise ReplicaNotFoundError(f"No replica found for {self.service_name!r}")
 
 
 class Sentinel(Generic[AnyStr]):
@@ -198,32 +190,32 @@ class Sentinel(Generic[AnyStr]):
     @overload
     def __init__(
         self: Sentinel[bytes],
-        sentinels: Iterable[Tuple[str, int]],
+        sentinels: Iterable[tuple[str, int]],
         min_other_sentinels: int = ...,
-        sentinel_kwargs: Optional[Dict[str, Any]] = ...,
+        sentinel_kwargs: dict[str, Any] | None = ...,
         decode_responses: Literal[False] = ...,
-        cache: Optional[AbstractCache] = None,
+        cache: AbstractCache | None = None,
         **connection_kwargs: Any,
     ) -> None: ...
 
     @overload
     def __init__(
         self: Sentinel[str],
-        sentinels: Iterable[Tuple[str, int]],
+        sentinels: Iterable[tuple[str, int]],
         min_other_sentinels: int = ...,
-        sentinel_kwargs: Optional[Dict[str, Any]] = ...,
+        sentinel_kwargs: dict[str, Any] | None = ...,
         decode_responses: Literal[True] = ...,
-        cache: Optional[AbstractCache] = None,
+        cache: AbstractCache | None = None,
         **connection_kwargs: Any,
     ) -> None: ...
 
     def __init__(
         self,
-        sentinels: Iterable[Tuple[str, int]],
+        sentinels: Iterable[tuple[str, int]],
         min_other_sentinels: int = 0,
-        sentinel_kwargs: Optional[Dict[str, Any]] = None,
+        sentinel_kwargs: dict[str, Any] | None = None,
         decode_responses: bool = False,
-        cache: Optional[AbstractCache] = None,
+        cache: AbstractCache | None = None,
         **connection_kwargs: Any,
     ) -> None:
         """
@@ -268,17 +260,16 @@ class Sentinel(Generic[AnyStr]):
         self.min_other_sentinels = min_other_sentinels
         self.connection_kwargs = connection_kwargs
         self.__cache = cache
-        self.connection_kwargs["decode_responses"] = self.sentinel_kwargs[
-            "decode_responses"
-        ] = decode_responses
+        self.connection_kwargs["decode_responses"] = self.sentinel_kwargs["decode_responses"] = (
+            decode_responses
+        )
 
         self.sentinels = [
-            Redis(hostname, port, **self.sentinel_kwargs)
-            for hostname, port in sentinels
+            Redis(hostname, port, **self.sentinel_kwargs) for hostname, port in sentinels
         ]
 
     def __repr__(self) -> str:
-        sentinel_addresses: List[str] = []
+        sentinel_addresses: list[str] = []
 
         for sentinel in self.sentinels:
             sentinel_addresses.append(
@@ -288,13 +279,11 @@ class Sentinel(Generic[AnyStr]):
                 )
             )
 
-        return "{}<sentinels=[{}]>".format(
-            type(self).__name__, ",".join(sentinel_addresses)
-        )
+        return "{}<sentinels=[{}]>".format(type(self).__name__, ",".join(sentinel_addresses))
 
     def __check_primary_state(
         self,
-        state: Dict[str, Union[int, bool, str]],
+        state: dict[str, int | bool | str],
     ) -> bool:
         if not state["is_master"] or state["is_sdown"] or state["is_odown"]:
             return False
@@ -305,10 +294,10 @@ class Sentinel(Generic[AnyStr]):
         return True
 
     def __filter_replicas(
-        self, replicas: Iterable[Dict[str, Union[str, int, bool]]]
-    ) -> List[Tuple[str, int]]:
+        self, replicas: Iterable[dict[str, str | int | bool]]
+    ) -> list[tuple[str, int]]:
         """Removes replicas that are in an ODOWN or SDOWN state"""
-        replicas_alive: List[Tuple[str, int]] = []
+        replicas_alive: list[tuple[str, int]] = []
 
         for replica in replicas:
             if replica["is_odown"] or replica["is_sdown"]:
@@ -317,7 +306,7 @@ class Sentinel(Generic[AnyStr]):
 
         return replicas_alive
 
-    async def discover_primary(self, service_name: str) -> Tuple[str, int]:
+    async def discover_primary(self, service_name: str) -> tuple[str, int]:
         """
         Asks sentinel servers for the Redis primary's address corresponding
         to the service labeled :paramref:`service_name`.
@@ -343,7 +332,7 @@ class Sentinel(Generic[AnyStr]):
                 return nativestr(state["ip"]), int(state["port"])
         raise PrimaryNotFoundError(f"No primary found for {service_name!r}")
 
-    async def discover_replicas(self, service_name: str) -> List[Tuple[str, int]]:
+    async def discover_replicas(self, service_name: str) -> list[tuple[str, int]]:
         """Returns a list of alive replicas for service :paramref:`service_name`"""
 
         for sentinel in self.sentinels:
@@ -363,8 +352,8 @@ class Sentinel(Generic[AnyStr]):
         self: Sentinel[bytes],
         service_name: str,
         *,
-        redis_class: Type[Redis[bytes]] = ...,
-        connection_pool_class: Type[SentinelConnectionPool] = ...,
+        redis_class: type[Redis[bytes]] = ...,
+        connection_pool_class: type[SentinelConnectionPool] = ...,
         **kwargs: Any,
     ) -> Redis[bytes]: ...
 
@@ -373,8 +362,8 @@ class Sentinel(Generic[AnyStr]):
         self: Sentinel[str],
         service_name: str,
         *,
-        redis_class: Type[Redis[str]] = ...,
-        connection_pool_class: Type[SentinelConnectionPool] = ...,
+        redis_class: type[Redis[str]] = ...,
+        connection_pool_class: type[SentinelConnectionPool] = ...,
         **kwargs: Any,
     ) -> Redis[str]: ...
 
@@ -382,10 +371,10 @@ class Sentinel(Generic[AnyStr]):
         self,
         service_name: str,
         *,
-        redis_class: Type[Redis[Any]] = Redis[Any],
-        connection_pool_class: Type[SentinelConnectionPool] = SentinelConnectionPool,
+        redis_class: type[Redis[Any]] = Redis[Any],
+        connection_pool_class: type[SentinelConnectionPool] = SentinelConnectionPool,
         **kwargs: Any,
-    ) -> Union[Redis[bytes], Redis[str]]:
+    ) -> Redis[bytes] | Redis[str]:
         """
         Returns a redis client instance for the :paramref:`service_name` primary.
 
@@ -423,8 +412,8 @@ class Sentinel(Generic[AnyStr]):
     def replica_for(
         self: Sentinel[bytes],
         service_name: str,
-        redis_class: Type[Redis[bytes]] = ...,
-        connection_pool_class: Type[SentinelConnectionPool] = ...,
+        redis_class: type[Redis[bytes]] = ...,
+        connection_pool_class: type[SentinelConnectionPool] = ...,
         **kwargs: Any,
     ) -> Redis[bytes]: ...
 
@@ -432,18 +421,18 @@ class Sentinel(Generic[AnyStr]):
     def replica_for(
         self: Sentinel[str],
         service_name: str,
-        redis_class: Type[Redis[str]] = ...,
-        connection_pool_class: Type[SentinelConnectionPool] = ...,
+        redis_class: type[Redis[str]] = ...,
+        connection_pool_class: type[SentinelConnectionPool] = ...,
         **kwargs: Any,
     ) -> Redis[str]: ...
 
     def replica_for(
         self,
         service_name: str,
-        redis_class: Type[Redis[Any]] = Redis[Any],
-        connection_pool_class: Type[SentinelConnectionPool] = SentinelConnectionPool,
+        redis_class: type[Redis[Any]] = Redis[Any],
+        connection_pool_class: type[SentinelConnectionPool] = SentinelConnectionPool,
         **kwargs: Any,
-    ) -> Union[Redis[bytes], Redis[str]]:
+    ) -> Redis[bytes] | Redis[str]:
         """
         Returns redis client instance for the :paramref:`service_name` replica(s).
 

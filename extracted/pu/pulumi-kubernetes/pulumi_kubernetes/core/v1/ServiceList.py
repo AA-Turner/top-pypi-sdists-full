@@ -92,6 +92,7 @@ class ServiceListArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:core/v1:ServiceList")
 class ServiceList(pulumi.CustomResource):
     @overload
     def __init__(__self__,

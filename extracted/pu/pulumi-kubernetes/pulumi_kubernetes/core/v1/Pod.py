@@ -92,6 +92,7 @@ class PodInitArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:core/v1:Pod")
 class Pod(pulumi.CustomResource):
     @overload
     def __init__(__self__,

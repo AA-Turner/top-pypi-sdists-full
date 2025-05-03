@@ -67,6 +67,7 @@ from .utils import (
     is_falsy,
     keyword,
     logger,
+    suppress_logging,
 )
 
 # Importing this directly from .utils break the stub type checks
@@ -755,7 +756,7 @@ class Browser(DynamicCore):
 
     The package must implement single API call, ``get_language`` without any arguments. Method must return a
     dictionary containing two keys: ``language`` and ``path``. The language key value defines which language
-    the package contains. Also value should match (case insentive) the library ``language`` import parameter.
+    the package contains. Also value should match (case insensitive) the library ``language`` import parameter.
     The path parameter value should be full path to the translation file.
 
     == Translation file ==
@@ -764,8 +765,8 @@ class Browser(DynamicCore):
     format. The keys of json are the methods names, not the keyword names, which implements keywords. Value of
     key is json object which contains two keys: ``name`` and ``doc``. The ``name`` key contains the keyword
     translated name and `doc` contains translated documentation. Providing doc and name are optional, example
-    translation json file can only provide translations to keyword names or only to documentatin. But it is
-    always recomended to provide translation to both name and doc. Special key ``__intro__`` is for class level
+    translation json file can only provide translations to keyword names or only to documentation. But it is
+    always recommended to provide translation to both name and doc. Special key ``__intro__`` is for class level
     documentation and ``__init__`` is for init level documentation. These special values ``name`` can not be
     translated, instead ``name`` should be kept the same.
 
@@ -802,8 +803,10 @@ class Browser(DynamicCore):
         ] = PlaywrightLogTypes.library,
         enable_presenter_mode: Union[HighLightElement, bool] = False,
         external_browser_executable: Optional[dict[SupportedBrowsers, str]] = None,
+        highlight_on_failure: bool = False,
         jsextension: Union[list[str], str, None] = None,
         language: Optional[str] = None,
+        playwright_process_host: Optional[str] = None,
         playwright_process_port: Optional[int] = None,
         plugins: Union[list[str], str, None] = None,
         retry_assertions_for: timedelta = timedelta(seconds=1),
@@ -822,8 +825,10 @@ class Browser(DynamicCore):
         | ``enable_playwright_debug``       | Enable low level debug information from the playwright to playwright-log.txt file. For more details, see `PlaywrightLogTypes`. |
         | ``enable_presenter_mode``         | Automatic highlights the interacted components, slowMo and a small pause at the end. Can be enabled by giving True or can be customized by giving a dictionary: `{"duration": "2 seconds", "width": "2px", "style": "dotted", "color": "blue"}` Where `duration` is time format in Robot Framework format, defaults to 2 seconds. `width` is width of the marker in pixels, defaults the `2px`. `style` is the style of border, defaults to `dotted`. `color` is the color of the marker, defaults to `blue`. By default, the call banner keyword is also enabled unless explicitly disabled. |
         | ``external_browser_executable``   | Dict mapping name of browser to path of executable of a browser. Will make opening new browsers of the given type use the set executablePath. Currently only configuring of `chromium` to a separate executable (chrome, chromium and Edge executables all work with recent versions) works. |
+        | ``highlight_on_failure``          | If set to ``True``, will highlight the element in the screenshot when a keyword fails, by highlighting the selector used in the failed keyword. If set to ``False``, will not highlight the element. |
         | ``jsextension``                   | Path to Javascript modules exposed as extra keywords. The modules must be in CommonJS. It can either be a single path, a comma-separated lists of path or a real list of strings |
         | ``language``                      | Defines language which is used to translate keyword names and documentation. |
+        | ``playwright_process_host``       | Hostname / Host address which should be used when spawning the Playwright process. Defaults to 127.0.0.1. |
         | ``playwright_process_port``       | Experimental reusing of playwright process. ``playwright_process_port`` is preferred over environment variable ``ROBOT_FRAMEWORK_BROWSER_NODE_PORT``. See `Experimental: Re-using same node process` for more details. |
         | ``plugins``                       | Allows extending the Browser library with external Python classes. Can either be a single class/module, a comma-separated list or a real list of strings |
         | ``retry_assertions_for``          | Timeout for retrying assertions on keywords before failing the keywords. This timeout starts counting from the first failure. Global ``timeout`` will still be in effect. This allows stopping execution faster to assertion failure when element is found fast. |
@@ -865,6 +870,7 @@ class Browser(DynamicCore):
             WebAppState(self),
         ]
         self.enable_playwright_debug = enable_playwright_debug
+        self.playwright_process_host = playwright_process_host
         self.playwright_process_port = playwright_process_port
         if self.enable_playwright_debug is True:
             self.enable_playwright_debug = PlaywrightLogTypes.playwright
@@ -913,7 +919,9 @@ class Browser(DynamicCore):
         self.scope_stack["timeout"] = SettingsStack(
             self.convert_timeout(timeout),
             self,
-            self._browser_control.set_playwright_timeout,
+            lambda time_out: self._browser_control.set_playwright_timeout(
+                time_out, loglevel="TRACE"
+            ),
         )
         self.scope_stack["retry_assertions_for"] = SettingsStack(
             self.convert_timeout(retry_assertions_for), self
@@ -922,6 +930,9 @@ class Browser(DynamicCore):
         self.scope_stack["selector_prefix"] = SettingsStack(selector_prefix, self)
         self.scope_stack["run_on_failure"] = SettingsStack(
             self._parse_run_on_failure_keyword(run_on_failure), self
+        )
+        self.scope_stack["highlight_on_failure"] = SettingsStack(
+            highlight_on_failure, self
         )
         self.scope_stack["show_keyword_call_banner"] = SettingsStack(
             show_keyword_call_banner, self
@@ -935,6 +946,7 @@ class Browser(DynamicCore):
             self._playwright = Playwright(
                 self,
                 self.enable_playwright_debug,
+                self.playwright_process_host,
                 self.playwright_process_port,
                 self._playwright_log,
             )
@@ -951,6 +963,10 @@ class Browser(DynamicCore):
     @property
     def run_on_failure_keyword(self) -> DelayedKeyword:
         return self.scope_stack["run_on_failure"].get()
+
+    @property
+    def highlight_on_failure(self) -> bool:
+        return self.scope_stack["highlight_on_failure"].get()
 
     @property
     def timeout(self):
@@ -1149,15 +1165,17 @@ def {name}(self, {", ".join(argument_names_and_default_values_texts)}):
                 self.coverage_output,
             ]:
                 if path.is_dir():
-                    logger.debug(f"Removing: {path}")
+                    logger.trace(f"Removing: {path}")
                     shutil.rmtree(str(path), ignore_errors=True)
         if self._auto_closing_level in [AutoClosingLevel.TEST, AutoClosingLevel.SUITE]:
             try:
                 self._execution_stack.append(
-                    [] if self._playwright is None else self.get_browser_catalog()
+                    []  # type: ignore
+                    if self._playwright is None
+                    else self._playwright_state._get_browser_catalog()
                 )
             except ConnectionError as e:
-                logger.debug(f"Browser._start_suite connection problem: {e}")
+                logger.trace(f"Browser._start_suite connection problem: {e}")
 
     def _start_test(self, _name, attrs):
         self.current_test_id = attrs["id"]
@@ -1166,14 +1184,20 @@ def {name}(self, {", ".join(argument_names_and_default_values_texts)}):
         if self._auto_closing_level == AutoClosingLevel.TEST:
             try:
                 self._execution_stack.append(
-                    [] if self._playwright is None else self.get_browser_catalog()
+                    []  # type: ignore
+                    if self._playwright is None
+                    else self._playwright_state._get_browser_catalog()
                 )
             except ConnectionError as e:
-                logger.debug(f"Browser._start_test connection problem: {e}")
+                logger.trace(f"Browser._start_test connection problem: {e}")
 
     def _resolve_path(self, attrs: dict) -> Union[Path, None]:
-        source = Path(attrs["source"])
-        if source.is_dir():
+        source = (
+            Path(attrs["source"])
+            if "source" in attrs and attrs["source"] is not None
+            else None
+        )
+        if source is not None and source.is_dir():
             source = source / "__init__.robot"
             if not source.exists():
                 return None
@@ -1243,7 +1267,8 @@ def {name}(self, {", ".join(argument_names_and_default_values_texts)}):
                 self._playwright_state.open_trace_group(**(self.keyword_call_stack[-1]))
             return DynamicCore.run_keyword(self, name, args, kwargs)
         except AssertionError as e:
-            self.keyword_error()
+            selector = self._get_selector_value_from_keyword_call(name, args, kwargs)
+            self.keyword_error(selector)
             e.args = self._alter_keyword_error(name, e.args)
             if self.pause_on_failure and sys.__stdout__ is not None:
                 sys.__stdout__.write(f"\n[ FAIL ] {e}")
@@ -1259,6 +1284,24 @@ def {name}(self, {", ".join(argument_names_and_default_values_texts)}):
                 and self.keyword_call_stack
             ):
                 self._playwright_state.close_trace_group()
+
+    def _get_selector_value_from_keyword_call(self, name, args, kwargs):
+        selector = kwargs.get("selector")
+        if not selector and args:
+            arguments = self.get_keyword_arguments(name)
+            for i, arg in enumerate(args):
+                if isinstance(arg, str) and arg.startswith("*"):
+                    break
+                if (
+                    isinstance(arguments[i], str)
+                    and arguments[i].startswith("selector")
+                ) or (
+                    isinstance(arguments[i], tuple)
+                    and arguments[i][0].startswith("selector")
+                ):
+                    selector = arg
+                    break
+        return selector
 
     def get_keyword_tags(self, name: str) -> list:
         tags = list(DynamicCore.get_keyword_tags(self, name))
@@ -1283,7 +1326,7 @@ def {name}(self, {", ".join(argument_names_and_default_values_texts)}):
             self.wait_for_all_promises()
         if self._auto_closing_level == AutoClosingLevel.TEST:
             if self.presenter_mode:
-                logger.debug("Presenter mode: Wait for 5 seconds before pruning pages")
+                logger.trace("Presenter mode: Wait for 5 seconds before pruning pages")
                 time.sleep(5.0)
             self.execute_auto_closing(name, attrs, "Test", attrs["status"])
 
@@ -1301,7 +1344,7 @@ def {name}(self, {", ".join(argument_names_and_default_values_texts)}):
         self, name: str, attrs: dict, typ: Literal["Test", "Suite"], status: str
     ):
         if len(self._execution_stack) == 0:
-            logger.debug(f"Browser._end_{typ.lower()} empty execution stack")
+            logger.trace(f"Browser._end_{typ.lower()} empty execution stack")
             return
         try:
             catalog_before = self._execution_stack.pop()
@@ -1313,9 +1356,9 @@ def {name}(self, {", ".join(argument_names_and_default_values_texts)}):
             self._prune_execution_stack(catalog_before, status)
             self._playwright_state.close_trace_group()
         except AssertionError as e:
-            logger.debug(f"{typ}: {name}, End {typ}: {e}")
+            logger.trace(f"{typ}: {name}, End {typ}: {e}")
         except ConnectionError as e:
-            logger.debug(f"Browser._end_{typ.lower()} connection problem: {e}")
+            logger.trace(f"Browser._end_{typ.lower()} connection problem: {e}")
 
     def _add_to_scope_stack(self, scope_id: str, scope: Scope):
         for stack in self.scope_stack.values():
@@ -1326,7 +1369,7 @@ def {name}(self, {", ".join(argument_names_and_default_values_texts)}):
             stack.end(scope_id)
 
     def _prune_execution_stack(self, catalog_before: dict, status: str) -> None:
-        catalog_after = self.get_browser_catalog()
+        catalog_after = self._playwright_state._get_browser_catalog()
         ctx_before_ids: list[str] = [
             c["id"] for b in catalog_before for c in b["contexts"]
         ]
@@ -1438,7 +1481,7 @@ def {name}(self, {", ".join(argument_names_and_default_values_texts)}):
                 )
             )
 
-    def keyword_error(self):
+    def keyword_error(self, selector):
         """Runs keyword on failure."""
         if self._running_on_failure_keyword or not self.run_on_failure_keyword.name:
             return
@@ -1446,6 +1489,13 @@ def {name}(self, {", ".join(argument_names_and_default_values_texts)}):
         varargs = self.run_on_failure_keyword.args
         kwargs = self.run_on_failure_keyword.kwargs
         try:
+            if selector and self.highlight_on_failure:
+                with suppress_logging():
+                    BuiltIn()._variables.set_suite(
+                        "${ROBOT_FRAMEWORK_BROWSER_FAILING_SELECTOR}",
+                        selector,
+                        children=False,
+                    )
             if self.run_on_failure_keyword.name in self.keywords:
                 if (
                     self.run_on_failure_keyword.name == "take_screenshot"
@@ -1478,6 +1528,13 @@ def {name}(self, {", ".join(argument_names_and_default_values_texts)}):
                     "playwright-log.txt is not created, consider enabling it for debug reasons."
                 )
             self._running_on_failure_keyword = False
+            if selector and self.highlight_on_failure:
+                with suppress_logging():
+                    BuiltIn()._variables.set_suite(
+                        "${ROBOT_FRAMEWORK_BROWSER_FAILING_SELECTOR}",
+                        None,
+                        children=False,
+                    )
 
     def _failure_screenshot_path(self):
         valid_chars = f"-_.() {string.ascii_letters}{string.digits}"

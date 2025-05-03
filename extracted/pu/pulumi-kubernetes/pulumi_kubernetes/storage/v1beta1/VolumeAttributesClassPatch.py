@@ -110,6 +110,7 @@ class VolumeAttributesClassPatchArgs:
         pulumi.set(self, "parameters", value)
 
 
+@pulumi.type_token("kubernetes:storage.k8s.io/v1beta1:VolumeAttributesClassPatch")
 class VolumeAttributesClassPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

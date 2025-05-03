@@ -105,6 +105,7 @@ class ConfigGroupArgs:
         pulumi.set(self, "yaml", value)
 
 
+@pulumi.type_token("kubernetes:yaml/v2:ConfigGroup")
 class ConfigGroup(pulumi.ComponentResource):
     @overload
     def __init__(__self__,

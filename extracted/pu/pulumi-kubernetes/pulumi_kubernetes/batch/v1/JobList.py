@@ -92,6 +92,7 @@ class JobListArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:batch/v1:JobList")
 class JobList(pulumi.CustomResource):
     @overload
     def __init__(__self__,

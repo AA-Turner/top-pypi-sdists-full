@@ -93,6 +93,7 @@ class ServicePatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:core/v1:ServicePatch")
 class ServicePatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

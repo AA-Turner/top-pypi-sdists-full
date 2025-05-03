@@ -13,13 +13,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="mypy-boto3-bedrock-data-automation",
-    version="1.38.2",
+    version="1.38.8",
     packages=["mypy_boto3_bedrock_data_automation"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for boto3 DataAutomationforBedrock 1.38.2 service generated with mypy-boto3-builder 8.10.1",
+    description="Type annotations for boto3 DataAutomationforBedrock 1.38.8 service generated with mypy-boto3-builder 8.10.1",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",

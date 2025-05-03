@@ -8,21 +8,20 @@ from typing import TYPE_CHECKING, Any
 from coredis.commands.constants import CommandName
 from coredis.config import Config
 from coredis.exceptions import CommandNotSupportedError, CommandSyntaxError
-from coredis.typing import Dict, Optional, Union
 
 if TYPE_CHECKING:
     import coredis.client
     from coredis.commands._wrappers import CommandDetails
 
 
-def normalized_seconds(value: Union[int, datetime.timedelta]) -> int:
+def normalized_seconds(value: int | datetime.timedelta) -> int:
     if isinstance(value, datetime.timedelta):
         value = value.seconds + value.days * 24 * 3600
 
     return value
 
 
-def normalized_milliseconds(value: Union[int, datetime.timedelta]) -> int:
+def normalized_milliseconds(value: int | datetime.timedelta) -> int:
     if isinstance(value, datetime.timedelta):
         ms = int(value.microseconds / 1000)
         value = (value.seconds + value.days * 24 * 3600) * 1000 + ms
@@ -30,7 +29,7 @@ def normalized_milliseconds(value: Union[int, datetime.timedelta]) -> int:
     return value
 
 
-def normalized_time_seconds(value: Union[int, datetime.datetime]) -> int:
+def normalized_time_seconds(value: int | datetime.datetime) -> int:
     if isinstance(value, datetime.datetime):
         s = int(value.microsecond / 1000000)
         value = int(time.mktime(value.timetuple())) + s
@@ -38,7 +37,7 @@ def normalized_time_seconds(value: Union[int, datetime.datetime]) -> int:
     return value
 
 
-def normalized_time_milliseconds(value: Union[int, datetime.datetime]) -> int:
+def normalized_time_milliseconds(value: int | datetime.datetime) -> int:
     if isinstance(value, datetime.datetime):
         ms = int(value.microsecond / 1000)
         value = int(time.mktime(value.timetuple())) * 1000 + ms
@@ -49,9 +48,9 @@ def normalized_time_milliseconds(value: Union[int, datetime.datetime]) -> int:
 async def check_version(
     instance: coredis.client.Client[Any],
     function_name: str,
-    command_details: "CommandDetails",
-    deprecation_reason: Optional[str] = None,
-    kwargs: Dict[str, Any] = {},
+    command_details: CommandDetails,
+    deprecation_reason: str | None = None,
+    kwargs: dict[str, Any] = {},
 ) -> None:
     if Config.optimized or not any(
         [
@@ -61,9 +60,7 @@ async def check_version(
         ]
     ):
         return
-    if getattr(instance, "verify_version", False) and not getattr(
-        instance, "noreply", False
-    ):
+    if getattr(instance, "verify_version", False) and not getattr(instance, "noreply", False):
         server_version = getattr(instance, "server_version", None)
         if not server_version:
             return
@@ -75,13 +72,11 @@ async def check_version(
                 command_details.command.decode("latin-1"),
                 str(instance.server_version),
             )
-        elif command_details.arguments and set(
-            command_details.arguments.keys()
-        ).intersection(kwargs.keys()):
+        elif command_details.arguments and set(command_details.arguments.keys()).intersection(
+            kwargs.keys()
+        ):
             for argument, minimum_version in [
-                (arg, ver)
-                for (arg, ver) in command_details.arguments.items()
-                if arg in kwargs
+                (arg, ver) for (arg, ver) in command_details.arguments.items() if arg in kwargs
             ]:
                 if minimum_version and server_version < minimum_version:
                     if command_details.command == b"CLIENT KILL":
@@ -114,4 +109,4 @@ async def check_version(
 
 
 def redis_command_link(command: CommandName) -> str:
-    return f'`{str(command)} <https://redis.io/commands/{str(command).lower().replace(" ", "-")}>`_'
+    return f"`{str(command)} <https://redis.io/commands/{str(command).lower().replace(' ', '-')}>`_"

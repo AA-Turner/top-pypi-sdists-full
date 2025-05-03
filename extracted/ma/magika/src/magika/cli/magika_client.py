@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import dataclasses
 import importlib.metadata
 import json
 import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import click
 
@@ -273,7 +272,7 @@ def main(
             all_predictions.extend(zip(batch_files_paths, batch_predictions))
         elif jsonl_output:
             for file_path, result in zip(batch_files_paths, batch_predictions):
-                _l.raw_print_to_stdout(json.dumps(result_to_dict(result)))
+                _l.raw_print_to_stdout(json.dumps(result.asdict()))
         else:
             for file_path, result in zip(batch_files_paths, batch_predictions):
                 if result.ok:
@@ -291,7 +290,7 @@ def main(
                             and result.prediction.dl.label
                             != result.prediction.output.label
                             and result.prediction.overwrite_reason
-                            == OverwriteReason.NONE
+                            == OverwriteReason.LOW_CONFIDENCE
                         ):
                             # It seems that we had a low-confidence prediction
                             # from the model. Let's warn the user about our best
@@ -325,7 +324,7 @@ def main(
     if json_output:
         _l.raw_print_to_stdout(
             json.dumps(
-                [result_to_dict(result) for (_, result) in all_predictions],
+                [result.asdict() for (_, result) in all_predictions],
                 indent=4,
             )
         )
@@ -339,13 +338,6 @@ def get_magika_result_from_stdin(magika: Magika) -> MagikaResult:
     content = sys.stdin.buffer.read()
     result = magika.identify_bytes(content)
     return result
-
-
-def result_to_dict(result: MagikaResult) -> dict:
-    out: Dict[str, Any] = {"path": str(result.path), "status": result.status}
-    if result.ok:
-        out["prediction"] = dataclasses.asdict(result.prediction)
-    return out
 
 
 if __name__ == "__main__":

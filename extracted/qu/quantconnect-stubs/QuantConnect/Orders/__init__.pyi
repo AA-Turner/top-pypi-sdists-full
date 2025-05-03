@@ -981,6 +981,12 @@ class OrderResponseErrorCode(Enum):
     OPTION_ORDER_ON_STOCK_SPLIT = -34
     """Option order is invalid due to underlying stock split (-34)"""
 
+    MARKET_ON_OPEN_NOT_ALLOWED_DURING_REGULAR_HOURS = -35
+    """
+    The Market On Open order was submitted during regular market hours,
+    which is not allowed. This order type must be submitted before the market opens.
+    """
+
 
 class OrderResponse(System.Object):
     """

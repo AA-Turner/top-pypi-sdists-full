@@ -126,6 +126,7 @@ int define_init(sqlite3* db) {
 
 // Manage defined functions.
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -143,6 +144,7 @@ typedef struct cache_node {
 
 static cache_node* cache_head = NULL;
 static cache_node* cache_tail = NULL;
+static bool cache_freed = false;
 
 static int cache_add(sqlite3_stmt* stmt) {
     if (cache_head == NULL) {
@@ -166,6 +168,10 @@ static int cache_add(sqlite3_stmt* stmt) {
 }
 
 static void cache_print() {
+    if (cache_freed) {
+        printf("cache is freed");
+        return;
+    }
     if (cache_head == NULL) {
         printf("cache is empty");
         return;
@@ -190,6 +196,7 @@ static void cache_free() {
         free(prev);
     }
     cache_head = cache_tail = NULL;
+    cache_freed = true;
 }
 
 /*
@@ -309,6 +316,11 @@ static void define_free(sqlite3_context* ctx, int argc, sqlite3_value** argv) {}
  * Executes compiled prepared statement from the context.
  */
 static void define_exec(sqlite3_context* ctx, int argc, sqlite3_value** argv) {
+    if (cache_freed) {
+        // Calling defined functions after define_free is not allowed.
+        sqlite3_result_error_code(ctx, SQLITE_MISUSE);
+        return;
+    }
     int ret = SQLITE_OK;
     sqlite3_stmt* stmt = sqlite3_user_data(ctx);
     for (int i = 0; i < argc; i++) {
@@ -368,6 +380,11 @@ static int define_create(sqlite3* db, const char* name, const char* body) {
  * Creates compiled user-defined function and saves it to the database.
  */
 static void define_function(sqlite3_context* ctx, int argc, sqlite3_value** argv) {
+    if (cache_freed) {
+        // Calling defined functions after define_free is not allowed.
+        sqlite3_result_error_code(ctx, SQLITE_MISUSE);
+        return;
+    }
     sqlite3* db = sqlite3_context_db_handle(ctx);
     const char* name = (const char*)sqlite3_value_text(argv[0]);
     const char* body = (const char*)sqlite3_value_text(argv[1]);

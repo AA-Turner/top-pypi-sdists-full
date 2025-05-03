@@ -91,6 +91,7 @@ class CSINodeInitArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:storage.k8s.io/v1:CSINode")
 class CSINode(pulumi.CustomResource):
     @overload
     def __init__(__self__,

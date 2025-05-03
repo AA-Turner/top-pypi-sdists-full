@@ -291,26 +291,6 @@ class FuturesContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data
     """Collection of FuturesContract keyed by futures symbol"""
 
     @overload
-    def __getitem__(self, ticker: str) -> QuantConnect.Data.Market.FuturesContract:
-        """
-        Gets or sets the FuturesContract with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The FuturesContract with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Market.FuturesContract:
-        """
-        Gets or sets the FuturesContract with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The FuturesContract with the specified Symbol.
-        """
-        ...
-
-    @overload
     def __init__(self) -> None:
         """Creates a new instance of the FuturesContracts dictionary"""
         ...
@@ -318,26 +298,6 @@ class FuturesContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data
     @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """Creates a new instance of the FuturesContracts dictionary"""
-        ...
-
-    @overload
-    def __setitem__(self, ticker: str, value: QuantConnect.Data.Market.FuturesContract) -> None:
-        """
-        Gets or sets the FuturesContract with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The FuturesContract with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Data.Market.FuturesContract) -> None:
-        """
-        Gets or sets the FuturesContract with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The FuturesContract with the specified Symbol.
-        """
         ...
 
 
@@ -958,26 +918,6 @@ class Ticks(QuantConnect.Data.Market.DataDictionary[typing.List[QuantConnect.Dat
     """Ticks collection which implements an IDictionary-string-list of ticks. This way users can iterate over the string indexed ticks of the requested symbol."""
 
     @overload
-    def __getitem__(self, ticker: str) -> typing.List[QuantConnect.Data.Market.Tick]:
-        """
-        Gets or sets the list of Tick with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The list of Tick with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> typing.List[QuantConnect.Data.Market.Tick]:
-        """
-        Gets or sets the list of Tick with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The list of Tick with the specified Symbol.
-        """
-        ...
-
-    @overload
     def __init__(self) -> None:
         """Initializes a new instance of the Ticks dictionary"""
         ...
@@ -988,26 +928,6 @@ class Ticks(QuantConnect.Data.Market.DataDictionary[typing.List[QuantConnect.Dat
         Initializes a new instance of the Ticks dictionary
         
         :param frontier: The time associated with the data in this dictionary
-        """
-        ...
-
-    @overload
-    def __setitem__(self, ticker: str, value: typing.List[QuantConnect.Data.Market.Tick]) -> None:
-        """
-        Gets or sets the list of Tick with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The list of Tick with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: typing.List[QuantConnect.Data.Market.Tick]) -> None:
-        """
-        Gets or sets the list of Tick with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The list of Tick with the specified Symbol.
         """
         ...
 
@@ -1370,26 +1290,6 @@ class TradeBars(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market
     """Collection of TradeBars to create a data type for generic data handler:"""
 
     @overload
-    def __getitem__(self, ticker: str) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Gets or sets the TradeBar with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The TradeBar with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Market.TradeBar:
-        """
-        Gets or sets the TradeBar with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The TradeBar with the specified Symbol.
-        """
-        ...
-
-    @overload
     def __init__(self) -> None:
         """Creates a new instance of the TradeBars dictionary"""
         ...
@@ -1400,26 +1300,6 @@ class TradeBars(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market
         Creates a new instance of the TradeBars dictionary
         
         :param frontier: The time associated with the data in this dictionary
-        """
-        ...
-
-    @overload
-    def __setitem__(self, ticker: str, value: QuantConnect.Data.Market.TradeBar) -> None:
-        """
-        Gets or sets the TradeBar with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The TradeBar with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Data.Market.TradeBar) -> None:
-        """
-        Gets or sets the TradeBar with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The TradeBar with the specified Symbol.
         """
         ...
 
@@ -1789,26 +1669,6 @@ class QuoteBars(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market
     """Collection of QuoteBar keyed by symbol"""
 
     @overload
-    def __getitem__(self, ticker: str) -> QuantConnect.Data.Market.QuoteBar:
-        """
-        Gets or sets the QuoteBar with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The QuoteBar with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Market.QuoteBar:
-        """
-        Gets or sets the QuoteBar with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The QuoteBar with the specified Symbol.
-        """
-        ...
-
-    @overload
     def __init__(self) -> None:
         """Creates a new instance of the QuoteBars dictionary"""
         ...
@@ -1816,26 +1676,6 @@ class QuoteBars(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market
     @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """Creates a new instance of the QuoteBars dictionary"""
-        ...
-
-    @overload
-    def __setitem__(self, ticker: str, value: QuantConnect.Data.Market.QuoteBar) -> None:
-        """
-        Gets or sets the QuoteBar with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The QuoteBar with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Data.Market.QuoteBar) -> None:
-        """
-        Gets or sets the QuoteBar with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The QuoteBar with the specified Symbol.
-        """
         ...
 
 
@@ -1899,6 +1739,20 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
         """The data frame representation of the option chain"""
         ...
 
+    @property
+    def count(self) -> int:
+        """The number of contracts in this chain"""
+        ...
+
+    def __contains__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> bool:
+        """
+        Checks if the chain contains a contract with the specified symbol
+        
+        :param key: The symbol of the contract to check for
+        :returns: True if the chain contains a contract with the specified symbol; otherwise, false.
+        """
+        ...
+
     @overload
     def __init__(self, data_type: QuantConnect.MarketDataType, flatten: bool) -> None:
         """
@@ -1933,6 +1787,18 @@ class BaseChain(typing.Generic[QuantConnect_Data_Market_BaseChain_T, QuantConnec
     def __iter__(self) -> typing.Iterator[QuantConnect_Data_Market_BaseChain_T]:
         ...
 
+    def __len__(self) -> int:
+        ...
+
+    def contains_key(self, key: QuantConnect.Symbol) -> bool:
+        """
+        Checks if the chain contains a contract with the specified symbol
+        
+        :param key: The symbol of the contract to check for
+        :returns: True if the chain contains a contract with the specified symbol; otherwise, false.
+        """
+        ...
+
     def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Data_Market_BaseChain_T]:
         """
         Returns an enumerator that iterates through the collection.
@@ -1946,26 +1812,6 @@ class SymbolChangedEvents(QuantConnect.Data.Market.DataDictionary[QuantConnect.D
     """Collection of SymbolChangedEvent keyed by the original, requested symbol"""
 
     @overload
-    def __getitem__(self, ticker: str) -> QuantConnect.Data.Market.SymbolChangedEvent:
-        """
-        Gets or sets the SymbolChangedEvent with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The SymbolChangedEvent with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Market.SymbolChangedEvent:
-        """
-        Gets or sets the SymbolChangedEvent with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The SymbolChangedEvent with the specified Symbol.
-        """
-        ...
-
-    @overload
     def __init__(self) -> None:
         """Initializes a new instance of the SymbolChangedEvent dictionary"""
         ...
@@ -1976,26 +1822,6 @@ class SymbolChangedEvents(QuantConnect.Data.Market.DataDictionary[QuantConnect.D
         Initializes a new instance of the SymbolChangedEvent dictionary
         
         :param frontier: The time associated with the data in this dictionary
-        """
-        ...
-
-    @overload
-    def __setitem__(self, ticker: str, value: QuantConnect.Data.Market.SymbolChangedEvent) -> None:
-        """
-        Gets or sets the SymbolChangedEvent with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The SymbolChangedEvent with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Data.Market.SymbolChangedEvent) -> None:
-        """
-        Gets or sets the SymbolChangedEvent with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The SymbolChangedEvent with the specified Symbol.
         """
         ...
 
@@ -2232,26 +2058,6 @@ class Dividends(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market
     """Collection of dividends keyed by Symbol"""
 
     @overload
-    def __getitem__(self, ticker: str) -> QuantConnect.Data.Market.Dividend:
-        """
-        Gets or sets the Dividend with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The Dividend with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Market.Dividend:
-        """
-        Gets or sets the Dividend with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The Dividend with the specified Symbol.
-        """
-        ...
-
-    @overload
     def __init__(self) -> None:
         """Initializes a new instance of the Dividends dictionary"""
         ...
@@ -2262,26 +2068,6 @@ class Dividends(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market
         Initializes a new instance of the Dividends dictionary
         
         :param frontier: The time associated with the data in this dictionary
-        """
-        ...
-
-    @overload
-    def __setitem__(self, ticker: str, value: QuantConnect.Data.Market.Dividend) -> None:
-        """
-        Gets or sets the Dividend with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The Dividend with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Data.Market.Dividend) -> None:
-        """
-        Gets or sets the Dividend with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The Dividend with the specified Symbol.
         """
         ...
 
@@ -2425,26 +2211,6 @@ class OptionContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.
     """Collection of OptionContract keyed by option symbol"""
 
     @overload
-    def __getitem__(self, ticker: str) -> QuantConnect.Data.Market.OptionContract:
-        """
-        Gets or sets the OptionContract with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The OptionContract with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Market.OptionContract:
-        """
-        Gets or sets the OptionContract with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The OptionContract with the specified Symbol.
-        """
-        ...
-
-    @overload
     def __init__(self) -> None:
         """Creates a new instance of the OptionContracts dictionary"""
         ...
@@ -2452,26 +2218,6 @@ class OptionContracts(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.
     @overload
     def __init__(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """Creates a new instance of the OptionContracts dictionary"""
-        ...
-
-    @overload
-    def __setitem__(self, ticker: str, value: QuantConnect.Data.Market.OptionContract) -> None:
-        """
-        Gets or sets the OptionContract with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The OptionContract with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Data.Market.OptionContract) -> None:
-        """
-        Gets or sets the OptionContract with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The OptionContract with the specified Symbol.
-        """
         ...
 
 
@@ -2537,26 +2283,6 @@ class Splits(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.Sp
     """Collection of splits keyed by Symbol"""
 
     @overload
-    def __getitem__(self, ticker: str) -> QuantConnect.Data.Market.Split:
-        """
-        Gets or sets the Split with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The Split with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Market.Split:
-        """
-        Gets or sets the Split with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The Split with the specified Symbol.
-        """
-        ...
-
-    @overload
     def __init__(self) -> None:
         """Initializes a new instance of the Splits dictionary"""
         ...
@@ -2567,26 +2293,6 @@ class Splits(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.Sp
         Initializes a new instance of the Splits dictionary
         
         :param frontier: The time associated with the data in this dictionary
-        """
-        ...
-
-    @overload
-    def __setitem__(self, ticker: str, value: QuantConnect.Data.Market.Split) -> None:
-        """
-        Gets or sets the Split with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The Split with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Data.Market.Split) -> None:
-        """
-        Gets or sets the Split with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The Split with the specified Symbol.
         """
         ...
 
@@ -2799,7 +2505,7 @@ class MarginInterestRate(QuantConnect.Data.BaseData):
         ...
 
 
-class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], QuantConnect.ExtendedDictionary[QuantConnect_Data_Market_DataDictionary_T], System.Collections.Generic.IDictionary[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T], typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]]):
+class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], QuantConnect.ExtendedDictionary[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T], System.Collections.Generic.IDictionary[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T], typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]]):
     """Provides a base class for types holding base data instances keyed by symbol"""
 
     @property
@@ -2955,6 +2661,14 @@ class DataDictionary(typing.Generic[QuantConnect_Data_Market_DataDictionary_T], 
         """
         ...
 
+    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect_Data_Market_DataDictionary_T]]:
+        """
+        Gets all the items in the dictionary
+        
+        :returns: All the items in the dictionary.
+        """
+        ...
+
     def get_value(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect_Data_Market_DataDictionary_T:
         """
         Gets the value associated with the specified key.
@@ -3003,26 +2717,6 @@ class Delistings(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Marke
     """Collections of Delisting keyed by Symbol"""
 
     @overload
-    def __getitem__(self, ticker: str) -> QuantConnect.Data.Market.Delisting:
-        """
-        Gets or sets the Delisting with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The Delisting with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Market.Delisting:
-        """
-        Gets or sets the Delisting with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The Delisting with the specified Symbol.
-        """
-        ...
-
-    @overload
     def __init__(self) -> None:
         """Initializes a new instance of the Delistings dictionary"""
         ...
@@ -3036,49 +2730,9 @@ class Delistings(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Marke
         """
         ...
 
-    @overload
-    def __setitem__(self, ticker: str, value: QuantConnect.Data.Market.Delisting) -> None:
-        """
-        Gets or sets the Delisting with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The Delisting with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Data.Market.Delisting) -> None:
-        """
-        Gets or sets the Delisting with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The Delisting with the specified Symbol.
-        """
-        ...
-
 
 class MarginInterestRates(QuantConnect.Data.Market.DataDictionary[QuantConnect.Data.Market.MarginInterestRate]):
     """Collection of dividends keyed by Symbol"""
-
-    @overload
-    def __getitem__(self, ticker: str) -> QuantConnect.Data.Market.MarginInterestRate:
-        """
-        Gets or sets the Dividend with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The Dividend with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __getitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> QuantConnect.Data.Market.MarginInterestRate:
-        """
-        Gets or sets the Dividend with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The Dividend with the specified Symbol.
-        """
-        ...
 
     @overload
     def __init__(self) -> None:
@@ -3091,26 +2745,6 @@ class MarginInterestRates(QuantConnect.Data.Market.DataDictionary[QuantConnect.D
         Initializes a new instance of the MarginInterestRate dictionary
         
         :param frontier: The time associated with the data in this dictionary
-        """
-        ...
-
-    @overload
-    def __setitem__(self, ticker: str, value: QuantConnect.Data.Market.MarginInterestRate) -> None:
-        """
-        Gets or sets the Dividend with the specified ticker.
-        
-        :param ticker: The ticker of the element to get or set.
-        :returns: The Dividend with the specified ticker.
-        """
-        ...
-
-    @overload
-    def __setitem__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], value: QuantConnect.Data.Market.MarginInterestRate) -> None:
-        """
-        Gets or sets the Dividend with the specified Symbol.
-        
-        :param symbol: The Symbol of the element to get or set.
-        :returns: The Dividend with the specified Symbol.
         """
         ...
 

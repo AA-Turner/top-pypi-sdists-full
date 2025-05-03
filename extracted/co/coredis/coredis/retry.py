@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from functools import wraps
 from typing import Any
 
-from coredis.typing import Callable, Coroutine, Dict, Optional, P, R, Tuple, Type, Union
+from coredis.typing import Callable, Coroutine, P, R
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +16,7 @@ class RetryPolicy(ABC):
     Abstract retry policy
     """
 
-    def __init__(
-        self, retries: int, retryable_exceptions: Tuple[Type[BaseException], ...]
-    ) -> None:
+    def __init__(self, retries: int, retryable_exceptions: tuple[type[BaseException], ...]) -> None:
         """
         :param retries: number of times to retry if a :paramref:`retryable_exception`
          is encountered.
@@ -34,13 +32,10 @@ class RetryPolicy(ABC):
     async def call_with_retries(
         self,
         func: Callable[..., Coroutine[Any, Any, R]],
-        before_hook: Optional[Callable[..., Coroutine[Any, Any, Any]]] = None,
-        failure_hook: Optional[
-            Union[
-                Callable[..., Coroutine[Any, Any, None]],
-                Dict[Type[BaseException], Callable[..., Coroutine[Any, Any, None]]],
-            ]
-        ] = None,
+        before_hook: Callable[..., Coroutine[Any, Any, Any]] | None = None,
+        failure_hook: Callable[..., Coroutine[Any, Any, None]]
+        | dict[type[BaseException], Callable[..., Coroutine[Any, Any, None]]]
+        | None = None,
     ) -> R:
         """
         :param func: a function that should return the coroutine that will be
@@ -51,7 +46,7 @@ class RetryPolicy(ABC):
          of exception types to callables, the first exception type that is a parent
          of any encountered exception will be called.
         """
-        last_error: Optional[BaseException] = None
+        last_error: BaseException | None = None
         for attempt in range(self.retries + 1):
             try:
                 await self.delay(attempt)
@@ -106,7 +101,7 @@ class ConstantRetryPolicy(RetryPolicy):
 
     def __init__(
         self,
-        retryable_exceptions: Tuple[Type[BaseException], ...],
+        retryable_exceptions: tuple[type[BaseException], ...],
         retries: int,
         delay: float,
     ) -> None:
@@ -130,7 +125,7 @@ class ExponentialBackoffRetryPolicy(RetryPolicy):
 
     def __init__(
         self,
-        retryable_exceptions: Tuple[Type[BaseException], ...],
+        retryable_exceptions: tuple[type[BaseException], ...],
         retries: int,
         initial_delay: float,
     ) -> None:
@@ -165,13 +160,12 @@ class CompositeRetryPolicy(RetryPolicy):
     async def call_with_retries(
         self,
         func: Callable[..., Coroutine[Any, Any, R]],
-        before_hook: Optional[Callable[..., Coroutine[Any, Any, Any]]] = None,
-        failure_hook: Optional[
-            Union[
-                Callable[..., Coroutine[Any, Any, None]],
-                Dict[Type[BaseException], Callable[..., Coroutine[Any, Any, None]]],
-            ]
-        ] = None,
+        before_hook: Callable[..., Coroutine[Any, Any, Any]] | None = None,
+        failure_hook: None
+        | (
+            Callable[..., Coroutine[Any, Any, None]]
+            | dict[type[BaseException], Callable[..., Coroutine[Any, Any, None]]]
+        ) = None,
     ) -> R:
         """
         Calls :paramref:`func` repeatedly according to the retry policies that
@@ -220,10 +214,8 @@ class CompositeRetryPolicy(RetryPolicy):
 
 def retryable(
     policy: RetryPolicy,
-    failure_hook: Optional[Callable[..., Coroutine[Any, Any, None]]] = None,
-) -> Callable[
-    [Callable[P, Coroutine[Any, Any, R]]], Callable[P, Coroutine[Any, Any, R]]
-]:
+    failure_hook: Callable[..., Coroutine[Any, Any, None]] | None = None,
+) -> Callable[[Callable[P, Coroutine[Any, Any, R]]], Callable[P, Coroutine[Any, Any, R]]]:
     """
     Decorator to be used to apply a retry policy to a coroutine
     """

@@ -8,15 +8,10 @@ from wrapt import ObjectProxy
 from coredis.typing import (
     Hashable,
     Iterable,
-    List,
     Mapping,
-    Optional,
     ResponseType,
-    Set,
     StringT,
-    Tuple,
     TypeVar,
-    Union,
 )
 
 T = TypeVar("T")
@@ -26,7 +21,7 @@ U = TypeVar("U")
 class EncodingInsensitiveDict(ObjectProxy):  # type: ignore
     def __init__(
         self,
-        dict: Optional[Union[Mapping[Any, Any], ResponseType]] = None,
+        dict: Mapping[Any, Any] | ResponseType | None = None,
         encoding: str = "utf-8",
     ):
         d = dict or {}
@@ -44,10 +39,10 @@ class EncodingInsensitiveDict(ObjectProxy):  # type: ignore
             )
         return self.__wrapped__[item]
 
-    def get(self, item: StringT, default: Optional[object] = None) -> Any:
+    def get(self, item: StringT, default: object | None = None) -> Any:
         return self.__getitem__(item) or default
 
-    def pop(self, item: StringT, default: Optional[object] = None) -> Any:
+    def pop(self, item: StringT, default: object | None = None) -> Any:
         if item in self.__wrapped__:
             return self.__wrapped__.pop(item)
         if isinstance(item, str):
@@ -62,30 +57,18 @@ class EncodingInsensitiveDict(ObjectProxy):  # type: ignore
     def __setitem__(self, item: StringT, value: object) -> None:
         if item in self.__wrapped__:
             self.__wrapped__[item] = value
-        elif (
-            isinstance(item, str)
-            and item.encode(self._self_encoding) in self.__wrapped__
-        ):
+        elif isinstance(item, str) and item.encode(self._self_encoding) in self.__wrapped__:
             self.__wrapped__[item.encode(self._self_encoding)] = value
-        elif (
-            isinstance(item, bytes)
-            and item.decode(self._self_encoding) in self.__wrapped__
-        ):
+        elif isinstance(item, bytes) and item.decode(self._self_encoding) in self.__wrapped__:
             self.__wrapped__[item.decode(self._self_encoding)] = value
         else:
             self.__wrapped__[item] = value
 
     def __contains__(self, key: StringT) -> bool:
         if isinstance(key, str):
-            return (
-                key in self.__wrapped__
-                or key.encode(self._self_encoding) in self.__wrapped__
-            )
+            return key in self.__wrapped__ or key.encode(self._self_encoding) in self.__wrapped__
         elif isinstance(key, bytes):
-            return (
-                key in self.__wrapped__
-                or key.decode(self._self_encoding) in self.__wrapped__
-            )
+            return key in self.__wrapped__ or key.decode(self._self_encoding) in self.__wrapped__
         return key in self.__wrapped__
 
     def __repr__(self) -> str:
@@ -94,10 +77,10 @@ class EncodingInsensitiveDict(ObjectProxy):  # type: ignore
 
 @enum.unique
 class CaseAndEncodingInsensitiveEnum(bytes, enum.Enum):
-    __decoded: Set[StringT]
+    __decoded: set[StringT]
 
     @property
-    def variants(self) -> Set[StringT]:
+    def variants(self) -> set[StringT]:
         if not hasattr(self, "__decoded"):
             decoded = str(self)
             self.__decoded = {
@@ -129,7 +112,7 @@ class CaseAndEncodingInsensitiveEnum(bytes, enum.Enum):
         return hash(self.value)
 
 
-def b(x: ResponseType, encoding: Optional[str] = None) -> bytes:
+def b(x: ResponseType, encoding: str | None = None) -> bytes:
     if isinstance(x, bytes):
         return x
     if not isinstance(x, str):
@@ -139,7 +122,7 @@ def b(x: ResponseType, encoding: Optional[str] = None) -> bytes:
     return _v.encode(encoding) if encoding else _v.encode()
 
 
-def defaultvalue(value: Optional[U], default: T) -> Union[U, T]:
+def defaultvalue(value: U | None, default: T) -> U | T:
     return default if value is None else value
 
 
@@ -151,17 +134,15 @@ def nativestr(x: ResponseType, encoding: str = "utf-8") -> str:
     raise ValueError(f"Unable to cast {x} to string")
 
 
-def tuples_to_flat_list(nested_list: Iterable[Tuple[T, ...]]) -> List[T]:
+def tuples_to_flat_list(nested_list: Iterable[tuple[T, ...]]) -> list[T]:
     return [item for sublist in nested_list for item in sublist]
 
 
-def dict_to_flat_list(
-    mapping: Mapping[T, U], reverse: bool = False
-) -> List[Union[T, U]]:
-    e1: List[Union[T, U]] = list(mapping.keys())
-    e2: List[Union[T, U]] = list(mapping.values())
+def dict_to_flat_list(mapping: Mapping[T, U], reverse: bool = False) -> list[T | U]:
+    e1: list[T | U] = list(mapping.keys())
+    e2: list[T | U] = list(mapping.values())
 
-    ret: List[Union[T, U]] = []
+    ret: list[T | U] = []
 
     if reverse:
         e1, e2 = e2, e1
@@ -173,29 +154,27 @@ def dict_to_flat_list(
     return ret
 
 
-def make_hashable(*args: Any) -> Tuple[Hashable, ...]:
+def make_hashable(*args: Any) -> tuple[Hashable, ...]:
     return tuple(
         (
-            (
-                tuple(make_hashable(v)[0] for v in a)
-                if isinstance(a, (tuple, list))
+            tuple(make_hashable(v)[0] for v in a)
+            if isinstance(a, (tuple, list))
+            else (
+                frozenset(make_hashable(v)[0] for v in a)
+                if isinstance(a, set)
                 else (
-                    frozenset(make_hashable(v)[0] for v in a)
-                    if isinstance(a, set)
-                    else (
-                        tuple((k, make_hashable(v)[0]) for k, v in a.items())
-                        if isinstance(a, dict)
-                        # this will fail downstream if `a` is not hashable
-                        else a
-                    )
+                    tuple((k, make_hashable(v)[0]) for k, v in a.items())
+                    if isinstance(a, dict)
+                    # this will fail downstream if `a` is not hashable
+                    else a
                 )
             )
-            for a in args
         )
+        for a in args
     )
 
 
-def query_param_to_bool(value: Optional[Any]) -> Optional[bool]:
+def query_param_to_bool(value: Any | None) -> bool | None:
     if value is None or value in ("", b""):
         return None
     if isinstance(value, (int, float, bool, str, bytes)):
@@ -476,9 +455,7 @@ except ImportError:
         crc = 0
 
         for byte in data:
-            crc = ((crc << 8) & 0xFF00) ^ x_mode_m_crc16_lookup[
-                ((crc >> 8) & 0xFF) ^ byte
-            ]
+            crc = ((crc << 8) & 0xFF00) ^ x_mode_m_crc16_lookup[((crc >> 8) & 0xFF) ^ byte]
 
         return crc & 0xFFFF
 

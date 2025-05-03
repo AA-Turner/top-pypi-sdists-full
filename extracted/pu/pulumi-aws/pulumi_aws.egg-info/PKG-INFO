@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_aws
-Version: 6.78.0
+Version: 6.79.1
 Summary: A Pulumi package for creating and managing Amazon Web Services (AWS) cloud resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

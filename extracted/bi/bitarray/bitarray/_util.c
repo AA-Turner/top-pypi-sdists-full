@@ -135,13 +135,13 @@ zeros(PyObject *module, PyObject *args, PyObject *kwds)
 {
     static char *kwlist[] = {"", "endian", NULL};
     PyObject *endian = Py_None;
-    Py_ssize_t nbits;
+    Py_ssize_t n;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "n|O:zeros", kwlist,
-                                     &nbits, &endian))
+                                     &n, &endian))
         return NULL;
 
-    return (PyObject *) new_bitarray(nbits, endian, 0);
+    return (PyObject *) new_bitarray(n, endian, 0);
 }
 
 PyDoc_STRVAR(zeros_doc,
@@ -156,13 +156,13 @@ ones(PyObject *module, PyObject *args, PyObject *kwds)
 {
     static char *kwlist[] = {"", "endian", NULL};
     PyObject *endian = Py_None;
-    Py_ssize_t nbits;
+    Py_ssize_t n;
 
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "n|O:ones", kwlist,
-                                     &nbits, &endian))
+                                     &n, &endian))
         return NULL;
 
-    return (PyObject *) new_bitarray(nbits, endian, 0xff);
+    return (PyObject *) new_bitarray(n, endian, 0xff);
 }
 
 PyDoc_STRVAR(ones_doc,
@@ -286,14 +286,14 @@ static PyObject *
 xor_indices(PyObject *module, PyObject *obj)
 {
     bitarrayobject *a;
-    Py_ssize_t res = 0, nbits, i;
+    Py_ssize_t res = 0, n, i;
 
     if (ensure_bitarray(obj) < 0)
         return NULL;
 
     a = (bitarrayobject *) obj;
-    nbits = a->nbits;
-    for (i = 1; i < nbits; i++) {
+    n = a->nbits;
+    for (i = 1; i < n; i++) {
         if (getbit(a, i))
             res ^= i;
     }
@@ -1758,7 +1758,7 @@ in a binary stream.  Use `vl_decode()` for decoding.");
    - symbol is a Python sequence of the symbols in canonical order
      where the number of entries is the sum of the counts in count[].
  */
-#define MAXBITS  31                  /* maximum bits in a code */
+#define MAXBITS  31                  /* maximum bit length in a code */
 
 typedef struct {
     PyObject_HEAD
@@ -1770,40 +1770,38 @@ typedef struct {
 
 static PyTypeObject CHDI_Type;
 
-/* set elements in count (from seq) and return their sum, or -1 on error */
+/* set elements in count (from sequence) and return their sum,
+   or -1 on error after setting exception */
 static Py_ssize_t
 set_count(int *count, PyObject *sequence)
 {
-    Py_ssize_t n, c, res = 0;
+    Py_ssize_t n, res = 0;
     int i;
 
-    n = PySequence_Size(sequence);
-    if (n < 0)
+    if ((n = PySequence_Size(sequence)) < 0)
         return -1;
 
-    if (n > MAXBITS) {
+    if (n > MAXBITS + 1) {
         PyErr_Format(PyExc_ValueError, "len(count) cannot be larger than %d",
-                     MAXBITS);
+                     MAXBITS + 1);
         return -1;
     }
 
-    for (i = 1; i <= MAXBITS; i++) {
-        c = 0;
-        if (i < n) {
-            PyObject *item = PySequence_GetItem(sequence, i);
-            Py_ssize_t maxcount = ((Py_ssize_t) 1) << i;
+    memset(count, 0, sizeof(int) * (MAXBITS + 1));
+    for (i = 1; i < n; i++) {
+        PyObject *item;
+        Py_ssize_t c;
 
-            if (item == NULL)
-                return -1;
-            c = PyNumber_AsSsize_t(item, PyExc_OverflowError);
-            Py_DECREF(item);
-            if (c == -1 && PyErr_Occurred())
-                return -1;
-            if (c < 0 || c > maxcount) {
-                PyErr_Format(PyExc_ValueError, "count[%d] cannot be negative"
-                             " or larger than %zd, got %zd", i, maxcount, c);
-                return -1;
-            }
+        if ((item = PySequence_GetItem(sequence, i)) == NULL)
+            return -1;
+        c = PyNumber_AsSsize_t(item, PyExc_OverflowError);
+        Py_DECREF(item);
+        if (c == -1 && PyErr_Occurred())
+            return -1;
+        if (c >> i && (c - 1) >> i) {
+            PyErr_Format(PyExc_ValueError, "count[%d] not in [0..%zu], "
+                         "got %zd", i, ((size_t) 1) << i, c);
+            return -1;
         }
         count[i] = (int) c;
         res += c;

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: trino
-Version: 0.333.0
+Version: 0.334.0
 Summary: Client for the Trino distributed SQL Engine
 Home-page: https://github.com/trinodb/trino-python-client
 Author: Trino Team
@@ -64,6 +64,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
@@ -590,6 +591,23 @@ The transaction is created when the first SQL statement is executed.
 `trino.dbapi.Connection.commit()` will be automatically called when the code
 exits the *with* context and the queries succeed, otherwise
 `trino.dbapi.Connection.rollback()` will be called.
+
+## Custom requests Session
+
+You can create a custom [requests.Session object](https://requests.readthedocs.io/en/latest/user/advanced/#session-objects) and pass it to the `http_session` parameter. This can be used for things like setting additional HTTP headers, client certificates, etc.
+
+```python
+import requests
+from trino.dbapi import connect
+
+s = requests.Session()
+s.cert = '/path/client.cert'
+
+conn = connect(
+    http_session=s,
+    ...
+)
+```
 
 ## Legacy Primitive types
 

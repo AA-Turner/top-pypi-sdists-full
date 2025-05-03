@@ -122,6 +122,7 @@ class ConfigMapPatchArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:core/v1:ConfigMapPatch")
 class ConfigMapPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

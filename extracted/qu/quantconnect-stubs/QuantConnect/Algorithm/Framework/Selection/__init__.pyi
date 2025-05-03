@@ -394,6 +394,27 @@ class FutureUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.Un
     """Provides an implementation of IUniverseSelectionModel that subscribes to future chains"""
 
     @overload
+    def __init__(self, refresh_interval: datetime.timedelta, future_chain_symbol_selector: typing.Any) -> None:
+        """
+        Creates a new instance of FutureUniverseSelectionModel
+        
+        :param refresh_interval: Time interval between universe refreshes
+        :param future_chain_symbol_selector: Selects symbols from the provided future chain
+        """
+        ...
+
+    @overload
+    def __init__(self, refresh_interval: datetime.timedelta, future_chain_symbol_selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+        """
+        Creates a new instance of FutureUniverseSelectionModel
+        
+        :param refresh_interval: Time interval between universe refreshes
+        :param future_chain_symbol_selector: Selects symbols from the provided future chain
+        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
+        """
+        ...
+
+    @overload
     def __init__(self, refresh_interval: datetime.timedelta, future_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.Iterable[QuantConnect.Symbol]]) -> None:
         """
         Creates a new instance of FutureUniverseSelectionModel
@@ -831,6 +852,27 @@ class USTreasuriesETFUniverse(QuantConnect.Algorithm.Framework.Selection.Incepti
 
 class OptionUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
     """Provides an implementation of IUniverseSelectionModel that subscribes to option chains"""
+
+    @overload
+    def __init__(self, refresh_interval: datetime.timedelta, option_chain_symbol_selector: typing.Any) -> None:
+        """
+        Creates a new instance of OptionUniverseSelectionModel
+        
+        :param refresh_interval: Time interval between universe refreshes
+        :param option_chain_symbol_selector: Selects symbols from the provided option chain
+        """
+        ...
+
+    @overload
+    def __init__(self, refresh_interval: datetime.timedelta, option_chain_symbol_selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings) -> None:
+        """
+        Creates a new instance of OptionUniverseSelectionModel
+        
+        :param refresh_interval: Time interval between universe refreshes
+        :param option_chain_symbol_selector: Selects symbols from the provided option chain
+        :param universe_settings: Universe settings define attributes of created subscriptions, such as their resolution and the minimum time in universe before they can be removed
+        """
+        ...
 
     @overload
     def __init__(self, refresh_interval: datetime.timedelta, option_chain_symbol_selector: typing.Callable[[datetime.datetime], typing.Iterable[QuantConnect.Symbol]]) -> None:

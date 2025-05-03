@@ -4,10 +4,8 @@
 import unittest
 import sys
 from pathlib import Path
-import textwrap
 
 import pkg_about
-from pkg_about._about import __get_copyright as get_copyright
 
 
 class MainTestCase(unittest.TestCase):
@@ -45,7 +43,7 @@ class MainTestCase(unittest.TestCase):
         self.assertEqual(__maintainer_email__, "adam@karpierz.net")
         self.assertEqual(__license__,
                          "zlib/libpng License ; https://opensource.org/license/zlib")
-        self.assertEqual(__copyright__, "Copyright (c) 2020-2025 Adam Karpierz")
+        self.assertEqual(__copyright__, __author__)
 
     def test_about_from_setup(self):
         pkg_about.about_from_setup(Path(__file__).resolve().parent.parent)
@@ -65,28 +63,4 @@ class MainTestCase(unittest.TestCase):
         self.assertEqual(about.__maintainer_email__, "adam@karpierz.net")
         self.assertEqual(about.__license__,
                          "zlib/libpng License ; https://opensource.org/license/zlib")
-        self.assertEqual(about.__copyright__, "Copyright (c) 2020-2025 Adam Karpierz")
-
-    def test_get_copyright(self):
-        self.assertEqual(get_copyright(textwrap.dedent(
-            """
-            License
-            =======
-
-              | |copyright|
-              | Licensed under the zlib/libpng License
-              | https://opensource.org/license/zlib
-              | Please refer to the accompanying LICENSE file.
-
-            .. |copyright| replace:: Copyright (c) 2020-2025 Adam Karpierz
-            """)), "Copyright (c) 2020-2025 Adam Karpierz")
-        self.assertEqual(get_copyright(textwrap.dedent(
-            """
-            License
-            =======
-
-              | Copyright (c) 2020-2025 Adam Karpierz
-              | Licensed under the zlib/libpng License
-              | https://opensource.org/license/zlib
-              | Please refer to the accompanying LICENSE file.
-            """)), "Copyright (c) 2020-2025 Adam Karpierz")
+        self.assertEqual(about.__copyright__, about.__author__)

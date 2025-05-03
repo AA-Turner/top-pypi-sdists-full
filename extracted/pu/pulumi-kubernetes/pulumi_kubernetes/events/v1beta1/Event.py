@@ -296,6 +296,7 @@ class EventInitArgs:
         pulumi.set(self, "type", value)
 
 
+@pulumi.type_token("kubernetes:events.k8s.io/v1beta1:Event")
 class Event(pulumi.CustomResource):
     @overload
     def __init__(__self__,

@@ -62,19 +62,6 @@ async def open_contabil_processes():
     except Exception as error:
         console.print(f"Error: {error}")
 
-async def metodo_selecao_origem_especial(origem):
-    console.log("Entrou no metodo selecao origem especial")
-    await worker_sleep(3)
-    pyautogui.click(x=664, y=341)
-    await worker_sleep(5)
-    origem = origem.split(" ")[0]
-    console.log("Origem:", origem)
-    pyautogui.write(origem)
-    await worker_sleep(2)
-    pyautogui.press("space")
-    await worker_sleep(2)
-    pyautogui.press("enter")
-    await worker_sleep(2)
 
 async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
     try:
@@ -91,7 +78,7 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                     title="Selecione o Usuário para autenticação"
                 )
                 console.print("Janela encontrada!")
-                break 
+                break
             except:
                 console.print("Janela ainda nao encontrada...")
                 await worker_sleep(1)
@@ -133,15 +120,6 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 status=RpaHistoricoStatusEnum.Falha,
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
-            
-        console.log(f"Versão contabil: {main_window.window_text()[-3:]}")
-            
-        versao_contabil = main_window.window_text()[-3:]
-        uuidProcessos = ["0436cb8c-0c58-41a1-9609-443cc37c1801", "d34d8593-0cbf-4f8c-8647-5736e1168d89", "e1696b6b-9de4-4f22-a977-b191a39506a9"]
-        
-        fluxo_alternativo =  (task.uuidProcesso in uuidProcessos)
-
-        versao_contabil_padrao = (versao_contabil == "121")        
 
         # Adicionando foco
         try:
@@ -154,41 +132,16 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         console.print("Iniciando interacao a janela de integracao contabil...")
         pyautogui.click(x=566, y=53)
         await worker_sleep(4)
-        pyautogui.press("tab", presses=2, interval=1)   
+        pyautogui.press("tab", presses=2, interval=1)
         await worker_sleep(4)
         pyautogui.press("enter")
         await worker_sleep(12)
-        #pyautogui.press("tab")
-        #pyautogui.click(x=654, y=342)
-        await worker_sleep(3)
-        # console.print("Selecionando item do campo origem...")
-        # adicionando foco
-        try:
-            app.top_window().restore()
-            app.top_window().set_focus()
-        except Exception as erro:
-            console.print(f"Erro ao focalizar janela : {erro}")
-            console.print("Listando todas as janelas...")
-            for window in app.windows():
-                console.print(f"Janela : {window} | titulo : {window.window_text()}")
-        if not fluxo_alternativo:
-            console.log("Não entrou no fluxo alternativo")
-            checkbox_origem = main_window.child_window(
-                class_name="TRzComboBox", found_index=1
-            )
-            checkbox_origem.select(task.configEntrada.get("origem"))
-        else:
-            console.print("Preenchendo campo origem...")
-            await metodo_selecao_origem_especial(task.configEntrada.get("origem"))
-        # main_window.set_focus()
+        pyautogui.press("tab")
+        pyautogui.click(x=654, y=342)
         await worker_sleep(5)
-        console.print(f"Preenchendo campo periodo com {task.configEntrada.get("periodoInicial")}...")
-        if versao_contabil_padrao:
-            pyautogui.press("tab", presses=2)
-            await worker_sleep(4)
-        else:
-            pyautogui.click(x=874, y=342)
-            await worker_sleep(4)
+        console.print("Preenchendo campo periodo...")
+        pyautogui.press("tab", presses=2)
+        await worker_sleep(4)
         periodoInicial = task.configEntrada.get("periodoInicial")
         periodoInicial = periodoInicial.replace("/", "")
         pyautogui.write(periodoInicial)
@@ -199,16 +152,20 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         periodoFinal = periodoFinal.replace("/", "")
         pyautogui.write(periodoFinal)
         await worker_sleep(3)
+        console.print("Selecionando item do campo origem...")
+        checkbox_origem = main_window.child_window(
+            class_name="TRzComboBox", found_index=1
+        )
+        checkbox_origem.select(task.configEntrada.get("origem"))
+        await worker_sleep(3)
         console.print("Clicando no botao pesquisar...")
-        if versao_contabil_padrao:
-            pyautogui.click(x=1250, y=380)
-        else:
-            pyautogui.click(x=1251, y=342)
+        pyautogui.click(x=1250, y=380)
         await worker_sleep(60)
         console.print("Aguardando carregamento...")
         max_attempts = 240
         found = False
         console.print("Iniciando verificacoes...")
+
         for attempt in range(1, max_attempts + 1):
             console.print(
                 f"Verificacao {attempt} ( maximo {max_attempts} ) - aguardando 1 minuto..."
@@ -246,10 +203,10 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
             )
         await worker_sleep(4)
-        
+
         dados_consistentes = False
-        dados_consistentes_is_checked = False   
-        max_attempts_dados_consistentes = 20    
+        dados_consistentes_is_checked = False
+        max_attempts_dados_consistentes = 20
         console.print("Verificando ocorrencia de inconsistencias...")
         for attempt in range(1, max_attempts_dados_consistentes + 1):
             console.print(f"Verificacao {attempt}...")
@@ -259,10 +216,7 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 diferenca = main_window.Edit.window_text()
                 if total_debito != total_credito:
                     if not dados_consistentes_is_checked:
-                        if versao_contabil_padrao:
-                            pyautogui.click(x=702, y=758)  # lotes consistentes
-                        else:
-                            pyautogui.click(x=645, y=711)
+                        pyautogui.click(x=702, y=758)  # lotes consistentes
                         await worker_sleep(3)
                         dados_consistentes_is_checked = True
                         total_debito = main_window.Edit3.window_text()
@@ -272,10 +226,7 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                             if total_debito == "0,00":
                                 await worker_sleep(2)
                                 console.print("Clicando em integrar lançamentos...")
-                                if versao_contabil_padrao:
-                                    pyautogui.click(x=947, y=790)  # integrar lancamentos
-                                else:
-                                    pyautogui.click(x=883, y=740)
+                                pyautogui.click(x=947, y=790)  # integrar lancamentos
                                 await worker_sleep(2)
                                 return RpaRetornoProcessoDTO(
                                     sucesso=False,
@@ -286,10 +237,7 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                             else:
                                 await worker_sleep(2)
                                 console.print("Clicando em integrar lançamentos...")
-                                if versao_contabil_padrao:
-                                    pyautogui.click(x=947, y=790)  # integrar lancamentos
-                                else:
-                                    pyautogui.click(x=883, y=740)
+                                pyautogui.click(x=947, y=790)  # integrar lancamentos
                         else:
 
                             return RpaRetornoProcessoDTO(
@@ -311,10 +259,7 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 else:
                     await worker_sleep(2)
                     console.print("Clicando em integrar lançamentos...")
-                    if versao_contabil_padrao:
-                        pyautogui.click(x=947, y=790)  # integrar lancamentos
-                    else:
-                        pyautogui.click(x=883, y=740)
+                    pyautogui.click(x=947, y=790)  # integrar lancamentos
 
                 if total_credito == total_debito and diferenca == "0,00":
                     dados_consistentes = True
@@ -323,44 +268,25 @@ async def integracao_contabil(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
                 console.print(
                     "Nao foi possivel encontrar os campos diretamente, tentando via ocr..."
                 )
-                if versao_contabil_padrao:
-                    total_debito = get_text_from_window(
-                        main_window, (854, 722, 956, 747)
-                    ).replace("\n", "")
-                    await worker_sleep(1)
-                    total_credito = get_text_from_window(
-                        main_window, (1055, 722, 1162, 747)
-                    ).replace("\n", "")
-                    await worker_sleep(1)
-                    diferenca = get_text_from_window(
-                        main_window, (1233, 722, 1336, 747)
-                    ).replace("\n", "")
-                else:
-                    total_debito = get_text_from_window(
-                        main_window, (906, 685, 1002, 700)
-                    ).replace("\n", "")
-                    await worker_sleep(1)
-                    total_credito = get_text_from_window(
-                        main_window, (1107, 685, 1201, 700)
-                    ).replace("\n", "")
-                    await worker_sleep(1)
-                    diferenca = get_text_from_window(
-                        main_window, (1284, 685, 1379, 700)
-                    ).replace("\n", "")                    
+                total_debito = get_text_from_window(
+                    main_window, (854, 722, 956, 747)
+                ).replace("\n", "")
+                await worker_sleep(1)
+                total_credito = get_text_from_window(
+                    main_window, (1055, 722, 1162, 747)
+                ).replace("\n", "")
+                await worker_sleep(1)
+                diferenca = get_text_from_window(
+                    main_window, (1233, 722, 1336, 747)
+                ).replace("\n", "")
                 await worker_sleep(1)
                 if total_debito != total_credito or diferenca != "0,00":
                     if not dados_consistentes_is_checked:
-                        if versao_contabil_padrao:
-                            pyautogui.click(x=702, y=758)  # lotes consistentes
-                        else:
-                            pyautogui.click(x=645, y=711)
+                        pyautogui.click(x=702, y=758)  # lotes consistentes
                         dados_consistentes_is_checked = True
                     await worker_sleep(2)
                     console.print("Clicando em integrar lançamentos...")
-                    if versao_contabil_padrao:
-                        pyautogui.click(x=947, y=790)  # integrar lancamentos
-                    else:
-                        pyautogui.click(x=883, y=740)
+                    pyautogui.click(x=947, y=790)  # integrar lancamentos
                     await worker_sleep(60)
         if not dados_consistentes:
             return RpaRetornoProcessoDTO(

@@ -93,6 +93,7 @@ class ServiceInitArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:core/v1:Service")
 class Service(pulumi.CustomResource):
     @overload
     def __init__(__self__,

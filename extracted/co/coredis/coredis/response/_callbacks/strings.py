@@ -5,22 +5,14 @@ from coredis.response._callbacks import ResponseCallback, SimpleStringCallback
 from coredis.response.types import LCSMatch, LCSResult
 from coredis.typing import (
     AnyStr,
-    Dict,
-    List,
-    Optional,
     ResponsePrimitive,
     ResponseType,
-    Union,
     ValueT,
 )
 
 
-class StringSetCallback(
-    ResponseCallback[Optional[AnyStr], Optional[AnyStr], Optional[Union[AnyStr, bool]]]
-):
-    def transform(
-        self, response: Optional[AnyStr], **options: Optional[ValueT]
-    ) -> Optional[Union[AnyStr, bool]]:
+class StringSetCallback(ResponseCallback[AnyStr | None, AnyStr | None, AnyStr | bool | None]):
+    def transform(self, response: AnyStr | None, **options: ValueT | None) -> AnyStr | bool | None:
         if options.get("get"):
             return response
         else:
@@ -29,24 +21,22 @@ class StringSetCallback(
 
 class LCSCallback(
     ResponseCallback[
-        List[ResponseType],
-        Dict[ResponsePrimitive, ResponseType],
-        Union[AnyStr, int, LCSResult],
+        list[ResponseType],
+        dict[ResponsePrimitive, ResponseType],
+        AnyStr | int | LCSResult,
     ]
 ):
     def transform(
         self,
-        response: Union[
-            List[ResponseType],
-            Dict[ResponsePrimitive, ResponseType],
-        ],
-        **options: Optional[ValueT],
+        response: (list[ResponseType] | dict[ResponsePrimitive, ResponseType]),
+        **options: ValueT | None,
     ) -> LCSResult:
         assert (
             isinstance(response, list)
             and isinstance(response[-1], int)
             and isinstance(response[1], list)
         )
+
         return LCSResult(
             tuple(
                 LCSMatch(
@@ -61,10 +51,11 @@ class LCSCallback(
 
     def transform_3(
         self,
-        response: Dict[ResponsePrimitive, ResponseType],
-        **options: Optional[ValueT],
+        response: dict[ResponsePrimitive, ResponseType],
+        **options: ValueT | None,
     ) -> LCSResult:
         proxy = EncodingInsensitiveDict(response)
+
         return LCSResult(
             tuple(
                 LCSMatch(

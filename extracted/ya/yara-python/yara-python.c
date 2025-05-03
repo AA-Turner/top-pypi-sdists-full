@@ -1522,6 +1522,13 @@ int process_compile_externals(
 
   while (PyDict_Next(externals, &pos, &key, &value))
   {
+    if (!PY_STRING_CHECK(key)) {
+      PyErr_Format(
+          PyExc_TypeError,
+          "keys of externals dict must be strings");
+
+      return ERROR_INVALID_ARGUMENT;
+    }
     identifier = PY_STRING_TO_C(key);
 
     if (PyBool_Check(value))
@@ -1592,6 +1599,13 @@ int process_match_externals(
 
   while (PyDict_Next(externals, &pos, &key, &value))
   {
+    if (!PY_STRING_CHECK(key)) {
+      PyErr_Format(
+          PyExc_TypeError,
+          "keys of externals dict must be strings");
+
+      return ERROR_INVALID_ARGUMENT;
+    }
     identifier = PY_STRING_TO_C(key);
 
     if (PyBool_Check(value))
@@ -2816,12 +2830,12 @@ static PyObject* yara_compile(
     }
     else if (file != NULL)
     {
-      fd = dup(PyObject_AsFileDescriptor(file));
+      fd = PyObject_AsFileDescriptor(file);
 
       if (fd != -1)
       {
         Py_BEGIN_ALLOW_THREADS
-        fh = fdopen(fd, "r");
+        fh = fdopen(dup(fd), "r");
         error = yr_compiler_add_file(compiler, fh, NULL, NULL);
         fclose(fh);
         Py_END_ALLOW_THREADS

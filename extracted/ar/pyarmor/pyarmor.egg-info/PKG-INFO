@@ -1,6 +1,6 @@
 Metadata-Version: 1.1
 Name: pyarmor
-Version: 9.1.5
+Version: 9.1.6
 Summary: A tool used to obfuscate python scripts, bind obfuscated scripts to fixed machine or expire obfuscated scripts.
 Home-page: https://github.com/dashingsoft/pyarmor
 Author: Jondy Zhao

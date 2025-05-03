@@ -93,6 +93,7 @@ class DaemonSetInitArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:apps/v1:DaemonSet")
 class DaemonSet(pulumi.CustomResource):
     @overload
     def __init__(__self__,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipecat-ai
-Version: 0.0.65
+Version: 0.0.66
 Summary: An open source framework for voice (and multimodal) assistants
 License-Expression: BSD-2-Clause
 Project-URL: Source, https://github.com/pipecat-ai/pipecat
@@ -43,7 +43,7 @@ Requires-Dist: websockets~=13.1; extra == "cartesia"
 Provides-Extra: cerebras
 Provides-Extra: deepseek
 Provides-Extra: daily
-Requires-Dist: daily-python~=0.17.0; extra == "daily"
+Requires-Dist: daily-python~=0.18.1; extra == "daily"
 Provides-Extra: deepgram
 Requires-Dist: deepgram-sdk~=3.8.0; extra == "deepgram"
 Provides-Extra: elevenlabs
@@ -64,7 +64,7 @@ Requires-Dist: google-generativeai~=0.8.4; extra == "google"
 Requires-Dist: websockets~=13.1; extra == "google"
 Provides-Extra: grok
 Provides-Extra: groq
-Requires-Dist: groq~=0.20.0; extra == "groq"
+Requires-Dist: groq~=0.23.0; extra == "groq"
 Provides-Extra: gstreamer
 Requires-Dist: pygobject~=3.50.0; extra == "gstreamer"
 Provides-Extra: krisp
@@ -83,8 +83,10 @@ Provides-Extra: lmnt
 Requires-Dist: websockets~=13.1; extra == "lmnt"
 Provides-Extra: local
 Requires-Dist: pyaudio~=0.2.14; extra == "local"
+Provides-Extra: mcp
+Requires-Dist: mcp[cli]~=1.6.0; extra == "mcp"
 Provides-Extra: mem0
-Requires-Dist: mem0ai~=0.1.76; extra == "mem0"
+Requires-Dist: mem0ai~=0.1.94; extra == "mem0"
 Provides-Extra: mlx-whisper
 Requires-Dist: mlx-whisper~=0.4.2; extra == "mlx-whisper"
 Provides-Extra: moondream
@@ -110,7 +112,7 @@ Provides-Extra: qwen
 Provides-Extra: rime
 Requires-Dist: websockets~=13.1; extra == "rime"
 Provides-Extra: riva
-Requires-Dist: nvidia-riva-client~=2.19.0; extra == "riva"
+Requires-Dist: nvidia-riva-client~=2.19.1; extra == "riva"
 Provides-Extra: sentry
 Requires-Dist: sentry-sdk~=2.23.1; extra == "sentry"
 Provides-Extra: local-smart-turn
@@ -271,6 +273,12 @@ pip install "pipecat-ai[option,...]"
    ```
 
 ### Running tests
+
+Install the test dependencies:
+
+```shell
+pip install -r test-requirements.txt
+```
 
 From the root directory, run:
 

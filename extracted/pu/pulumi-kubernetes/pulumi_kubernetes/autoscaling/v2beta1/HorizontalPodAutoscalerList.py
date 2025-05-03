@@ -91,6 +91,7 @@ class HorizontalPodAutoscalerListArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:autoscaling/v2beta1:HorizontalPodAutoscalerList")
 class HorizontalPodAutoscalerList(pulumi.CustomResource):
     @overload
     def __init__(__self__,

@@ -1,13 +1,13 @@
 Metadata-Version: 2.1
 Name: langchain
-Version: 0.3.24
+Version: 0.3.25
 Summary: Building applications with LLMs through composability
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain/tree/master/libs/langchain
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain/releases?q=tag%3A%22langchain%3D%3D0%22&expanded=true
 Project-URL: repository, https://github.com/langchain-ai/langchain
-Requires-Python: <4.0,>=3.9
-Requires-Dist: langchain-core<1.0.0,>=0.3.55
+Requires-Python: >=3.9
+Requires-Dist: langchain-core<1.0.0,>=0.3.58
 Requires-Dist: langchain-text-splitters<1.0.0,>=0.3.8
 Requires-Dist: langsmith<0.4,>=0.1.17
 Requires-Dist: pydantic<3.0.0,>=2.7.4

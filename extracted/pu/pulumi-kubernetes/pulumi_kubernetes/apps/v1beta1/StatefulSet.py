@@ -89,6 +89,7 @@ class StatefulSetInitArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:apps/v1beta1:StatefulSet")
 class StatefulSet(pulumi.CustomResource):
     @overload
     def __init__(__self__,

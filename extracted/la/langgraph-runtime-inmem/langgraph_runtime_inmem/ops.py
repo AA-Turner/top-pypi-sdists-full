@@ -117,8 +117,10 @@ class Assistants(Authenticated):
         metadata: MetadataInput,
         limit: int,
         offset: int,
+        sort_by: str | None = None,
+        sort_order: str | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
-    ) -> AsyncIterator[Assistant]:
+    ) -> tuple[AsyncIterator[Assistant], int]:
         metadata = metadata if metadata is not None else {}
         filters = await Assistants.handle_event(
             ctx,
@@ -128,22 +130,51 @@ class Assistants(Authenticated):
             ),
         )
 
-        async def filter_and_yield() -> AsyncIterator[Assistant]:
-            assistants = conn.store["assistants"]
-            filtered_assistants = [
-                assistant
-                for assistant in assistants
-                if (not graph_id or assistant["graph_id"] == graph_id)
-                and (
-                    not metadata or is_jsonb_contained(assistant["metadata"], metadata)
+        # Get all assistants and filter them
+        assistants = conn.store["assistants"]
+        filtered_assistants = [
+            assistant
+            for assistant in assistants
+            if (not graph_id or assistant["graph_id"] == graph_id)
+            and (not metadata or is_jsonb_contained(assistant["metadata"], metadata))
+            and (not filters or _check_filter_match(assistant["metadata"], filters))
+        ]
+
+        # Get total count before sorting and pagination
+        total_count = len(filtered_assistants)
+
+        # Sort based on sort_by and sort_order
+        sort_by = sort_by.lower() if sort_by else None
+        if sort_by and sort_by in (
+            "assistant_id",
+            "graph_id",
+            "name",
+            "created_at",
+            "updated_at",
+        ):
+            reverse = False if sort_order and sort_order.upper() == "ASC" else True
+            # Use case-insensitive sorting for string fields
+            if sort_by in ["name", "graph_id"]:
+                filtered_assistants.sort(
+                    key=lambda x: str(x.get(sort_by, "")).lower()
+                    if x.get(sort_by)
+                    else "",
+                    reverse=reverse,
                 )
-                and (not filters or _check_filter_match(assistant["metadata"], filters))
-            ]
+            else:
+                filtered_assistants.sort(key=lambda x: x.get(sort_by), reverse=reverse)
+        else:
+            # Default sorting by created_at in descending order
             filtered_assistants.sort(key=lambda x: x["created_at"], reverse=True)
-            for assistant in filtered_assistants[offset : offset + limit]:
+
+        # Apply pagination
+        paginated_assistants = filtered_assistants[offset : offset + limit]
+
+        async def assistant_iterator() -> AsyncIterator[Assistant]:
+            for assistant in paginated_assistants:
                 yield assistant
 
-        return filter_and_yield()
+        return assistant_iterator(), total_count
 
     @staticmethod
     async def get(

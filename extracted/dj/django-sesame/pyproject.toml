@@ -8,7 +8,7 @@ source = ["sesame", "tests"]
 
 [tool.poetry]
 name = "django-sesame"
-version = "3.2.2"
+version = "3.2.3"
 description = """\
     Frictionless authentication with "Magic Links" \
     for your Django project."""
@@ -22,11 +22,10 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
     "Framework :: Django",
-    "Framework :: Django :: 3.2",
-    "Framework :: Django :: 4.0",
-    "Framework :: Django :: 4.1",
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
 ]
@@ -35,12 +34,11 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-django = ">=3.2"
-python = ">=3.8"
+django = ">=4.2"
+python = ">=3.9"
 ua-parser = { version = ">=0.15", optional = true }
 
 [tool.poetry.dev-dependencies]
-black = "*"
 coverage = "*"
 furo = "*"
 sphinx = "*"
@@ -53,11 +51,10 @@ toml = "*"
 [tool.poetry.extras]
 ua = ["ua-parser"]
 
-[tool.ruff]
+[tool.ruff.lint]
 select = [
     "E",  # pycodestyle
     "F",  # Pyflakes
     "W",  # pycodestyle
     "I",  # isort
 ]
-src = ["src"]

@@ -92,6 +92,7 @@ class CustomResourceDefinitionPatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:apiextensions.k8s.io/v1:CustomResourceDefinitionPatch")
 class CustomResourceDefinitionPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

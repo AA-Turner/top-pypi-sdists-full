@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws-sam-cli
-Version: 1.137.1
+Version: 1.138.0
 Summary: AWS SAM CLI is a CLI tool for local development and testing of Serverless applications
 Home-page: https://github.com/aws/aws-sam-cli
 Author: Amazon Web Services
@@ -45,26 +45,26 @@ Requires-Dist: jsonschema<4.24
 Requires-Dist: typing_extensions<5,>=4.4.0
 Requires-Dist: regex!=2021.10.8
 Requires-Dist: tzlocal==5.2
-Requires-Dist: cfn-lint~=1.32.3
+Requires-Dist: cfn-lint~=1.34.1
 Requires-Dist: boto3-stubs[apigateway,cloudformation,ecr,iam,kinesis,lambda,s3,schemas,secretsmanager,signer,sqs,stepfunctions,sts,xray]==1.35.71
 Provides-Extra: pre-dev
-Requires-Dist: ruff==0.11.2; extra == "pre-dev"
+Requires-Dist: ruff==0.11.7; extra == "pre-dev"
 Provides-Extra: dev
-Requires-Dist: ruff==0.11.2; extra == "dev"
+Requires-Dist: ruff==0.11.7; extra == "dev"
 Requires-Dist: coverage==7.8.0; python_version >= "3.9" and extra == "dev"
 Requires-Dist: coverage==7.6.1; python_version < "3.9" and extra == "dev"
-Requires-Dist: pytest-cov==6.0.0; python_version >= "3.9" and extra == "dev"
+Requires-Dist: pytest-cov==6.1.1; python_version >= "3.9" and extra == "dev"
 Requires-Dist: pytest-cov==5.0.0; python_version < "3.9" and extra == "dev"
 Requires-Dist: mypy==1.15.0; extra == "dev"
-Requires-Dist: types-pywin32==310.0.0.20250319; python_version >= "3.9" and extra == "dev"
+Requires-Dist: types-pywin32==310.0.0.20250429; python_version >= "3.9" and extra == "dev"
 Requires-Dist: types-pywin32==308.0.0.20241221; python_version < "3.9" and extra == "dev"
-Requires-Dist: types-PyYAML==6.0.12.20250326; extra == "dev"
+Requires-Dist: types-PyYAML==6.0.12.20250402; extra == "dev"
 Requires-Dist: types-chevron==0.14.2.20250103; extra == "dev"
-Requires-Dist: types-psutil==7.0.0.20250218; extra == "dev"
-Requires-Dist: types-setuptools==77.0.2.20250328; extra == "dev"
+Requires-Dist: types-psutil==7.0.0.20250401; extra == "dev"
+Requires-Dist: types-setuptools==80.0.0.20250429; extra == "dev"
 Requires-Dist: types-Pygments==2.19.0.20250305; extra == "dev"
 Requires-Dist: types-colorama==0.4.15.20240311; extra == "dev"
-Requires-Dist: types-dateparser==1.2.0.20250208; extra == "dev"
+Requires-Dist: types-dateparser==1.2.0.20250408; extra == "dev"
 Requires-Dist: types-docutils==0.21.0.20241128; extra == "dev"
 Requires-Dist: types-jsonschema==4.23.0.20241208; extra == "dev"
 Requires-Dist: types-pyOpenSSL==24.1.0.20240722; extra == "dev"
@@ -82,7 +82,7 @@ Requires-Dist: pytest-metadata==3.1.1; extra == "dev"
 Requires-Dist: pytest-json-report-wip==1.5.1; extra == "dev"
 Requires-Dist: filelock==3.18.0; python_version >= "3.9" and extra == "dev"
 Requires-Dist: filelock==3.16.1; python_version < "3.9" and extra == "dev"
-Requires-Dist: black==24.10.0; python_version >= "3.9" and extra == "dev"
+Requires-Dist: black==25.1.0; python_version >= "3.9" and extra == "dev"
 Requires-Dist: black==24.8.0; python_version < "3.9" and extra == "dev"
 Requires-Dist: psutil==7.0.0; extra == "dev"
 Dynamic: author
@@ -104,7 +104,7 @@ Dynamic: summary
 
 # AWS SAM CLI
 
-![Apache 2.0 License](https://img.shields.io/github/license/aws/aws-sam-cli)
+[![Apache 2.0 License](https://img.shields.io/github/license/aws/aws-sam-cli)](https://github.com/aws/aws-sam-cli/blob/develop/LICENSE)
 ![SAM CLI Version](https://img.shields.io/github/release/aws/aws-sam-cli.svg?label=CLI%20Version)
 ![Install](https://img.shields.io/badge/brew-aws/tap/aws--sam--cli-orange)
 ![pip](https://img.shields.io/badge/pip-aws--sam--cli-9cf)

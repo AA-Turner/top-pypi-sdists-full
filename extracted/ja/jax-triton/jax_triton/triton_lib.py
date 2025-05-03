@@ -30,13 +30,15 @@ import zlib
 
 from absl import logging
 import jax
-import jaxlib
 from jax import tree_util
 from jax._src import core
 from jax._src import state
 from jax._src import util
-from jax._src.lib.mlir import ir
+from jax._src.lib import gpu_triton as triton_kernel_call_lib
 import jax.dlpack
+import jax.extend as jex
+from jax.interpreters import ad
+from jax.interpreters import batching
 from jax.interpreters import mlir
 from jax.interpreters import xla
 import jax.numpy as jnp
@@ -64,16 +66,6 @@ except ImportError:
   pass
 
 
-try:
-  from jax._src.lib import gpu_triton as triton_kernel_call_lib
-except ImportError:
-  raise ValueError(
-      "Cannot import jaxlib triton library. You may need a newer"
-      " version of jaxlib. Try installing a nightly wheel from:"
-      " https://storage.googleapis.com/jax-releases/jaxlib_nightly_cuda_releases.html"
-      " or https://storage.googleapis.com/jax-releases/jaxlib_nightly_cuda12_releases.html"
-  )
-
 os.environ["TRITON_CACHE_DIR"] = ""
 _JAX_TRITON_DUMP_DIR = os.environ.get("JAX_TRITON_DUMP_DIR")
 map, unsafe_map = util.safe_map, map
@@ -97,8 +89,7 @@ _JAX_TO_TRITON_TYPE_MAP = {
     jnp.dtype("uint32"): "u32",
     jnp.dtype("uint16"): "u16",
     jnp.dtype("uint8"): "u8",
-    # Triton defines a 'B' type, which is an alias for both i1 and bool.
-    jnp.dtype("bool"): "B",
+    jnp.dtype("bool"): "i1",
 }
 
 Grid = Union[int, tuple[int], tuple[int, int], tuple[int, int, int]]
@@ -148,7 +139,7 @@ def get_triton_type(obj: Any) -> str:
   )
 
 
-triton_kernel_call_p = jax.core.Primitive("triton_kernel_call")
+triton_kernel_call_p = jex.core.Primitive("triton_kernel_call")
 triton_kernel_call_p.multiple_results = True
 triton_kernel_call_p.def_impl(
     functools.partial(xla.apply_primitive, triton_kernel_call_p)
@@ -362,27 +353,55 @@ def get_or_create_triton_kernel(
   if num_ctas > 1 and compute_capability < 90:
     raise ValueError("num_ctas > 1 unsupported before Hopper.")
 
+  backend = backend_init_func(device, compute_capability)
+
   signature = {fn.arg_names[i]: v for i, v in enumerate(arg_dtypes)}
   # TODO(sharadmv,zhangqiaorjc): handle differently aligned pointers
   # We assume that all arrays are aligned to 16 bytes, and Triton may use this
   # assumption, unless array args are include in the `do_not_specialize` list.
-  # We replace array arguments with mock Torch tensors, to allow us to use
-  # `JITFunction._get_config` to get the specialization_attr.
-  mock_torch_tensor = types.SimpleNamespace(data_ptr=lambda: 16)
-  args_for_specialization_attr = [mock_torch_tensor] * len(arg_dtypes)
-  for i, _, v in scalar_args:
-    args_for_specialization_attr[i] = v
-  specialization_attr = fn._get_config(*args_for_specialization_attr)  # pylint: disable=protected-access
-
+  alignments = [16] * len(arg_dtypes)
+  for i, _, value in scalar_args:
+    alignments[i] = value
+  specialize_extra = backend.get_arg_specialization
+  if specialize_impl := getattr(triton.runtime.jit, "specialize_impl", None):
+    # TODO(slebedev): Remove this branch once Triton 3.3 is released.
+    specialize_impl = functools.partial(
+        specialize_impl, specialize_extra=specialize_extra
+    )
+  else:
+    # TODO(rdyro): Remove unnecessary checks with 3.3.0 > release
+    create_specialize_impl = triton.runtime.jit.create_specialize_impl
+    if len(inspect.signature(create_specialize_impl).parameters) == 0:
+      # handle Triton 3.3.0 release
+      specialize_impl = functools.partial(
+          create_specialize_impl(), specialize_extra=specialize_extra
+      )
+    else:
+      # latest Triton head
+      specialize_impl = create_specialize_impl(specialize_extra)
+  specialization = [
+      specialize_impl(
+          types.SimpleNamespace(
+              data_ptr=lambda: alignment, dtype=arg_dtype.removeprefix("*")
+          ),
+      )
+      for arg_dtype, alignment in zip(arg_dtypes, alignments)
+  ]
+  attrs = {
+      (i,): backend.parse_attr(attr)
+      for i, (_, attr) in enumerate(specialization)
+  }
   constants = dict(metaparams)
   constants.update({k: None for _, k, v in scalar_args if v is None})
-  constants.update({fn.arg_names[i]: 1 for i in specialization_attr.equal_to_1})
+  constants.update({fn.arg_names[i]: 1 for i, _, v in scalar_args if v == 1})
+  for constant in constants:
+    signature[constant] = "constexpr"
 
   # Cache key should contain any parameter that can affect the compiler output.
   cache_key = (
       fn,
       tuple(signature.items()),
-      tuple(vars(specialization_attr).values()),
+      tuple(specialization),
       tuple(constants.items()),
       num_warps,
       num_stages,
@@ -402,7 +421,6 @@ def get_or_create_triton_kernel(
         "enable_fp_fusion": enable_fp_fusion,
     }
 
-    backend = backend_init_func(device, compute_capability)
     options = backend.parse_options(opts)
 
     kernel_hash = abs(hash(cache_key))
@@ -415,46 +433,22 @@ def get_or_create_triton_kernel(
     context = _triton.ir.context()
     _triton.ir.load_dialects(context)
     backend.load_dialects(context)
-    codegen_fns = backend.get_codegen_implementation()
+    codegen_fns = backend.get_codegen_implementation(options)
 
-    module = (
-        code_gen.ast_to_ttir(
-            fn,
-            specialization=tc.ASTSource(
-              fn,
-               constants=constants,
-               signature=signature,
-               attrs=specialization_attr,
-             ),
-            options=options,
-            codegen_fns=codegen_fns,
-            context=context,
-            module_map=backend.get_module_map(),
-        )
-        if "module_map" in inspect.getfullargspec(code_gen.ast_to_ttir).args
-        # Triton changes ASTSource.ast_to_ttir to include module_map. Handle
-        # backward compatibility here.
-        else code_gen.ast_to_ttir(
-            fn,
-            specialization=tc.ASTSource(
-              fn,
-               constants=constants,
-               signature=signature,
-               attrs=specialization_attr,
-             ),
-            options=options,
-            codegen_fns=codegen_fns,
-            context=context,
-        )
+    module = code_gen.ast_to_ttir(
+        fn,
+        tc.ASTSource(
+            fn, constexprs=constants, signature=signature, attrs=attrs
+        ),
+        options=options,
+        codegen_fns=codegen_fns,
+        context=context,
+        module_map=backend.get_module_map(),
     )
     ttir = str(module)
 
     compilation_result = compile_ttir_inplace(
-      module,
-      backend,
-      options,
-      compute_capability,
-      platform
+        module, backend, options, compute_capability, platform
     )
 
     kernel_name = compilation_result.name
@@ -466,7 +460,7 @@ def get_or_create_triton_kernel(
       with open(
           f"{_JAX_TRITON_DUMP_DIR}/{kernel_hash}/{kernel_name}.ptx", "w"
       ) as f:
-        f.write(compilation_result.ptx)
+        f.write(compilation_result.binary)
       with open(
           f"{_JAX_TRITON_DUMP_DIR}/{kernel_hash}/{kernel_name}.ttgir", "w"
       ) as f:
@@ -497,7 +491,7 @@ def get_or_create_triton_kernel(
 
     _COMPILED_KERNEL_CACHE[cache_key] = kernel
 
-  return kernel, specialization_attr
+  return kernel, attrs
 
 
 def triton_kernel_call_lowering(
@@ -521,11 +515,6 @@ def triton_kernel_call_lowering(
     serialized_metadata,
     **metaparams,
 ):
-  if jaxlib.version.__version_info__ < (0, 3, 22) and input_output_aliases:
-    raise NotImplementedError(
-        "`input_output_aliases` only supported on `jaxlib>=0.3.22"
-    )
-
   kernel_call_name = name
   args = list(ctx.avals_in)
   arg_dtypes = list(map(get_triton_type, ctx.avals_in))
@@ -640,15 +629,17 @@ def triton_kernel_call_lowering(
 
     kernel_params = []
     zeroed_params_with_sizes = dict(params["zeroed_params_with_sizes"])
+    equal_to_1 = {i for i, _, v in scalar_args if v == 1}
     for i, (arg, dtype) in enumerate(zip(args, arg_dtypes)):
       if isinstance(arg, core.ShapedArray):
+        arg_attrs = specialization_attr[(i,)]
         kernel_params.append(
             triton_kernel_call_lib.create_array_parameter(
                 zeroed_params_with_sizes.get(i, 0),
-                16 if (i in specialization_attr.divisible_by_16) else 0,
+                16 if (["tt.divisibility", 16] in arg_attrs) else 0,
             )
         )
-      elif i not in specialization_attr.equal_to_1:
+      elif i not in equal_to_1:
         kernel_params.append(
             triton_kernel_call_lib.create_scalar_parameter(arg, dtype)
         )
@@ -677,23 +668,14 @@ def triton_kernel_call_lowering(
   else:
     kernel_call = kernel_calls[0]
 
-  out_types = [
-      ir.RankedTensorType.get(shape.shape, mlir.dtype_to_ir_type(shape.dtype))
-      for shape in out_shapes
-  ]
-  if jaxlib.version.__version_info__ >= (0, 4, 15):
-    call_proto = kernel_call.to_proto(kernel_call_name, serialized_metadata)
-  else:
-    call_proto = kernel_call.to_proto(serialized_metadata)
-  return jaxlib.hlo_helpers.custom_call(
-      call_target_name=custom_call_target_name,
-      result_types=out_types,
-      operands=array_args,
+  call_proto = kernel_call.to_proto(kernel_call_name, serialized_metadata)
+  rule = jax.ffi.ffi_lowering(
+      custom_call_target_name,
+      api_version=2,
       backend_config=zlib.compress(call_proto),
-      operand_layouts=avals_to_layouts(ctx.avals_in),
-      result_layouts=avals_to_layouts(ctx.avals_out),
-      operand_output_aliases=dict(input_output_aliases),
-  ).results
+      operand_output_aliases=dict(input_output_aliases)
+  )
+  return rule(ctx, *array_args)
 
 mlir.register_lowering(
     triton_kernel_call_p,
@@ -706,6 +688,31 @@ mlir.register_lowering(
     functools.partial(triton_kernel_call_lowering, get_hip_backend),
     platform="rocm",
 )
+
+
+def triton_kernel_call_raise_on_jvp(*args, **kwargs):
+  del args, kwargs  # unused
+  raise NotImplementedError(
+      "jax_triton.triton_call does not support automatic differentiation. Use "
+      "jax.custom_jvp or jax.custom_vjp to implement a custom automatic "
+      "differentiation rule for your kernel."
+  )
+
+ad.primitive_jvps[triton_kernel_call_p] = triton_kernel_call_raise_on_jvp
+
+
+def triton_kernel_call_raise_on_vmap(*args, **kwargs):
+  del args, kwargs  # unused
+  raise NotImplementedError(
+      "jax_triton.triton_call does not support batching with jax.vmap. Use "
+      "jax.custom_batching.custom_vmap to implement a custom batching rule for "
+      "your kernel."
+  )
+
+batching.primitive_batchers[triton_kernel_call_p] = (
+    triton_kernel_call_raise_on_vmap
+)
+
 
 class ShapeDtype(Protocol):
 

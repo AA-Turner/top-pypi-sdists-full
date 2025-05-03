@@ -170,7 +170,7 @@ The bit-endianness of the bitarray is respected.
 
     res = int.from_bytes(__a.tobytes(), byteorder=__a.endian())
 
-    if signed and res >= 1 << (length - 1):
+    if signed and res >> length - 1:
         res -= 1 << length
     return res
 
@@ -189,27 +189,21 @@ and requires `length` to be provided.
         raise TypeError("int expected, got '%s'" % type(__i).__name__)
     if length is not None:
         if not isinstance(length, int):
-            raise TypeError("int expected for length")
+            raise TypeError("int expected for argument 'length'")
         if length <= 0:
             raise ValueError("length must be > 0")
-    if signed and length is None:
-        raise TypeError("signed requires length")
-
-    if __i == 0:
-        # there are special cases for 0 which we'd rather not deal with below
-        return zeros(length or 1, endian)
 
     if signed:
-        m = 1 << (length - 1)
+        if length is None:
+            raise TypeError("signed requires argument 'length'")
+        m = 1 << length - 1
         if not (-m <= __i < m):
             raise OverflowError("signed integer not in range(%d, %d), "
                                 "got %d" % (-m, m, __i))
         if __i < 0:
             __i += 1 << length
     else:  # unsigned
-        if __i < 0:
-            raise OverflowError("unsigned integer not positive, got %d" % __i)
-        if length and __i >= (1 << length):
+        if length and __i >> length:
             raise OverflowError("unsigned integer not in range(0, %d), "
                                 "got %d" % (1 << length, __i))
 
@@ -219,7 +213,7 @@ and requires `length` to be provided.
 
     le = bool(a.endian() == 'little')
     if length is None:
-        return strip(a, 'right' if le else 'left')
+        return strip(a, 'right' if le else 'left') if a else a + '0'
 
     if len(a) > length:
         return a[:length] if le else a[-length:]
@@ -241,9 +235,9 @@ and return its root node.
 
     class Node(object):
         """
-        A Node instance will either have a 'symbol' (leaf node) or
-        a 'child' (a tuple with both children) attribute.
-        The 'freq' attribute will always be present.
+        There are to tyes of Node instances (both have 'freq' attribute):
+          * leaf node: has 'symbol' attribute
+          * parent node: has 'child' attribute (tuple with both children)
         """
         def __lt__(self, other):
             # heapq needs to be able to compare the nodes
@@ -260,7 +254,7 @@ and return its root node.
     # repeat the process until only one node remains
     while len(minheap) > 1:
         # take the two nodes with lowest frequencies from the queue
-        # to construct a new node and push it onto the queue
+        # to construct a new parent node and push it onto the queue
         parent = Node()
         parent.child = heappop(minheap), heappop(minheap)
         parent.freq = parent.child[0].freq + parent.child[1].freq
@@ -276,13 +270,10 @@ def huffman_code(__freq_map, endian=None):
 Given a frequency map, a dictionary mapping symbols to their frequency,
 calculate the Huffman code, i.e. a dict mapping those symbols to
 bitarrays (with given bit-endianness).  Note that the symbols are not limited
-to being strings.  Symbols may be any hashable object (such as `None`).
+to being strings.  Symbols may be any hashable object.
 """
     if not isinstance(__freq_map, dict):
         raise TypeError("dict expected, got '%s'" % type(__freq_map).__name__)
-
-    b0 = bitarray('0', endian)
-    b1 = bitarray('1', endian)
 
     if len(__freq_map) < 2:
         if len(__freq_map) == 0:
@@ -293,16 +284,17 @@ to being strings.  Symbols may be any hashable object (such as `None`).
         # So we represent the symbol by a single code of length one, in
         # particular one 0 bit.  This is an incomplete code, since if a 1 bit
         # is received, it has no meaning and will result in an error.
-        return {list(__freq_map)[0]: b0}
+        sym = list(__freq_map)[0]
+        return {sym: bitarray('0', endian)}
 
     result = {}
 
     def traverse(nd, prefix=bitarray(0, endian)):
         try:                    # leaf
             result[nd.symbol] = prefix
-        except AttributeError:  # parent, so traverse each of the children
-            traverse(nd.child[0], prefix + b0)
-            traverse(nd.child[1], prefix + b1)
+        except AttributeError:  # parent, so traverse each child
+            traverse(nd.child[0], prefix + '0')
+            traverse(nd.child[1], prefix + '1')
 
     traverse(_huffman_tree(__freq_map))
     return result
@@ -337,18 +329,18 @@ Note: the two lists may be used as input for `canonical_decode()`.
         # now just simply record the length for reaching each symbol
         try:                    # leaf
             code_length[nd.symbol] = length
-        except AttributeError:  # parent, so traverse each of the children
+        except AttributeError:  # parent, so traverse each child
             traverse(nd.child[0], length + 1)
             traverse(nd.child[1], length + 1)
 
     traverse(_huffman_tree(__freq_map))
 
-    # we now have a mapping of symbols to their code length,
-    # which is all we need
+    # We now have a mapping of symbols to their code length, which is all we
+    # need to construct a list of tuples (symbol, code length) sorted by
+    # code length:
+    table = sorted(code_length.items(), key=lambda item: item[1])
 
-    table = sorted(code_length.items(), key=lambda item: (item[1], item[0]))
-
-    maxbits = max(item[1] for item in table)
+    maxbits = table[-1][1]
     codedict = {}
     count = (maxbits + 1) * [0]
 

@@ -300,6 +300,7 @@ class EventPatchArgs:
         pulumi.set(self, "type", value)
 
 
+@pulumi.type_token("kubernetes:core/v1:EventPatch")
 class EventPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

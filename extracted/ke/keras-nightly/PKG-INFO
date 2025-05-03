@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: keras-nightly
-Version: 3.10.0.dev2025050203
+Version: 3.10.0.dev2025050303
 Summary: Multi-backend Keras
 Author-email: Keras team <keras-users@googlegroups.com>
 License: Apache License 2.0

@@ -126,6 +126,7 @@ class RuntimeClassInitArgs:
         pulumi.set(self, "scheduling", value)
 
 
+@pulumi.type_token("kubernetes:node.k8s.io/v1:RuntimeClass")
 class RuntimeClass(pulumi.CustomResource):
     @overload
     def __init__(__self__,

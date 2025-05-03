@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD 2-Clause License
 #
 
+import argparse
 import os
 
 from dotenv import load_dotenv
@@ -13,6 +14,7 @@ from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
+from pipecat.processors.aggregators.llm_response import LLMUserAggregatorParams
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.services.groq.llm import GroqLLMService
 from pipecat.services.groq.stt import GroqSTTService
@@ -24,7 +26,7 @@ from pipecat.transports.network.webrtc_connection import SmallWebRTCConnection
 load_dotenv(override=True)
 
 
-async def run_bot(webrtc_connection: SmallWebRTCConnection):
+async def run_bot(webrtc_connection: SmallWebRTCConnection, _: argparse.Namespace):
     logger.info(f"Starting bot")
 
     transport = SmallWebRTCTransport(
@@ -32,15 +34,15 @@ async def run_bot(webrtc_connection: SmallWebRTCConnection):
         params=TransportParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
-            vad_enabled=True,
             vad_analyzer=SileroVADAnalyzer(),
-            vad_audio_passthrough=True,
         ),
     )
 
     stt = GroqSTTService(api_key=os.getenv("GROQ_API_KEY"))
 
-    llm = GroqLLMService(api_key=os.getenv("GROQ_API_KEY"), model="llama-3.3-70b-versatile")
+    llm = GroqLLMService(
+        api_key=os.getenv("GROQ_API_KEY"), model="meta-llama/llama-4-maverick-17b-128e-instruct"
+    )
 
     tts = GroqTTSService(api_key=os.getenv("GROQ_API_KEY"))
 
@@ -52,7 +54,9 @@ async def run_bot(webrtc_connection: SmallWebRTCConnection):
     ]
 
     context = OpenAILLMContext(messages)
-    context_aggregator = llm.create_context_aggregator(context)
+    context_aggregator = llm.create_context_aggregator(
+        context, user_params=LLMUserAggregatorParams(aggregation_timeout=0.05)
+    )
 
     pipeline = Pipeline(
         [

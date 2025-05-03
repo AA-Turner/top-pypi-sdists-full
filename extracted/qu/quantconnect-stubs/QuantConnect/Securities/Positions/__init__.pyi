@@ -711,6 +711,16 @@ class PositionGroupCollection(System.Object, typing.Sequence[QuantConnect.Securi
         """Gets whether or not this collection contains only default position groups"""
         ...
 
+    @property
+    def keys(self) -> typing.Sequence[QuantConnect.Securities.Positions.PositionGroupKey]:
+        """Gets the position groups keys in this collection"""
+        ...
+
+    @property
+    def values(self) -> typing.Sequence[QuantConnect.Securities.Positions.IPositionGroup]:
+        """Gets the position groups in this collection"""
+        ...
+
     def __getitem__(self, key: QuantConnect.Securities.Positions.PositionGroupKey) -> QuantConnect.Securities.Positions.IPositionGroup:
         """
         Gets the IPositionGroup matching the specified key. If one does not exist, then an empty
@@ -896,7 +906,7 @@ class IPositionGroupResolver(metaclass=abc.ABCMeta):
         ...
 
 
-class SecurityPositionGroupModel(System.Object):
+class SecurityPositionGroupModel(QuantConnect.ExtendedDictionary[QuantConnect.Securities.Positions.PositionGroupKey, QuantConnect.Securities.Positions.IPositionGroup]):
     """Responsible for managing the resolution of position groups for an algorithm"""
 
     NULL: QuantConnect.Securities.Positions.SecurityPositionGroupModel = ...
@@ -921,7 +931,37 @@ class SecurityPositionGroupModel(System.Object):
         """Gets whether or not the algorithm is using only default position groups"""
         ...
 
+    @property
+    def count(self) -> int:
+        """Gets the number of position groups in this collection"""
+        ...
+
+    @property
+    def get_keys(self) -> typing.Iterable[QuantConnect.Securities.Positions.PositionGroupKey]:
+        """
+        Gets all the available position group keys
+        
+        This property is protected.
+        """
+        ...
+
+    @property
+    def get_values(self) -> typing.Iterable[QuantConnect.Securities.Positions.IPositionGroup]:
+        """
+        Gets all the available position groups
+        
+        This property is protected.
+        """
+        ...
+
     def __getitem__(self, key: QuantConnect.Securities.Positions.PositionGroupKey) -> QuantConnect.Securities.Positions.IPositionGroup:
+        """
+        Gets the IPositionGroup matching the specified . If one is not found,
+        then a new empty position group is returned.
+        """
+        ...
+
+    def __setitem__(self, key: QuantConnect.Securities.Positions.PositionGroupKey, value: QuantConnect.Securities.Positions.IPositionGroup) -> None:
         """
         Gets the IPositionGroup matching the specified . If one is not found,
         then a new empty position group is returned.
@@ -938,6 +978,14 @@ class SecurityPositionGroupModel(System.Object):
         
         :param positions: The positions to be changed
         :returns: All position groups that need to be re-evaluated due to changes in the positions.
+        """
+        ...
+
+    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Securities.Positions.PositionGroupKey, QuantConnect.Securities.Positions.IPositionGroup]]:
+        """
+        Gets all the items in the dictionary
+        
+        :returns: All the items in the dictionary.
         """
         ...
 
@@ -979,6 +1027,16 @@ class SecurityPositionGroupModel(System.Object):
         :param orders: The order
         :param group: The resulting position group
         :returns: A new position group matching the provided order.
+        """
+        ...
+
+    def try_get_value(self, key: QuantConnect.Securities.Positions.PositionGroupKey, value: typing.Optional[QuantConnect.Securities.Positions.IPositionGroup]) -> typing.Tuple[bool, QuantConnect.Securities.Positions.IPositionGroup]:
+        """
+        Tries to get the position group matching the specified key
+        
+        :param key: The key to search for
+        :param value: The position group matching the specified key
+        :returns: True if a group with the specified key was found, false otherwise.
         """
         ...
 

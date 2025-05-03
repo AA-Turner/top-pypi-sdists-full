@@ -94,6 +94,7 @@ class DirectoryArgs:
         pulumi.set(self, "skip_await", value)
 
 
+@pulumi.type_token("kubernetes:kustomize/v2:Directory")
 class Directory(pulumi.ComponentResource):
     @overload
     def __init__(__self__,

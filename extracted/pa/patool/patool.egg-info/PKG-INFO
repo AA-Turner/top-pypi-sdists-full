@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: patool
-Version: 4.0.0
+Version: 4.0.1
 Summary: portable archive file manager
 Home-page: https://github.com/wummel/patool
 Author: Bastian Kleineidam
@@ -21,7 +21,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Provides-Extra: argcompletion
-Requires-Dist: argcomplete==3.5.3; extra == "argcompletion"
+Requires-Dist: argcomplete==3.6.2; extra == "argcompletion"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

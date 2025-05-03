@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Hashable
 from io import BytesIO
-from typing import Hashable, Type, cast
+from typing import cast
 
 from coredis._protocols import ConnectionP
 from coredis._utils import b
@@ -34,18 +35,11 @@ from coredis.exceptions import (
     WrongTypeError,
 )
 from coredis.typing import (
-    Dict,
     Final,
-    FrozenSet,
-    List,
     MutableSet,
     NamedTuple,
-    Optional,
     ResponsePrimitive,
     ResponseType,
-    Set,
-    Tuple,
-    Union,
 )
 
 
@@ -59,20 +53,14 @@ NOT_ENOUGH_DATA: Final[NotEnoughData] = NotEnoughData()
 class RESPNode:
     __slots__ = ("depth", "key", "node_type")
     depth: int
-    key: Union[
-        ResponsePrimitive, Tuple[ResponsePrimitive, ...], FrozenSet[ResponsePrimitive]
-    ]
+    key: ResponsePrimitive | tuple[ResponsePrimitive, ...] | frozenset[ResponsePrimitive]
     node_type: int
 
     def __init__(
         self,
         depth: int,
         node_type: int,
-        key: Union[
-            ResponsePrimitive,
-            Tuple[ResponsePrimitive, ...],
-            FrozenSet[ResponsePrimitive],
-        ],
+        key: (ResponsePrimitive | tuple[ResponsePrimitive, ...] | frozenset[ResponsePrimitive]),
     ):
         self.depth = depth
         self.node_type = node_type
@@ -90,8 +78,7 @@ class RESPNode:
             return tuple(self.ensure_hashable(i) for i in item)
         elif isinstance(item, dict):
             return tuple(
-                (cast(ResponsePrimitive, k), self.ensure_hashable(v))
-                for k, v in item.items()
+                (cast(ResponsePrimitive, k), self.ensure_hashable(v)) for k, v in item.items()
             )
         return item  # noqa
 
@@ -100,7 +87,7 @@ class ListNode(RESPNode):
     __slots__ = ("container",)
 
     def __init__(self, depth: int, node_type: int) -> None:
-        self.container: List[ResponseType] = []
+        self.container: list[ResponseType] = []
         super().__init__(depth, node_type, None)
 
     def append(self, item: ResponseType) -> None:
@@ -112,12 +99,8 @@ class DictNode(RESPNode):
     __slots__ = ("container",)
 
     def __init__(self, depth: int) -> None:
-        self.container: Dict[
-            Union[
-                ResponsePrimitive,
-                Tuple[ResponsePrimitive, ...],
-                FrozenSet[ResponsePrimitive],
-            ],
+        self.container: dict[
+            (ResponsePrimitive | tuple[ResponsePrimitive, ...] | frozenset[ResponsePrimitive]),
             ResponseType,
         ] = {}
         super().__init__(depth * 2, RESPDataType.MAP, None)
@@ -126,11 +109,7 @@ class DictNode(RESPNode):
         self.depth -= 1
         if not self.key:
             self.key = cast(
-                Union[
-                    ResponsePrimitive,
-                    Tuple[ResponsePrimitive, ...],
-                    FrozenSet[ResponsePrimitive],
-                ],
+                ResponsePrimitive | tuple[ResponsePrimitive, ...] | frozenset[ResponsePrimitive],
                 self.ensure_hashable(item),
             )
         else:
@@ -143,11 +122,7 @@ class SetNode(RESPNode):
 
     def __init__(self, depth: int) -> None:
         self.container: MutableSet[
-            Union[
-                ResponsePrimitive,
-                Tuple[ResponsePrimitive, ...],
-                FrozenSet[ResponsePrimitive],
-            ]
+            (ResponsePrimitive | tuple[ResponsePrimitive, ...] | frozenset[ResponsePrimitive])
         ] = set()
         super().__init__(depth, RESPDataType.SET, None)
 
@@ -158,11 +133,7 @@ class SetNode(RESPNode):
         self.depth -= 1
         self.container.add(
             cast(
-                Union[
-                    ResponsePrimitive,
-                    Tuple[ResponsePrimitive, ...],
-                    FrozenSet[ResponsePrimitive],
-                ],
+                ResponsePrimitive | tuple[ResponsePrimitive, ...] | frozenset[ResponsePrimitive],
                 self.ensure_hashable(item),
             )
         )
@@ -178,9 +149,7 @@ class Parser:
     Interface between a connection and Unpacker
     """
 
-    EXCEPTION_CLASSES: Dict[
-        str, Union[Type[RedisError], Dict[str, Type[RedisError]]]
-    ] = {
+    EXCEPTION_CLASSES: dict[str, type[RedisError] | dict[str, type[RedisError]]] = {
         "ASK": AskError,
         "BUSYGROUP": StreamDuplicateConsumerGroupError,
         "CLUSTERDOWN": ClusterDownError,
@@ -209,11 +178,11 @@ class Parser:
     }
 
     def __init__(self) -> None:
-        self.push_messages: Optional[asyncio.Queue[ResponseType]] = None
+        self.push_messages: asyncio.Queue[ResponseType] | None = None
         self.localbuffer: BytesIO = BytesIO(b"")
         self.bytes_read: int = 0
         self.bytes_written: int = 0
-        self.nodes: List[Union[ListNode, SetNode, DictNode]] = []
+        self.nodes: list[ListNode | SetNode | DictNode] = []
 
     def feed(self, data: bytes) -> None:
         self.localbuffer.seek(self.bytes_written)
@@ -235,7 +204,7 @@ class Parser:
     def can_read(self) -> bool:
         return (self.bytes_written - self.bytes_read) > 0
 
-    def try_decode(self, data: bytes, encoding: str) -> Union[bytes, str]:
+    def try_decode(self, data: bytes, encoding: str) -> bytes | str:
         try:
             return data.decode(encoding)
         except ValueError:
@@ -244,9 +213,9 @@ class Parser:
     def get_response(
         self,
         decode: bool,
-        encoding: Optional[str] = None,
-        push_message_types: Optional[Set[bytes]] = None,
-    ) -> Union[NotEnoughData, ResponseType]:
+        encoding: str | None = None,
+        push_message_types: set[bytes] | None = None,
+    ) -> NotEnoughData | ResponseType:
         """
 
         :param decode: Whether to decode simple or bulk strings
@@ -266,10 +235,7 @@ class Parser:
                 if response and response.response_type == RESPDataType.PUSH:
                     assert isinstance(response.response, list)
                     assert self.push_messages
-                    if (
-                        not push_message_types
-                        or b(response.response[0]) not in push_message_types
-                    ):
+                    if not push_message_types or b(response.response[0]) not in push_message_types:
                         self.push_messages.put_nowait(response.response)
                         continue
                     else:
@@ -281,9 +247,9 @@ class Parser:
     def parse(
         self,
         decode_bytes: bool,
-        encoding: Optional[str],
-    ) -> Union[Optional[UnpackedResponse], NotEnoughData]:
-        parsed: Optional[UnpackedResponse] = None
+        encoding: str | None,
+    ) -> UnpackedResponse | None | NotEnoughData:
+        parsed: UnpackedResponse | None = None
 
         while True:
             data = self.localbuffer.readline()
@@ -343,9 +309,7 @@ class Parser:
             elif marker == RESPDataType.ERROR:
                 response = cast(ResponseType, self.parse_error(bytes(chunk).decode()))
             else:
-                raise InvalidResponse(
-                    f"Protocol Error: {chr(marker)}, {bytes(chunk)!r}"
-                )
+                raise InvalidResponse(f"Protocol Error: {chr(marker)}, {bytes(chunk)!r}")
 
             if self.nodes:
                 if self.nodes[-1].depth > 0:

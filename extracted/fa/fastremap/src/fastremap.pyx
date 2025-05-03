@@ -12,7 +12,7 @@ constrained environments when format shifting.
 
 Author: William Silversmith
 Affiliation: Seung Lab, Princeton Neuroscience Institute
-Date: August 2018 - May 2022
+Date: August 2018 - May 2025
 """
 from typing import Sequence, List
 cimport cython
@@ -100,6 +100,23 @@ def match_array_orders(*arrs, order="K"):
     return [ np.ascontiguousarray(arr) for arr in arrs ]
   else:
     return [ np.asfortranarray(arr) for arr in arrs ]
+
+@cython.boundscheck(False)
+@cython.wraparound(False)  # turn off negative index wrapping for entire function
+@cython.nonecheck(False)
+def indices(cnp.ndarray[NUMBER, cast=True, ndim=1] arr, NUMBER value):
+  """
+  Search through an array and identify the indices where value matches the array.
+  """
+  cdef vector[uint64_t] all_indices
+  cdef uint64_t i = 0
+  cdef uint64_t size = arr.size
+
+  for i in range(size):
+    if arr[i] == value:
+      all_indices.push_back(i)
+
+  return np.asarray(all_indices, dtype=np.uint64)
 
 def renumber(arr, start=1, preserve_zero=True, in_place=False):
   """
@@ -338,6 +355,83 @@ def fit_dtype(dtype, value, exotics=False):
   raise ValueError("Unable to find a compatible dtype for {} that can fit {}".format(
     dtype, value
   ))
+
+def widen_dtype(dtype, exotics:bool = False):
+  """
+  Widen the given dtype to the next size
+  of the same type. For example, 
+  int8 -> int16 or uint32 -> uint64
+
+  64-bit types will map to themselves.
+
+  Return: upgraded dtype
+  """
+  dtype = np.dtype(dtype)
+
+  if np.issubdtype(dtype, np.floating):
+    sequence = [ np.float16, np.float32, np.float64 ] 
+    if exotics:
+      sequence += [ np.longdouble ]
+  elif np.issubdtype(dtype, np.unsignedinteger):
+    sequence = [ np.uint8, np.uint16, np.uint32, np.uint64 ]
+  elif np.issubdtype(dtype, np.complexfloating):
+    sequence = [ np.complex64 ]
+    if exotics:
+      sequence += [ np.complex128, np.clongdouble ]
+  elif np.issubdtype(dtype, np.integer):
+    sequence = [ np.int8, np.int16, np.int32, np.int64 ]
+  elif np.issubdtype(dtype, (np.intp, np.uintp)):
+    return dtype
+  elif exotics:
+    raise ValueError(
+      f"Unsupported dtype: {dtype}\n"
+    )    
+  else:
+    raise ValueError(
+      f"Unsupported dtype: {dtype}\n"
+      f"Only standard floats, integers, and complex types are supported."
+      f"For additional types (e.g. long double, complex128, clongdouble), enable exotics."
+    )
+
+  idx = sequence.index(dtype)
+  return sequence[min(idx+1, len(sequence) - 1)]
+
+def narrow_dtype(dtype, exotics:bool = False):
+  """
+  Widen the given dtype to the next size
+  of the same type. For example, 
+  int16 -> int8 or uint64 -> uint32
+
+  8-bit types will map to themselves.
+
+  exotics: include float16
+
+  Return: upgraded dtype
+  """
+  dtype = np.dtype(dtype)
+  if dtype.itemsize == 1:
+    return dtype
+
+  if np.issubdtype(dtype, np.floating):
+    sequence = [ np.float32, np.float64, np.longdouble ] 
+    if exotics:
+      sequence = [ np.float16 ] + sequence
+  elif np.issubdtype(dtype, np.unsignedinteger):
+    sequence = [ np.uint8, np.uint16, np.uint32, np.uint64 ]
+  elif np.issubdtype(dtype, np.complexfloating):
+    sequence = [ np.complex64, np.complex128, np.clongdouble ]
+  elif np.issubdtype(dtype, np.integer):
+    sequence = [ np.int8, np.int16, np.int32, np.int64 ]
+  elif np.issubdtype(dtype, (np.intp, np.uintp)):
+    return dtype
+  else:
+    raise ValueError(
+      f"Unsupported dtype: {dtype}\n"
+      f"Only standard floats, integers, and complex types are supported."
+    )
+
+  idx = sequence.index(dtype)
+  return sequence[max(idx-1, 0)]
 
 def mask(arr, labels, in_place=False, value=0):
   """
@@ -777,19 +871,24 @@ def unique(labels, return_index=False, return_inverse=False, return_counts=False
   if not isinstance(labels, np.ndarray):
     labels = np.array(labels)
 
-  if not np.issubdtype(labels.dtype, np.integer):
-    raise TypeError("fastremap.unique only supports integer types.")
-
   # These flags are currently unsupported so call uncle and
   # use the standard implementation instead.
-  if axis is not None:
-    return np.unique(
-      labels, 
-      return_index=return_index, 
-      return_inverse=return_inverse, 
-      return_counts=return_counts, 
-      axis=axis
-    )
+  if (axis is not None) or (not np.issubdtype(labels.dtype, np.integer)):
+    if (
+      axis == 0
+      and (labels.ndim == 2 and np.dtype(labels.dtype).itemsize < 8)
+      and not (return_index or return_inverse or return_counts)
+      and labels.flags.c_contiguous
+    ):
+      return two_axis_unique(labels)
+    else:
+      return np.unique(
+        labels, 
+        return_index=return_index, 
+        return_inverse=return_inverse, 
+        return_counts=return_counts, 
+        axis=axis
+      )
 
   cdef size_t voxels = labels.size
 
@@ -799,12 +898,10 @@ def unique(labels, return_index=False, return_inverse=False, return_counts=False
   labels_orig = labels
   labels = reshape(labels, (voxels,))
 
-  cdef int64_t max_label
-  cdef int64_t min_label
+  max_label = 0
+  min_label = 0
   if voxels > 0:
     min_label, max_label = minmax(labels)
-  else:
-    min_label, max_label = (0, 0)
 
   def c_order_index(arr):
     if len(shape) > 1 and fortran_order:
@@ -819,9 +916,9 @@ def unique(labels, return_index=False, return_inverse=False, return_counts=False
     counts = np.array([], dtype=np.uint32)
     index = np.array([], dtype=np.uint64)
     inverse = np.array([], dtype=np.uintp)
-  elif min_label >= 0 and max_label < <int64_t>voxels:
+  elif min_label >= 0 and max_label < int(voxels):
     uniq, index, counts, inverse = unique_via_array(labels, max_label, return_index=return_index, return_inverse=return_inverse)
-  elif (max_label - min_label) <= <int64_t>voxels:
+  elif (max_label - min_label) <= int(voxels):
     uniq, index, counts, inverse = unique_via_shifted_array(labels, min_label, max_label, return_index=return_index, return_inverse=return_inverse)
   elif float(pixel_pairs(labels)) / float(voxels) > 0.66:
     uniq, index, counts, inverse = unique_via_renumber(labels, return_index=return_index, return_inverse=return_inverse)
@@ -844,6 +941,23 @@ def unique(labels, return_index=False, return_inverse=False, return_counts=False
   if len(results) > 1:
     return tuple(results)
   return uniq
+
+def two_axis_unique(labels):
+  """
+  Faster replacement for np.unique(labels, axis=0)
+  when ndim = 2 and the dtype can be widened.
+
+  This special case is useful for sorting edge lists.
+  """
+  dtype = labels.dtype
+  wide_dtype = widen_dtype(dtype)
+
+  labels = labels[:, [1,0]].reshape(-1, order="C")
+  labels = labels.view(wide_dtype)
+  labels = unique(labels)
+  N = len(labels)
+  labels = labels.view(dtype).reshape((N, 2), order="C")
+  return labels[:,[1,0]]
 
 def unique_via_shifted_array(labels, min_label=None, max_label=None, return_index=False, return_inverse=False):
   if min_label is None or max_label is None:
@@ -895,9 +1009,10 @@ def unique_via_sort(cnp.ndarray[ALLINT, ndim=1] labels):
   uniq.push_back(cur)
   counts.push_back(accum)
 
+  dtype = labels.dtype
   del labels
 
-  return np.array(uniq), np.array(counts)
+  return np.array(uniq, dtype=dtype), np.array(counts, dtype=np.uint64)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)  # turn off negative index wrapping for entire function

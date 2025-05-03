@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sqlean.py
-Version: 3.47.0
+Version: 3.49.1
 Summary: sqlite3 with extensions
 Home-page: https://github.com/nalgeon/sqlean.py
 Author: Anton Zhiyanov
@@ -17,7 +17,18 @@ Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Topic :: Database :: Database Engines/Servers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: platform
+Dynamic: requires-python
+Dynamic: summary
 
 # sqlean.py
 
@@ -140,6 +151,6 @@ python -m pip wheel . -w dist
 
 Based on the [pysqlite3](https://github.com/coleifer/pysqlite3) project. Available under the [Zlib license](LICENSE).
 
-## Stay tuned
+## Support
 
-[**Subscribe**](https://antonz.org/subscribe/) to stay on top of new features 🚀
+The package is provided as-is, and I don't currently plan to change anything except to update the SQLite version from time to time.

@@ -138,6 +138,7 @@ class SecretPatchArgs:
         pulumi.set(self, "type", value)
 
 
+@pulumi.type_token("kubernetes:core/v1:SecretPatch")
 class SecretPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

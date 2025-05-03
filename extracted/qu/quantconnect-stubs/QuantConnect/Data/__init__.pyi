@@ -846,7 +846,7 @@ class BaseData(System.Object, QuantConnect.Data.IBaseData, metaclass=abc.ABCMeta
         ...
 
 
-class Slice(QuantConnect.ExtendedDictionary[typing.Any], typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.BaseData]]):
+class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Data.BaseData]]):
     """Provides a data structure for all of an algorithm's data at a single time step"""
 
     @property
@@ -1090,6 +1090,14 @@ class Slice(QuantConnect.ExtendedDictionary[typing.Any], typing.Iterable[System.
         Returns an enumerator that iterates through the collection.
         
         :returns: A System.Collections.Generic.IEnumerator`1 that can be used to iterate through the collection.
+        """
+        ...
+
+    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, typing.Any]]:
+        """
+        Gets all the items in the dictionary
+        
+        :returns: All the items in the dictionary.
         """
         ...
 

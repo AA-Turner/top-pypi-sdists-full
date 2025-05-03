@@ -275,15 +275,36 @@ async def worker(
         # let it bubble up and rollback db transaction, thus marking the run
         # as available to be picked up by another worker
 
-    return {
-        "checkpoint": checkpoint,
-        "status": status,
-        "run_started_at": run_started_at.isoformat(),
-        "run_ended_at": run_ended_at,
-        "run": run,
-        "exception": exception,
-        "webhook": webhook,
-    }
+    # If a stateful run succeeded but no checkoint was returned, it's likely because
+    # there was a retriable exception that resumed right at the end
+    if checkpoint is None and (not temporary) and webhook and status == "success":
+        await logger.ainfo(
+            "Fetching missing checkpoint for webhook",
+            run_id=str(run_id),
+            run_attempt=attempt,
+        )
+        try:
+            state_snapshot = await Threads.State.get(
+                conn, run["kwargs"]["config"], subgraphs=True
+            )
+            checkpoint = {"values": state_snapshot.values}
+        except Exception:
+            await logger.aerror(
+                "Failed to fetch missing checkpoint for webhook. Continuing...",
+                exc_info=True,
+                run_id=str(run_id),
+                run_attempt=attempt,
+            )
+
+    return WorkerResult(
+        checkpoint=checkpoint,
+        status=status,
+        exception=exception,
+        run=run,
+        webhook=webhook,
+        run_started_at=run_started_at.isoformat(),
+        run_ended_at=run_ended_at,
+    )
 
 
 def ms(after: datetime, before: datetime) -> int:

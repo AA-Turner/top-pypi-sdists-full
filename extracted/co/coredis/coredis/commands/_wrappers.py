@@ -19,13 +19,10 @@ from coredis.typing import (
     AsyncIterator,
     Callable,
     Coroutine,
-    Dict,
     NamedTuple,
-    Optional,
     P,
     R,
     ResponseType,
-    Set,
     add_runtime_checks,
 )
 
@@ -46,15 +43,15 @@ class RedirectUsage(NamedTuple):
 @dataclasses.dataclass
 class CommandDetails:
     command: bytes
-    group: Optional[CommandGroup]
-    version_introduced: Optional[version.Version]
-    version_deprecated: Optional[version.Version]
-    _arguments: Optional[Dict[str, Dict[str, str]]]
+    group: CommandGroup | None
+    version_introduced: version.Version | None
+    version_deprecated: version.Version | None
+    _arguments: dict[str, dict[str, str]] | None
     cluster: ClusterCommandConfig
-    cache_config: Optional[CacheConfig]
-    flags: Set[CommandFlag]
-    redirect_usage: Optional[RedirectUsage]
-    arguments: Dict[str, version.Version] = dataclasses.field(
+    cache_config: CacheConfig | None
+    flags: set[CommandFlag]
+    redirect_usage: RedirectUsage | None
+    arguments: dict[str, version.Version] = dataclasses.field(
         init=False, default_factory=lambda: {}
     )
 
@@ -69,9 +66,9 @@ class CommandDetails:
 @dataclasses.dataclass
 class ClusterCommandConfig:
     enabled: bool = True
-    combine: Optional[ClusterMultiNodeCallback] = None  # type: ignore
-    route: Optional[NodeFlag] = None
-    split: Optional[NodeFlag] = None
+    combine: ClusterMultiNodeCallback | None = None  # type: ignore
+    route: NodeFlag | None = None
+    split: NodeFlag | None = None
 
     @property
     def multi_node(self) -> bool:
@@ -85,7 +82,7 @@ class ClusterCommandConfig:
 @dataclasses.dataclass
 class CommandCache:
     command: bytes
-    cache_config: Optional[CacheConfig]
+    cache_config: CacheConfig | None
 
     @contextlib.asynccontextmanager
     async def __call__(
@@ -114,12 +111,15 @@ class CommandCache:
                     cached = cast(
                         R,
                         cache.get(
-                            self.command, key, *args[1:], *kwargs.items()  # type: ignore
+                            self.command,
+                            key,
+                            *args[1:],  # type: ignore
+                            *kwargs.items(),  # type: ignore
                         ),
                     )
-                    if isinstance(
-                        cache, SupportsSampling
-                    ) and not random.random() * 100.0 < min(100.0, cache.confidence):
+                    if isinstance(cache, SupportsSampling) and not random.random() * 100.0 < min(
+                        100.0, cache.confidence
+                    ):
                         actual = await func(*args, **kwargs)
                         cache.feedback(
                             self.command,
@@ -145,27 +145,23 @@ class CommandCache:
 
 def redis_command(
     command_name: CommandName,
-    group: Optional[CommandGroup] = None,
-    version_introduced: Optional[str] = None,
-    version_deprecated: Optional[str] = None,
-    deprecation_reason: Optional[str] = None,
-    redirect_usage: Optional[RedirectUsage] = None,
-    arguments: Optional[Dict[str, Dict[str, str]]] = None,
-    flags: Optional[Set[CommandFlag]] = None,
+    group: CommandGroup | None = None,
+    version_introduced: str | None = None,
+    version_deprecated: str | None = None,
+    deprecation_reason: str | None = None,
+    redirect_usage: RedirectUsage | None = None,
+    arguments: dict[str, dict[str, str]] | None = None,
+    flags: set[CommandFlag] | None = None,
     cluster: ClusterCommandConfig = ClusterCommandConfig(),
-    cache_config: Optional[CacheConfig] = None,
-) -> Callable[
-    [Callable[P, Coroutine[Any, Any, R]]], Callable[P, Coroutine[Any, Any, R]]
-]:
+    cache_config: CacheConfig | None = None,
+) -> Callable[[Callable[P, Coroutine[Any, Any, R]]], Callable[P, Coroutine[Any, Any, R]]]:
     readonly = False
     if flags and CommandFlag.READONLY in flags:
         READONLY_COMMANDS.add(command_name)
         readonly = True
 
     if not readonly and cache_config:  # noqa
-        raise RuntimeError(
-            f"Can't decorate non readonly command {command_name} with cache config"
-        )
+        raise RuntimeError(f"Can't decorate non readonly command {command_name} with cache config")
 
     COMMAND_FLAGS[command_name] = flags or set()
 
@@ -193,9 +189,7 @@ def redis_command(
 
             client = args[0]
             is_regular_client = isinstance(client, (Redis, RedisCluster))
-            runtime_checking = (
-                not getattr(client, "noreply", None) and is_regular_client
-            )
+            runtime_checking = not getattr(client, "noreply", None) and is_regular_client
             if redirect_usage and is_regular_client:
                 if redirect_usage.warn:
                     warnings.warn(redirect_usage.reason, UserWarning, stacklevel=2)
@@ -250,9 +244,7 @@ Compatibility:
             if redirect_usage.warn:
                 preamble = f".. warning:: Using ``{func.__name__}`` directly is not recommended."
             else:
-                preamble = (
-                    f".. danger:: Using ``{func.__name__}`` directly is not supported."
-                )
+                preamble = f".. danger:: Using ``{func.__name__}`` directly is not supported."
             wrapped.__doc__ += f"""
 {preamble} {redirect_usage.reason}
 """

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autogen-core
-Version: 0.5.5
+Version: 0.5.6
 Summary: Foundational interfaces and agent runtime implementation for AutoGen
 License:     MIT License
         

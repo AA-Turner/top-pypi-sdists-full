@@ -24,6 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: Unix",
@@ -68,6 +69,8 @@ dev-dependencies = [
     "twine==6.1.0",
     "tomli-w>=1.0.0",
     "tomli>=2.0.1",
+    "tqdm>=4.67.1",
+    "dacite>=1.9.2",
 ]
 
 [tool.hatch.version]

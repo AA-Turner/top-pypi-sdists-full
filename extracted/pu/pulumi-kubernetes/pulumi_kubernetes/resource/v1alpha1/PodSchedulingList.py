@@ -91,6 +91,7 @@ class PodSchedulingListArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:resource.k8s.io/v1alpha1:PodSchedulingList")
 class PodSchedulingList(pulumi.CustomResource):
     @overload
     def __init__(__self__,

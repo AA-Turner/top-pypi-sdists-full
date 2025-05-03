@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: BSD 2-Clause License
 #
 
+import argparse
 import os
 
 from dotenv import load_dotenv
@@ -15,8 +16,12 @@ from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.aggregators.openai_llm_context import OpenAILLMContext
 from pipecat.services.nim.llm import NimLLMService
-from pipecat.services.riva.stt import ParakeetSTTService
-from pipecat.services.riva.tts import FastPitchTTSService
+from pipecat.services.riva.stt import (
+    ParakeetSTTService,
+    RivaSegmentedSTTService,
+    RivaSTTService,
+)
+from pipecat.services.riva.tts import FastPitchTTSService, RivaTTSService
 from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.network.small_webrtc import SmallWebRTCTransport
 from pipecat.transports.network.webrtc_connection import SmallWebRTCConnection
@@ -24,7 +29,7 @@ from pipecat.transports.network.webrtc_connection import SmallWebRTCConnection
 load_dotenv(override=True)
 
 
-async def run_bot(webrtc_connection: SmallWebRTCConnection):
+async def run_bot(webrtc_connection: SmallWebRTCConnection, _: argparse.Namespace):
     logger.info(f"Starting bot")
 
     transport = SmallWebRTCTransport(
@@ -32,17 +37,15 @@ async def run_bot(webrtc_connection: SmallWebRTCConnection):
         params=TransportParams(
             audio_in_enabled=True,
             audio_out_enabled=True,
-            vad_enabled=True,
             vad_analyzer=SileroVADAnalyzer(),
-            vad_audio_passthrough=True,
         ),
     )
 
-    stt = ParakeetSTTService(api_key=os.getenv("NVIDIA_API_KEY"))
+    stt = RivaSTTService(api_key=os.getenv("NVIDIA_API_KEY"))
 
     llm = NimLLMService(api_key=os.getenv("NVIDIA_API_KEY"), model="meta/llama-3.1-405b-instruct")
 
-    tts = FastPitchTTSService(api_key=os.getenv("NVIDIA_API_KEY"))
+    tts = RivaTTSService(api_key=os.getenv("NVIDIA_API_KEY"))
 
     messages = [
         {

@@ -92,6 +92,7 @@ class PersistentVolumeClaimInitArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:core/v1:PersistentVolumeClaim")
 class PersistentVolumeClaim(pulumi.CustomResource):
     @overload
     def __init__(__self__,

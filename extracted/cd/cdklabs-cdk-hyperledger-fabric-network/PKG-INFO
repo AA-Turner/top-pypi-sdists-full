@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdklabs.cdk-hyperledger-fabric-network
-Version: 0.8.861
+Version: 0.8.862
 Summary: CDK construct to deploy a Hyperledger Fabric network running on Amazon Managed Blockchain
 Home-page: https://github.com/cdklabs/cdk-hyperledger-fabric-network.git
 Author: Amazon Web Services

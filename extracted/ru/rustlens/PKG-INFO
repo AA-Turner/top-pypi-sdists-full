@@ -1,11 +1,13 @@
 Metadata-Version: 2.4
 Name: rustlens
-Version: 0.4.3
+Version: 0.4.4
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://github.com/COBALT-lensing/rustlens
+Project-URL: Issues, https://github.com/COBALT-lensing/rustlens/issues
 
 # rustlens
 

@@ -101,6 +101,7 @@ class DeviceClassPatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:resource.k8s.io/v1alpha3:DeviceClassPatch")
 class DeviceClassPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,
@@ -182,7 +183,7 @@ class DeviceClassPatch(pulumi.CustomResource):
             __props__.__dict__["kind"] = 'DeviceClass'
             __props__.__dict__["metadata"] = metadata
             __props__.__dict__["spec"] = spec
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta1:DeviceClassPatch")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta1:DeviceClassPatch"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta2:DeviceClassPatch")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(DeviceClassPatch, __self__).__init__(
             'kubernetes:resource.k8s.io/v1alpha3:DeviceClassPatch',

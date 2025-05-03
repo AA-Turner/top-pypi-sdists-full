@@ -15,12 +15,8 @@ from coredis.response._callbacks.sentinel import (
 )
 from coredis.typing import (
     AnyStr,
-    Dict,
-    Optional,
     ResponseType,
     StringT,
-    Tuple,
-    Union,
     ValueT,
 )
 
@@ -41,7 +37,7 @@ class SentinelCommands(CommandMixin[AnyStr]):
         )
 
     @redis_command(CommandName.SENTINEL_CONFIG_GET, version_introduced="6.2.0")
-    async def sentinel_config_get(self, name: ValueT) -> Dict[AnyStr, AnyStr]:
+    async def sentinel_config_get(self, name: ValueT) -> dict[AnyStr, AnyStr]:
         """
         Get the current value of a global Sentinel configuration parameter.
         The specified name may be a wildcard, similar to :meth:`config_get`
@@ -69,7 +65,7 @@ class SentinelCommands(CommandMixin[AnyStr]):
     )
     async def sentinel_get_master_addr_by_name(
         self, service_name: StringT
-    ) -> Optional[Tuple[str, int]]:
+    ) -> tuple[str, int] | None:
         """
         Returns a (host, port) pair for the given :paramref:`service_name`
         """
@@ -104,7 +100,7 @@ class SentinelCommands(CommandMixin[AnyStr]):
     @redis_command(CommandName.SENTINEL_INFO_CACHE)
     async def sentinel_infocache(
         self, *nodenames: StringT
-    ) -> Dict[AnyStr, Dict[int, Dict[str, ResponseType]]]:
+    ) -> dict[AnyStr, dict[int, dict[str, ResponseType]]]:
         """
         Return cached INFO output from masters and replicas.
         """
@@ -117,9 +113,7 @@ class SentinelCommands(CommandMixin[AnyStr]):
     @redis_command(
         CommandName.SENTINEL_MASTER,
     )
-    async def sentinel_master(
-        self, service_name: StringT
-    ) -> Dict[str, Union[int, bool, str]]:
+    async def sentinel_master(self, service_name: StringT) -> dict[str, int | bool | str]:
         """Returns a dictionary containing the specified masters state."""
 
         return await self.execute_command(
@@ -129,7 +123,7 @@ class SentinelCommands(CommandMixin[AnyStr]):
     @redis_command(
         CommandName.SENTINEL_MASTERS,
     )
-    async def sentinel_masters(self) -> Dict[str, Dict[str, Union[int, bool, str]]]:
+    async def sentinel_masters(self) -> dict[str, dict[str, int | bool | str]]:
         """Returns a list of dictionaries containing each master's state."""
 
         return await self.execute_command(
@@ -139,9 +133,7 @@ class SentinelCommands(CommandMixin[AnyStr]):
     @redis_command(
         CommandName.SENTINEL_MONITOR,
     )
-    async def sentinel_monitor(
-        self, name: ValueT, ip: ValueT, port: int, quorum: int
-    ) -> bool:
+    async def sentinel_monitor(self, name: ValueT, ip: ValueT, port: int, quorum: int) -> bool:
         """Adds a new master to Sentinel to be monitored"""
 
         return await self.execute_command(
@@ -176,7 +168,7 @@ class SentinelCommands(CommandMixin[AnyStr]):
     )
     async def sentinel_sentinels(
         self, service_name: StringT
-    ) -> Tuple[Dict[str, Union[int, bool, str]], ...]:
+    ) -> tuple[dict[str, int | bool | str], ...]:
         """Returns a list of sentinels for :paramref:`service_name`"""
 
         return await self.execute_command(
@@ -204,7 +196,7 @@ class SentinelCommands(CommandMixin[AnyStr]):
     )
     async def sentinel_slaves(
         self, service_name: StringT
-    ) -> Tuple[Dict[str, Union[int, bool, str]], ...]:
+    ) -> tuple[dict[str, int | bool | str], ...]:
         """Returns a list of slaves for paramref:`service_name`"""
 
         return await self.execute_command(
@@ -216,7 +208,7 @@ class SentinelCommands(CommandMixin[AnyStr]):
     )
     async def sentinel_replicas(
         self, service_name: StringT
-    ) -> Tuple[Dict[str, Union[int, bool, str]], ...]:
+    ) -> tuple[dict[str, int | bool | str], ...]:
         """Returns a list of replicas for :paramref:`service_name`"""
 
         return await self.execute_command(

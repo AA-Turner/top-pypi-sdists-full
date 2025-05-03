@@ -72,6 +72,7 @@ class ConfigFileArgs:
         pulumi.set(self, "skip_await", value)
 
 
+@pulumi.type_token("kubernetes:yaml/v2:ConfigFile")
 class ConfigFile(pulumi.ComponentResource):
     @overload
     def __init__(__self__,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mteb
-Version: 1.38.3
+Version: 1.38.4
 Summary: Massive Text Embedding Benchmark
 Author-email: MTEB Contributors <niklas@huggingface.co>, nouamane@huggingface.co, info@nils-reimers.de
 License:                                  Apache License
@@ -253,7 +253,7 @@ Requires-Dist: psutil>=5.9.8; extra == "speedtask"
 Provides-Extra: peft
 Requires-Dist: peft>=0.11.0; extra == "peft"
 Provides-Extra: leaderboard
-Requires-Dist: gradio==5.17.1; python_version > "3.9" and extra == "leaderboard"
+Requires-Dist: gradio==5.27.1; python_version > "3.9" and extra == "leaderboard"
 Requires-Dist: gradio_rangeslider>=0.0.8; extra == "leaderboard"
 Requires-Dist: plotly<6.0.0,>=5.24.0; extra == "leaderboard"
 Requires-Dist: cachetools>=5.2.0; extra == "leaderboard"

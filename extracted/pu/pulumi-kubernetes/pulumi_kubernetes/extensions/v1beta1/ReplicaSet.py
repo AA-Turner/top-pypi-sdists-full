@@ -93,6 +93,7 @@ class ReplicaSetInitArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:extensions/v1beta1:ReplicaSet")
 class ReplicaSet(pulumi.CustomResource):
     @overload
     def __init__(__self__,

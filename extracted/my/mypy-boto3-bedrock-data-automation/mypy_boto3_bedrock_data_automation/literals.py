@@ -67,7 +67,7 @@ ListBlueprintsPaginatorName = Literal["list_blueprints"]
 ListDataAutomationProjectsPaginatorName = Literal["list_data_automation_projects"]
 ResourceOwnerType = Literal["ACCOUNT", "SERVICE"]
 StateType = Literal["DISABLED", "ENABLED"]
-TypeType = Literal["DOCUMENT", "IMAGE"]
+TypeType = Literal["AUDIO", "DOCUMENT", "IMAGE"]
 VideoExtractionCategoryTypeType = Literal[
     "CONTENT_MODERATION", "LOGOS", "TEXT_DETECTION", "TRANSCRIPT"
 ]
@@ -439,6 +439,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",

@@ -8,27 +8,21 @@ from coredis.response._utils import flat_pairs_to_dict
 from coredis.response.types import LibraryDefinition
 from coredis.typing import (
     AnyStr,
-    Dict,
-    List,
     Mapping,
-    Optional,
     ResponsePrimitive,
     ResponseType,
-    Union,
     ValueT,
 )
 
 
 class FunctionListCallback(
-    ResponseCallback[
-        List[ResponseType], List[ResponseType], Mapping[AnyStr, LibraryDefinition]
-    ]
+    ResponseCallback[list[ResponseType], list[ResponseType], Mapping[AnyStr, LibraryDefinition]]
 ):
     def transform(
-        self, response: List[ResponseType], **options: Optional[ValueT]
+        self, response: list[ResponseType], **options: ValueT | None
     ) -> Mapping[AnyStr, LibraryDefinition]:
         libraries = [
-            EncodingInsensitiveDict(flat_pairs_to_dict(cast(List[ValueT], library)))
+            EncodingInsensitiveDict(flat_pairs_to_dict(cast(list[ValueT], library)))
             for library in response
         ]
         transformed = EncodingInsensitiveDict()
@@ -36,13 +30,9 @@ class FunctionListCallback(
             lib_name = library["library_name"]
             functions = EncodingInsensitiveDict({})
             for function in library.get("functions", []):
-                function_definition = EncodingInsensitiveDict(
-                    flat_pairs_to_dict(function)
-                )
+                function_definition = EncodingInsensitiveDict(flat_pairs_to_dict(function))
                 functions[function_definition["name"]] = function_definition
-                functions[function_definition["name"]]["flags"] = set(
-                    function_definition["flags"]
-                )
+                functions[function_definition["name"]]["flags"] = set(function_definition["flags"])
             library["functions"] = functions
             transformed[lib_name] = EncodingInsensitiveDict(
                 LibraryDefinition(
@@ -58,44 +48,40 @@ class FunctionListCallback(
 
 class FunctionStatsCallback(
     ResponseCallback[
-        List[ResponseType],
-        Dict[
+        list[ResponseType],
+        dict[
             AnyStr,
-            Optional[Union[AnyStr, Dict[AnyStr, Dict[AnyStr, ResponsePrimitive]]]],
+            AnyStr | dict[AnyStr, dict[AnyStr, ResponsePrimitive]] | None,
         ],
-        Dict[
+        dict[
             AnyStr,
-            Optional[Union[AnyStr, Dict[AnyStr, Dict[AnyStr, ResponsePrimitive]]]],
+            AnyStr | dict[AnyStr, dict[AnyStr, ResponsePrimitive]] | None,
         ],
     ]
 ):
     def transform(
         self,
-        response: List[ResponseType],
-        **options: Optional[ValueT],
-    ) -> Dict[
-        AnyStr, Optional[Union[AnyStr, Dict[AnyStr, Dict[AnyStr, ResponsePrimitive]]]]
-    ]:
+        response: list[ResponseType],
+        **options: ValueT | None,
+    ) -> dict[AnyStr, AnyStr | dict[AnyStr, dict[AnyStr, ResponsePrimitive]] | None]:
         transformed = flat_pairs_to_dict(response)
         key = cast(AnyStr, b"engines" if b"engines" in transformed else "engines")
-        engines = flat_pairs_to_dict(cast(List[AnyStr], transformed.pop(key)))
+        engines = flat_pairs_to_dict(cast(list[AnyStr], transformed.pop(key)))
         engines_transformed = {}
         for engine, stats in engines.items():
-            engines_transformed[engine] = flat_pairs_to_dict(cast(List[AnyStr], stats))
+            engines_transformed[engine] = flat_pairs_to_dict(cast(list[AnyStr], stats))
         transformed[key] = engines_transformed  # type: ignore
         return cast(
-            Dict[AnyStr, Union[AnyStr, Dict[AnyStr, Dict[AnyStr, ResponsePrimitive]]]],
+            dict[AnyStr, AnyStr | dict[AnyStr, dict[AnyStr, ResponsePrimitive]]],
             transformed,
         )
 
     def transform_3(
         self,
-        response: Dict[
+        response: dict[
             AnyStr,
-            Optional[Union[AnyStr, Dict[AnyStr, Dict[AnyStr, ResponsePrimitive]]]],
+            AnyStr | dict[AnyStr, dict[AnyStr, ResponsePrimitive]] | None,
         ],
-        **options: Optional[ValueT],
-    ) -> Dict[
-        AnyStr, Optional[Union[AnyStr, Dict[AnyStr, Dict[AnyStr, ResponsePrimitive]]]]
-    ]:
+        **options: ValueT | None,
+    ) -> dict[AnyStr, AnyStr | dict[AnyStr, dict[AnyStr, ResponsePrimitive]] | None]:
         return response

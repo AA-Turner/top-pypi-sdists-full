@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: honeybee-energy
-Version: 1.116.18
+Version: 1.116.19
 Summary: Energy simulation library for honeybee.
 Home-page: https://github.com/ladybug-tools/honeybee-energy
 Author: Ladybug Tools
@@ -19,7 +19,7 @@ Requires-Dist: honeybee-standards==2.0.7
 Provides-Extra: standards
 Requires-Dist: honeybee-energy-standards==2.3.0; extra == "standards"
 Provides-Extra: openstudio
-Requires-Dist: honeybee-openstudio==0.3.5; extra == "openstudio"
+Requires-Dist: honeybee-openstudio==0.3.6; extra == "openstudio"
 
 ![Honeybee](http://www.ladybug.tools/assets/img/honeybee.png)
 

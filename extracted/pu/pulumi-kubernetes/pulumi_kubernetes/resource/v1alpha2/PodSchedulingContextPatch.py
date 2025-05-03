@@ -92,6 +92,7 @@ class PodSchedulingContextPatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:resource.k8s.io/v1alpha2:PodSchedulingContextPatch")
 class PodSchedulingContextPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

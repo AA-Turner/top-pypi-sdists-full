@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: coredis
-Version: 4.20.0
+Version: 4.21.0
 Summary: Python async client for Redis key-value store
 Home-page: https://github.com/alisaifee/coredis
 Author: Ali-Akber Saifee
@@ -17,19 +17,18 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: async_timeout<6,>4
 Requires-Dist: deprecated>=1.2
 Requires-Dist: typing_extensions>=4.3
-Requires-Dist: packaging<25,>=21
+Requires-Dist: packaging<26,>=21
 Requires-Dist: pympler<2,>1
 Requires-Dist: wrapt<2,>=1.1.0
 Provides-Extra: recipes
@@ -43,6 +42,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: maintainer
 Dynamic: maintainer-email
 Dynamic: project-url
@@ -201,7 +201,7 @@ Details about supported Redis modules and their commands can be found
 
 ## Compatibility
 
-coredis is tested against redis versions `6.2.x`, `7.0.x`, `7.2.x` & `7.4.x`
+coredis is tested against redis versions >= `6.4`
 The test matrix status can be reviewed
 [here](https://github.com/alisaifee/coredis/actions/workflows/main.yml)
 
@@ -211,12 +211,10 @@ coredis is additionally tested against:
 
 ### Supported python versions
 
-- 3.9
 - 3.10
 - 3.11
 - 3.12
 - 3.13
-- PyPy 3.9
 - PyPy 3.10
 
 ### Redis API compatible databases

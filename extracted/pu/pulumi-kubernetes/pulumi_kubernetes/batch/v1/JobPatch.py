@@ -93,6 +93,7 @@ class JobPatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:batch/v1:JobPatch")
 class JobPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

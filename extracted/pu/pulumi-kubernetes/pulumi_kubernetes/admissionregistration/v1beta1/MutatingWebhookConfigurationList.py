@@ -91,6 +91,7 @@ class MutatingWebhookConfigurationListArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:admissionregistration.k8s.io/v1beta1:MutatingWebhookConfigurationList")
 class MutatingWebhookConfigurationList(pulumi.CustomResource):
     @overload
     def __init__(__self__,

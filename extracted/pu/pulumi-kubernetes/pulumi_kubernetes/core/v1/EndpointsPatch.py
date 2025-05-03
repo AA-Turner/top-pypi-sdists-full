@@ -92,6 +92,7 @@ class EndpointsPatchArgs:
         pulumi.set(self, "subsets", value)
 
 
+@pulumi.type_token("kubernetes:core/v1:EndpointsPatch")
 class EndpointsPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,
@@ -122,6 +123,10 @@ class EndpointsPatch(pulumi.CustomResource):
                  Ports: [{"name": "a", "port": 93}, {"name": "b", "port": 76}]
                },
             ]
+
+        Endpoints is a legacy API and does not contain information about all Service features. Use discoveryv1.EndpointSlice for complete information about Service endpoints.
+
+        Deprecated: This API is deprecated in v1.33+. Use discoveryv1.EndpointSlice.
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -156,6 +161,10 @@ class EndpointsPatch(pulumi.CustomResource):
                  Ports: [{"name": "a", "port": 93}, {"name": "b", "port": 76}]
                },
             ]
+
+        Endpoints is a legacy API and does not contain information about all Service features. Use discoveryv1.EndpointSlice for complete information about Service endpoints.
+
+        Deprecated: This API is deprecated in v1.33+. Use discoveryv1.EndpointSlice.
 
         :param str resource_name: The name of the resource.
         :param EndpointsPatchArgs args: The arguments to use to populate this resource's properties.

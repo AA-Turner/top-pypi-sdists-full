@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-tensorflow
-Version: 2.18.0.20250425
+Version: 2.18.0.20250503
 Summary: Typing stubs for tensorflow
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -46,7 +46,7 @@ directory.
 
 This package was tested with
 mypy 1.15.0,
-pyright 1.1.399,
+pyright 1.1.400,
 and pytype 2024.10.11.
 It was generated from typeshed commit
-[`0c6ef9c6aeac5eb4c316366a21bb2644f0a989bc`](https://github.com/python/typeshed/commit/0c6ef9c6aeac5eb4c316366a21bb2644f0a989bc).
+[`c994e2d947894b7fb156e46c2eb0f544cc4dbd7c`](https://github.com/python/typeshed/commit/c994e2d947894b7fb156e46c2eb0f544cc4dbd7c).

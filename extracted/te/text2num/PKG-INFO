@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: text2num
-Version: 2.5.1
+Version: 2.5.2
 Summary: Parse and convert numbers written in French, Spanish, English, Portuguese, German, Catalan or Russion into their digit representation.
 Home-page: https://github.com/allo-media/text2num
 Author: Allo-Media
@@ -21,6 +21,16 @@ Classifier: Natural Language :: Catalan
 Classifier: Natural Language :: Russian
 Requires-Python: >=3.6
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 text2num
 ========

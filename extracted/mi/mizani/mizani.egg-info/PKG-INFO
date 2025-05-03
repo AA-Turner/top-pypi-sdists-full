@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mizani
-Version: 0.13.3
+Version: 0.13.5
 Summary: Scales for Python
 Author-email: Hassan Kibirige <has2k1@gmail.com>
 License: Copyright (c) 2016, Hassan Kibirige
@@ -73,7 +73,7 @@ Requires-Dist: twine; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: mizani[typing]; extra == "dev"
 Provides-Extra: typing
-Requires-Dist: pyright==1.1.398; extra == "typing"
+Requires-Dist: pyright==1.1.400; extra == "typing"
 Requires-Dist: pandas-stubs; extra == "typing"
 Dynamic: license-file
 

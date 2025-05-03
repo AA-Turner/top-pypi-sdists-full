@@ -137,6 +137,7 @@ class PriorityClassInitArgs:
         pulumi.set(self, "preemption_policy", value)
 
 
+@pulumi.type_token("kubernetes:scheduling.k8s.io/v1alpha1:PriorityClass")
 class PriorityClass(pulumi.CustomResource):
     @overload
     def __init__(__self__,

@@ -1259,12 +1259,15 @@ static ssize_t readline(char** lineptr, size_t* n, FILE* stream) {
     }
     p = bufptr;
     while (c != EOF) {
-        if ((ssize_t)(p - bufptr) > (ssize_t)(size - 1)) {
+        if ((size_t)(p - bufptr) >= size - 1) {
             size = size + 128;
-            bufptr = realloc(bufptr, size);
-            if (bufptr == NULL) {
+            char* new_buf = realloc(bufptr, size);
+            if (new_buf == NULL) {
+                free(bufptr);
                 return -1;
             }
+            p = new_buf + (p - bufptr);
+            bufptr = new_buf;
         }
         *p++ = c;
         if (c == '\n') {

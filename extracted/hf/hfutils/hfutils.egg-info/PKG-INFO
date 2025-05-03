@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hfutils
-Version: 0.10.0
+Version: 0.11.0
 Summary: Useful utilities for huggingface
 Home-page: https://github.com/deepghs/hfutils
 Author: narugo1992
@@ -51,14 +51,12 @@ Requires-Dist: fsspec>=2024; python_version > "3.8"
 Requires-Dist: fsspec<=2025.3.0,>=2024; python_version <= "3.8"
 Requires-Dist: random_user_agent
 Requires-Dist: cachetools
-Provides-Extra: transfer
-Requires-Dist: hf-transfer; extra == "transfer"
 Provides-Extra: build
 Requires-Dist: pyinstaller<5,>=4.7; extra == "build"
 Requires-Dist: setuptools<70; extra == "build"
 Requires-Dist: hbutils>=0.10.0; extra == "build"
-Provides-Extra: 7z
-Requires-Dist: py7zr; extra == "7z"
+Provides-Extra: rar
+Requires-Dist: rarfile; extra == "rar"
 Provides-Extra: test
 Requires-Dist: coverage>=5; extra == "test"
 Requires-Dist: mock>=4.0.3; extra == "test"
@@ -76,6 +74,8 @@ Requires-Dist: testtools>=2; extra == "test"
 Requires-Dist: where>=1.0.2; extra == "test"
 Requires-Dist: responses>=0.20.0; extra == "test"
 Requires-Dist: natsort; extra == "test"
+Provides-Extra: transfer
+Requires-Dist: hf-transfer; extra == "transfer"
 Provides-Extra: doc
 Requires-Dist: Jinja2>=3.0.0; extra == "doc"
 Requires-Dist: sphinx>=3.2.0; extra == "doc"
@@ -96,8 +96,8 @@ Requires-Dist: ipykernel>=6.15; extra == "doc"
 Requires-Dist: py-cpuinfo>=8.0.0; extra == "doc"
 Requires-Dist: click>=7.0.0; extra == "doc"
 Requires-Dist: pandas; extra == "doc"
-Provides-Extra: rar
-Requires-Dist: rarfile; extra == "rar"
+Provides-Extra: 7z
+Requires-Dist: py7zr; extra == "7z"
 
 # hfutils
 

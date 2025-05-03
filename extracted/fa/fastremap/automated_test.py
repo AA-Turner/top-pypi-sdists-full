@@ -397,6 +397,29 @@ def test_minmax():
   assert minval == np.min(volume)
   assert maxval == np.max(volume)
 
+@pytest.mark.parametrize("dtype", DTYPES)
+def test_unique_axis_0(dtype):
+  arr = np.array([
+    [0,1],
+    [0,2],
+    [0,3],
+    [0,2],
+    [1,2],
+    [2,3],
+  ], dtype=dtype)
+
+  res = fastremap.unique(arr, axis=0)
+  ans = np.unique(arr, axis=0)
+
+  assert np.all(res == ans)
+
+def test_unique_axis_0_random():
+  arr = np.random.randint(0,100000, size=[1000000,2], dtype=np.uint32)
+  a1 = fastremap.unique(arr, axis=0)
+  a2 = np.unique(arr, axis=0)
+  assert np.all(a1 == a2)
+
+
 @pytest.mark.parametrize("order", [ "C", "F" ])
 def test_unique(order):
   def reorder(arr):
@@ -610,9 +633,55 @@ def test_tobytes_misaligned(order):
   except ValueError:
     pass
 
+def test_narrow_dtype():
+  assert fastremap.narrow_dtype(np.uint64) == np.uint32
+  assert fastremap.narrow_dtype(np.uint32) == np.uint16
+  assert fastremap.narrow_dtype(np.uint16) == np.uint8
+  assert fastremap.narrow_dtype(np.uint8) == np.uint8
 
+  assert fastremap.narrow_dtype(np.int64) == np.int32
+  assert fastremap.narrow_dtype(np.int32) == np.int16
+  assert fastremap.narrow_dtype(np.int16) == np.int8
+  assert fastremap.narrow_dtype(np.int8) == np.int8
 
+  assert fastremap.narrow_dtype(np.uint64, exotics=True) == np.uint32
+  assert fastremap.narrow_dtype(np.uint32, exotics=True) == np.uint16
+  assert fastremap.narrow_dtype(np.uint16, exotics=True) == np.uint8
+  assert fastremap.narrow_dtype(np.uint8, exotics=True) == np.uint8
 
+  assert fastremap.narrow_dtype(np.int64, exotics=True) == np.int32
+  assert fastremap.narrow_dtype(np.int32, exotics=True) == np.int16
+  assert fastremap.narrow_dtype(np.int16, exotics=True) == np.int8
+  assert fastremap.narrow_dtype(np.int8, exotics=True) == np.int8
 
+  assert fastremap.narrow_dtype(np.float64) == np.float32
+  assert fastremap.narrow_dtype(np.float32) == np.float32
+
+  assert fastremap.narrow_dtype(np.float64, exotics=True) == np.float32
+  assert fastremap.narrow_dtype(np.float32, exotics=True) == np.float16
+
+  assert fastremap.narrow_dtype(np.complex128) == np.complex64
+  assert fastremap.narrow_dtype(np.complex64) == np.complex64
+
+def test_widen_dtype():
+  assert fastremap.widen_dtype(np.uint64) == np.uint64
+  assert fastremap.widen_dtype(np.uint32) == np.uint64
+  assert fastremap.widen_dtype(np.uint16) == np.uint32
+  assert fastremap.widen_dtype(np.uint8) == np.uint16
+
+  assert fastremap.widen_dtype(np.int64) == np.int64
+  assert fastremap.widen_dtype(np.int32) == np.int64
+  assert fastremap.widen_dtype(np.int16) == np.int32
+  assert fastremap.widen_dtype(np.int8) == np.int16
+
+  assert fastremap.widen_dtype(np.float64, exotics=True) == np.longdouble
+  assert fastremap.widen_dtype(np.float64) == np.float64
+  assert fastremap.widen_dtype(np.float32) == np.float64
+  assert fastremap.widen_dtype(np.float16) == np.float32
+
+  assert fastremap.widen_dtype(np.complex64) == np.complex64
+  assert fastremap.widen_dtype(np.complex64, exotics=True) == np.complex128
+  assert fastremap.widen_dtype(np.complex128, exotics=True) == np.clongdouble
+  assert fastremap.widen_dtype(np.clongdouble, exotics=True) == np.clongdouble
 
 

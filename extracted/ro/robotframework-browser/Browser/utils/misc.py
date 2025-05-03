@@ -54,11 +54,13 @@ def spawn_node_process(output_dir: Path) -> tuple[subprocess.Popen, str]:
     logfile = output_dir.open("w", encoding="utf-8")
     os.environ["DEBUG"] = "pw:api"
     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = "0"
+    host = "127.0.0.1"
     port = str(find_free_port())
     process = subprocess.Popen(
         [
             "node",
             "Browser/wrapper/index.js",
+            host,
             port,
         ],
         stdout=logfile,
@@ -117,3 +119,13 @@ def get_download_id(download: Union[DownloadInfo, str]) -> str:
     raise ValueError(
         "Argument must be either a dictionary with a key 'downloadID' or a string with a valid download id."
     )
+
+
+@contextlib.contextmanager
+def suppress_logging():
+    """Context manager to temporarily set the log level."""
+    log_level = BuiltIn()._context.output.set_log_level("NONE")
+    try:
+        yield
+    finally:
+        BuiltIn()._context.output.set_log_level(log_level)

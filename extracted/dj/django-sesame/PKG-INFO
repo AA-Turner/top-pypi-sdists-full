@@ -1,32 +1,31 @@
 Metadata-Version: 2.1
 Name: django-sesame
-Version: 3.2.2
+Version: 3.2.3
 Summary: Frictionless authentication with "Magic Links" for your Django project.
 Home-page: https://github.com/aaugustin/django-sesame
 License: BSD-3-Clause
 Keywords: authentication,token-based-authentication
 Author: Aymeric Augustin
 Author-email: aymeric.augustin@m4x.org
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 3.2
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Provides-Extra: ua
-Requires-Dist: django (>=3.2)
+Requires-Dist: django (>=4.2)
 Requires-Dist: ua-parser (>=0.15) ; extra == "ua"
 Project-URL: Documentation, https://django-sesame.readthedocs.io/
 Project-URL: Repository, https://github.com/aaugustin/django-sesame
@@ -62,8 +61,8 @@ Requirements
 
 django-sesame is tested with:
 
-- Django 3.2 (LTS), 4.0, 4.1, 4.2 (LTS), and 5.0;
-- Python ≥ 3.8.
+- Django 4.2 (LTS), 5.0, 5.1, and 5.2 (LTS);
+- Python ≥ 3.9.
 
 It requires ``django.contrib.auth``.
 

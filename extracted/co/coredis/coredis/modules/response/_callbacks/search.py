@@ -14,28 +14,24 @@ from coredis.response._callbacks import ResponseCallback
 from coredis.response._utils import flat_pairs_to_dict
 from coredis.typing import (
     AnyStr,
-    Dict,
-    List,
-    Optional,
     ResponsePrimitive,
     ResponseType,
     StringT,
     TypedDict,
-    Union,
     ValueT,
 )
 
 
 class SearchConfigCallback(
     ResponseCallback[
-        List[List[ResponsePrimitive]],
-        Union[Dict[AnyStr, ResponseType], List[List[ResponsePrimitive]]],
-        Dict[AnyStr, ResponsePrimitive],
+        list[list[ResponsePrimitive]],
+        dict[AnyStr, ResponseType] | list[list[ResponsePrimitive]],
+        dict[AnyStr, ResponsePrimitive],
     ]
 ):
     def transform(
-        self, response: List[List[ResponsePrimitive]], **options: Optional[ValueT]
-    ) -> Dict[AnyStr, ResponsePrimitive]:
+        self, response: list[list[ResponsePrimitive]], **options: ValueT | None
+    ) -> dict[AnyStr, ResponsePrimitive]:
         pieces = []
         for item in response:
             try:
@@ -47,9 +43,9 @@ class SearchConfigCallback(
 
     def transform_3(
         self,
-        response: Union[Dict[AnyStr, ResponseType], List[List[ResponsePrimitive]]],
-        **options: Optional[ValueT],
-    ) -> Dict[AnyStr, ResponsePrimitive]:
+        response: dict[AnyStr, ResponseType] | list[list[ResponsePrimitive]],
+        **options: ValueT | None,
+    ) -> dict[AnyStr, ResponsePrimitive]:
         if isinstance(response, list):
             return self.transform(response, **options)
         else:
@@ -64,20 +60,18 @@ class SearchConfigCallback(
 
 class SearchResultCallback(
     ResponseCallback[
-        List[ResponseType],
-        Union[List[ResponseType], Dict[AnyStr, ResponseType]],
+        list[ResponseType],
+        list[ResponseType] | dict[AnyStr, ResponseType],
         SearchResult[AnyStr],
     ]
 ):
     def transform(
-        self, response: List[ResponseType], **options: Optional[ValueT]
+        self, response: list[ResponseType], **options: ValueT | None
     ) -> SearchResult[AnyStr]:
         if options.get("nocontent"):
             return SearchResult[AnyStr](
                 response[0],
-                tuple(
-                    SearchDocument(i, None, None, None, None, {}) for i in response[1:]
-                ),
+                tuple(SearchDocument(i, None, None, None, None, {}) for i in response[1:]),
             )
         step = 2
         results = []
@@ -117,8 +111,8 @@ class SearchResultCallback(
 
     def transform_3(
         self,
-        response: Union[List[ResponseType], Dict[AnyStr, ResponseType]],
-        **options: Optional[ValueT],
+        response: list[ResponseType] | dict[AnyStr, ResponseType],
+        **options: ValueT | None,
     ) -> SearchResult[AnyStr]:
         results = []
         if isinstance(response, list):
@@ -151,44 +145,37 @@ class SearchResultCallback(
 
 class AggregationResultCallback(
     ResponseCallback[
-        List[ResponseType],
-        Union[Dict[AnyStr, ResponseType], List[ResponseType]],
+        list[ResponseType],
+        dict[AnyStr, ResponseType] | list[ResponseType],
         SearchAggregationResult[AnyStr],
     ]
 ):
     def transform(
-        self, response: List[ResponseType], **options: Optional[ValueT]
+        self, response: list[ResponseType], **options: ValueT | None
     ) -> SearchAggregationResult:
         return SearchAggregationResult[AnyStr](
             [
                 flat_pairs_to_dict(k, partial(self.try_json, options))
-                for k in (
-                    response[1:] if not options.get("with_cursor") else response[0][1:]
-                )
+                for k in (response[1:] if not options.get("with_cursor") else response[0][1:])
             ],
             response[1] if options.get("with_cursor") else None,
         )
 
     def transform_3(
         self,
-        response: Union[Dict[AnyStr, ResponseType], List[ResponseType]],
-        **options: Optional[ValueT],
+        response: dict[AnyStr, ResponseType] | list[ResponseType],
+        **options: ValueT | None,
     ) -> SearchAggregationResult:
         if (
             options.get("with_cursor")
             and isinstance(response[0], dict)
             or isinstance(response, dict)
         ):
-            response, cursor = (
-                response if options.get("with_cursor") else (response, None)
-            )
+            response, cursor = response if options.get("with_cursor") else (response, None)
             response = EncodingInsensitiveDict(response)
             return SearchAggregationResult[AnyStr](
                 [
-                    {
-                        k: self.try_json(options, v)
-                        for k, v in k["extra_attributes"].items()
-                    }
+                    {k: self.try_json(options, v) for k, v in k["extra_attributes"].items()}
                     for k in (response["results"])
                 ],
                 cursor,
@@ -213,14 +200,12 @@ class SpellCheckResult(TypedDict):
 
 class SpellCheckCallback(
     ResponseCallback[
-        List[ResponseType],
-        Union[Dict[AnyStr, ResponseType], List[ResponseType]],
+        list[ResponseType],
+        dict[AnyStr, ResponseType] | list[ResponseType],
         SpellCheckResult,
     ]
 ):
-    def transform(
-        self, response: List[ResponseType], **options: Optional[ValueT]
-    ) -> SpellCheckResult:
+    def transform(self, response: list[ResponseType], **options: ValueT | None) -> SpellCheckResult:
         suggestions = {}
         for result in response:
             suggestions[result[1]] = OrderedDict((k[1], float(k[0])) for k in result[2])
@@ -229,13 +214,12 @@ class SpellCheckCallback(
 
     def transform_3(
         self,
-        response: Union[Dict[AnyStr, ResponseType], List[ResponseType]],
-        **options: Optional[ValueT],
+        response: dict[AnyStr, ResponseType] | list[ResponseType],
+        **options: ValueT | None,
     ) -> SpellCheckResult:
         if isinstance(response, list):
             return self.transform(response, **options)
         else:
             return {
-                key: OrderedDict(ChainMap(*result))
-                for key, result in response["results"].items()
+                key: OrderedDict(ChainMap(*result)) for key, result in response["results"].items()
             }

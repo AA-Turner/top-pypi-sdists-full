@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qbittorrent-api
-Version: 2025.4.1
+Version: 2025.5.0
 Summary: Python client for qBittorrent v4.1+ Web API.
 Author: Russell Martin
 Maintainer: Russell Martin
@@ -60,7 +60,7 @@ Python client implementation for qBittorrent Web API
 
 </div>
 
-Currently supports qBittorrent [v5.0.5](https://github.com/qbittorrent/qBittorrent/releases/tag/release-5.0.5) (Web API v2.11.2) released on Apr 13, 2025.
+Currently supports qBittorrent [v5.1.0](https://github.com/qbittorrent/qBittorrent/releases/tag/release-5.1.0) (Web API v2.11.4) released on Apr 27, 2025.
 
 User Guide and API Reference available on [Read the Docs](https://qbittorrent-api.readthedocs.io/).
 
@@ -124,7 +124,19 @@ qbt_client.torrents.stop.all()
 
 Change Log
 ==========
-### v2024.4.1 (24 apr 2025)
+### v2025.5.0 (02 may 2025)
+- Advertise support for qBittorrent v5.1.0
+- Existing changes that are now supported in qBittorrent:
+  - Add support for managing cookies (#492)
+    - ``app/cookies``
+    - ``app/setCookies``
+  - Add support for WebSeed modification endpoints (#481)
+    - ``torrents/addWebSeeds``
+    - ``torrents/editWebSeed``
+    - ``torrents/removeWebSeeds``
+  - Add support for ``torrents/setTags`` (#512)
+
+### v2025.4.1 (24 apr 2025)
 - Add SPDX license to package (#529)
 
 ### v2025.4.0 (19 apr 2025)

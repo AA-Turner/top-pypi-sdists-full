@@ -4,23 +4,17 @@ import dataclasses
 import datetime
 import re
 import shlex
-from typing import Pattern
+from collections.abc import Set
+from re import Pattern
 
 from coredis.typing import (
-    AbstractSet,
     ClassVar,
-    Dict,
-    List,
     Literal,
     Mapping,
     NamedTuple,
-    Optional,
     OrderedDict,
-    Set,
     StringT,
-    Tuple,
     TypedDict,
-    Union,
     ValueT,
 )
 
@@ -106,7 +100,7 @@ class FunctionDefinition(TypedDict):
     #: the description of the function
     description: StringT
     #: function flags
-    flags: Set[ScriptFlag]
+    flags: set[ScriptFlag]
 
 
 class LibraryDefinition(TypedDict):
@@ -121,9 +115,9 @@ class LibraryDefinition(TypedDict):
     #: the library's description
     description: StringT
     #: Mapping of function names to functions in the library
-    functions: Dict[StringT, FunctionDefinition]
+    functions: dict[StringT, FunctionDefinition]
     #: The library's source code
-    library_code: Optional[StringT]
+    library_code: StringT | None
 
 
 class ScoredMember(NamedTuple):
@@ -148,7 +142,7 @@ class GeoCoordinates(NamedTuple):
     latitude: float
 
 
-ScoredMembers = Tuple[ScoredMember, ...]
+ScoredMembers = tuple[ScoredMember, ...]
 
 
 class GeoSearchResult(NamedTuple):
@@ -159,11 +153,11 @@ class GeoSearchResult(NamedTuple):
     #: Place name
     name: StringT
     #: Distance
-    distance: Optional[float]
+    distance: float | None
     #: GeoHash
-    geohash: Optional[int]
+    geohash: int | None
     #: Lat/Lon
-    coordinates: Optional[GeoCoordinates]
+    coordinates: GeoCoordinates | None
 
 
 #: Definition of a redis command
@@ -186,16 +180,14 @@ Command = TypedDict(
     {
         "name": str,
         "arity": int,
-        "flags": AbstractSet[str],
+        "flags": Set[str],
         "first-key": int,
         "last-key": int,
         "step": int,
-        "acl-categories": Optional[AbstractSet[str]],
-        "tips": Optional[AbstractSet[str]],
-        "key-specifications": Optional[
-            AbstractSet[Mapping[str, Union[int, str, Mapping]]]  # type: ignore
-        ],
-        "sub-commands": Optional[Tuple[str, ...]],
+        "acl-categories": Set[str] | None,
+        "tips": Set[str] | None,
+        "key-specifications": Set[Mapping[str, int | str | Mapping]] | None,  # type: ignore
+        "sub-commands": tuple[str, ...] | None,
     },
 )
 
@@ -208,13 +200,13 @@ class RoleInfo(NamedTuple):
     #:
     role: str
     #:
-    offset: Optional[int] = None
+    offset: int | None = None
     #:
-    status: Optional[str] = None
+    status: str | None = None
     #:
-    slaves: Optional[Tuple[Dict[str, Union[str, int]], ...]] = None
+    slaves: tuple[dict[str, str | int], ...] | None = None
     #:
-    masters: Optional[Tuple[str, ...]] = None
+    masters: tuple[str, ...] | None = None
 
 
 class StreamEntry(NamedTuple):
@@ -231,18 +223,18 @@ class StreamEntry(NamedTuple):
 StreamInfo = TypedDict(
     "StreamInfo",
     {
-        "first-entry": Optional[StreamEntry],
-        "last-entry": Optional[StreamEntry],
+        "first-entry": StreamEntry | None,
+        "last-entry": StreamEntry | None,
         "length": int,
         "radix-tree-keys": int,
         "radix-tree-nodes": int,
-        "groups": Union[int, List[Dict]],  # type: ignore
+        "groups": int | list[dict],  # type: ignore
         "last-generated-id": str,
         "max-deleted-entry-id": str,
         "recorded-first-entry-id": str,
         "entries-added": int,
         "entries-read": int,
-        "entries": Optional[Tuple[StreamEntry, ...]],
+        "entries": tuple[StreamEntry, ...] | None,
     },
 )
 
@@ -280,9 +272,9 @@ class SlowLogInfo(NamedTuple):
     #: The amount of time needed for its execution, in microseconds.
     duration: int
     #: The array composing the arguments of the command.
-    command: Tuple[StringT, ...]
+    command: tuple[StringT, ...]
     #: Client IP address and port
-    client_addr: Tuple[StringT, int]
+    client_addr: tuple[StringT, int]
     #: Client name
     client_name: str
 
@@ -293,11 +285,11 @@ class LCSMatch(NamedTuple):
     """
 
     #: Start/end offset of the first string
-    first: Tuple[int, int]
+    first: tuple[int, int]
     #: Start/end offset of the second string
-    second: Tuple[int, int]
+    second: tuple[int, int]
     #: Length of the match
-    length: Optional[int]
+    length: int | None
 
 
 class LCSResult(NamedTuple):
@@ -306,7 +298,7 @@ class LCSResult(NamedTuple):
     """
 
     #: matches
-    matches: Tuple[LCSMatch, ...]
+    matches: tuple[LCSMatch, ...]
     #: Length of longest match
     length: int
 
@@ -324,13 +316,13 @@ class MonitorResult:
     #: db number
     db: int
     #: (host, port) or path if the server is listening on a unix domain socket
-    client_addr: Optional[Union[Tuple[str, int], str]]
+    client_addr: tuple[str, int] | str | None
     #: The type of the client that send the command
     client_type: Literal["tcp", "unix", "lua"]
     #: The name of the command
     command: str
     #: Arguments passed to the command
-    args: Optional[Tuple[str, ...]]
+    args: tuple[str, ...] | None
 
     EXPR: ClassVar[Pattern[str]] = re.compile(r"\[(\d+) (.*?)\] (.*)$")
 
@@ -365,21 +357,21 @@ class MonitorResult:
 class ClusterNode(TypedDict):
     host: str
     port: int
-    node_id: Optional[str]
-    server_type: Optional[Literal["master", "slave"]]
+    node_id: str | None
+    server_type: Literal["master", "slave"] | None
 
 
 class ClusterNodeDetail(TypedDict):
     id: str
-    flags: Tuple[str, ...]
+    flags: tuple[str, ...]
     host: str
     port: int
-    master: Optional[str]
+    master: str | None
     ping_sent: int
     pong_recv: int
     link_state: str
-    slots: List[int]
-    migrations: List[Dict[str, ValueT]]
+    slots: list[int]
+    migrations: list[dict[str, ValueT]]
 
 
 class PubSubMessage(TypedDict):
@@ -406,10 +398,10 @@ class PubSubMessage(TypedDict):
     channel: StringT
     #: The pattern that was subscribed to or unsubscribed from or to which a received message was
     #: routed to
-    pattern: Optional[StringT]
+    pattern: StringT | None
     #: - If ``type`` is one of ``{message, pmessage}`` this is the actual published message
     #: - If ``type`` is one of
     #:   ``{subscribe, psubscribe, ssubscribe, unsubscribe, punsubscribe, sunsubscribe}``
     #:   this will be an :class:`int` corresponding to the  number of channels and patterns that the
     #:   connection is currently subscribed to.
-    data: Union[int, StringT]
+    data: int | StringT

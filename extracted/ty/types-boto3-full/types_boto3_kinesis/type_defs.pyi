@@ -277,7 +277,7 @@ class ListStreamsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class ListTagsForResourceInputTypeDef(TypedDict):
-    ResourceARN: NotRequired[str]
+    ResourceARN: str
 
 class TagTypeDef(TypedDict):
     Key: str
@@ -345,11 +345,11 @@ class StopStreamEncryptionInputTypeDef(TypedDict):
 
 class TagResourceInputTypeDef(TypedDict):
     Tags: Mapping[str, str]
-    ResourceARN: NotRequired[str]
+    ResourceARN: str
 
 class UntagResourceInputTypeDef(TypedDict):
     TagKeys: Sequence[str]
-    ResourceARN: NotRequired[str]
+    ResourceARN: str
 
 class UpdateShardCountInputTypeDef(TypedDict):
     TargetShardCount: int

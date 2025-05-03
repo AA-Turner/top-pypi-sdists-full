@@ -88,6 +88,7 @@ class CertificateSigningRequestPatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:certificates.k8s.io/v1:CertificateSigningRequestPatch")
 class CertificateSigningRequestPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

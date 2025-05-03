@@ -149,6 +149,7 @@ class ResourceClassPatchArgs:
         pulumi.set(self, "suitable_nodes", value)
 
 
+@pulumi.type_token("kubernetes:resource.k8s.io/v1alpha2:ResourceClassPatch")
 class ResourceClassPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

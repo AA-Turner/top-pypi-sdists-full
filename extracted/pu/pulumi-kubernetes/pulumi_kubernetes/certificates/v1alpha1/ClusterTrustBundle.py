@@ -91,6 +91,7 @@ class ClusterTrustBundleInitArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:certificates.k8s.io/v1alpha1:ClusterTrustBundle")
 class ClusterTrustBundle(pulumi.CustomResource):
     @overload
     def __init__(__self__,
@@ -162,6 +163,8 @@ class ClusterTrustBundle(pulumi.CustomResource):
             if spec is None and not opts.urn:
                 raise TypeError("Missing required property 'spec'")
             __props__.__dict__["spec"] = spec
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:certificates.k8s.io/v1beta1:ClusterTrustBundle")])
+        opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ClusterTrustBundle, __self__).__init__(
             'kubernetes:certificates.k8s.io/v1alpha1:ClusterTrustBundle',
             resource_name,

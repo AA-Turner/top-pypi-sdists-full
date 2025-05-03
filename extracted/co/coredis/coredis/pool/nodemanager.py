@@ -13,14 +13,10 @@ from coredis.exceptions import (
     ResponseError,
 )
 from coredis.typing import (
-    Dict,
     Iterable,
     Iterator,
-    List,
     Literal,
     Node,
-    Optional,
-    Set,
     StringT,
     ValueT,
 )
@@ -40,8 +36,8 @@ class ManagedNode:
 
     host: str
     port: int
-    server_type: Optional[Literal["primary", "replica"]] = None
-    node_id: Optional[str] = None
+    server_type: Literal["primary", "replica"] | None = None
+    node_id: str | None = None
 
     @property
     def name(self) -> str:
@@ -55,12 +51,12 @@ class NodeManager:
 
     def __init__(
         self,
-        startup_nodes: Optional[Iterable[Node]] = None,
-        reinitialize_steps: Optional[int] = None,
+        startup_nodes: Iterable[Node] | None = None,
+        reinitialize_steps: int | None = None,
         skip_full_coverage_check: bool = False,
         nodemanager_follow_cluster: bool = True,
         decode_responses: bool = False,
-        **connection_kwargs: Optional[Any],
+        **connection_kwargs: Any | None,
     ) -> None:
         """
         :skip_full_coverage_check:
@@ -74,9 +70,9 @@ class NodeManager:
         self.connection_kwargs = connection_kwargs
         self.connection_kwargs.update(decode_responses=decode_responses)
 
-        self.nodes: Dict[str, ManagedNode] = {}
-        self.slots: Dict[int, List[ManagedNode]] = {}
-        self.startup_nodes: List[ManagedNode] = (
+        self.nodes: dict[str, ManagedNode] = {}
+        self.slots: dict[int, list[ManagedNode]] = {}
+        self.startup_nodes: list[ManagedNode] = (
             []
             if startup_nodes is None
             else list(ManagedNode(n["host"], n["port"]) for n in startup_nodes if n)
@@ -89,19 +85,15 @@ class NodeManager:
         self.nodemanager_follow_cluster = nodemanager_follow_cluster
         self.replicas_per_shard = 0
 
-    def keys_to_nodes_by_slot(
-        self, *keys: ValueT
-    ) -> Dict[str, Dict[int, List[ValueT]]]:
-        mapping: Dict[str, Dict[int, List[ValueT]]] = {}
+    def keys_to_nodes_by_slot(self, *keys: ValueT) -> dict[str, dict[int, list[ValueT]]]:
+        mapping: dict[str, dict[int, list[ValueT]]] = {}
         for k in keys:
             node = self.node_from_slot(hash_slot(b(k)))
             if node:
-                mapping.setdefault(node.name, {}).setdefault(
-                    hash_slot(b(k)), []
-                ).append(k)
+                mapping.setdefault(node.name, {}).setdefault(hash_slot(b(k)), []).append(k)
         return mapping
 
-    def node_from_slot(self, slot: int) -> Optional[ManagedNode]:
+    def node_from_slot(self, slot: int) -> ManagedNode | None:
         for node in self.slots[slot]:
             if node.server_type == "primary":
                 return node
@@ -154,9 +146,7 @@ class NodeManager:
             "loop",
             "protocol_version",
         )
-        connection_kwargs = {
-            k: v for k, v in self.connection_kwargs.items() if k in allowed_keys
-        }
+        connection_kwargs = {k: v for k, v in self.connection_kwargs.items() if k in allowed_keys}
         return Redis(host=host, port=port, **connection_kwargs)  # type: ignore
 
     async def initialize(self) -> None:
@@ -168,16 +158,16 @@ class NodeManager:
         Maybe it should stop to try after it have correctly covered all slots or when one node is
         reached and it could execute CLUSTER SLOTS command.
         """
-        nodes_cache: Dict[str, ManagedNode] = {}
-        tmp_slots: Dict[int, List[ManagedNode]] = {}
+        nodes_cache: dict[str, ManagedNode] = {}
+        tmp_slots: dict[int, list[ManagedNode]] = {}
 
         all_slots_covered = False
-        disagreements: List[str] = []
+        disagreements: list[str] = []
         self.startup_nodes_reachable = False
 
         nodes = self.orig_startup_nodes
-        replicas: Set[str] = set()
-        startup_node_errors: Dict[str, List[str]] = {}
+        replicas: set[str] = set()
+        startup_node_errors: dict[str, list[str]] = {}
 
         # With this option the client will attempt to connect to any of the previous set of nodes
         # instead of the original set of startup nodes
@@ -239,9 +229,7 @@ class NodeManager:
                         # Validate that 2 nodes want to use the same slot cache setup
                         if tmp_slots[i][0].name != node.name:
                             disagreements.append(
-                                "{} vs {} on slot: {}".format(
-                                    tmp_slots[i][0].name, node.name, i
-                                ),
+                                f"{tmp_slots[i][0].name} vs {node.name} on slot: {i}",
                             )
                             if len(disagreements) > 5:
                                 raise RedisClusterException(
@@ -264,10 +252,7 @@ class NodeManager:
             # collapse any startup nodes by error representation
             if startup_node_errors:
                 details = " Underlying errors:\n" + "\n".join(
-                    [
-                        f"- {err} [{','.join(nodes)}]"
-                        for err, nodes in startup_node_errors.items()
-                    ]
+                    [f"- {err} [{','.join(nodes)}]" for err, nodes in startup_node_errors.items()]
                 )
             raise RedisClusterException(
                 "Redis Cluster cannot be connected. "
@@ -278,15 +263,13 @@ class NodeManager:
         if not all_slots_covered:
             raise RedisClusterException(
                 "Not all slots are covered after query all startup_nodes. "
-                "{} of {} covered...".format(len(tmp_slots), HASH_SLOTS)
+                f"{len(tmp_slots)} of {HASH_SLOTS} covered..."
             )
 
         # Set the tmp variables to the real variables
         self.slots = tmp_slots
         self.nodes = nodes_cache
-        self.replicas_per_shard = int(
-            (len(self.nodes) / len(replicas)) - 1 if replicas else 0
-        )
+        self.replicas_per_shard = int((len(self.nodes) / len(replicas)) - 1 if replicas else 0)
         self.reinitialize_counter = 0
         self.populate_startup_nodes()
 
@@ -309,9 +292,7 @@ class NodeManager:
             )
             return False
 
-    async def cluster_require_full_coverage(
-        self, nodes_cache: Dict[str, ManagedNode]
-    ) -> bool:
+    async def cluster_require_full_coverage(self, nodes_cache: dict[str, ManagedNode]) -> bool:
         """
         If exists 'cluster-require-full-coverage no' config on redis servers,
         then even all slots are not covered, cluster still will be able to

@@ -2197,7 +2197,7 @@ class SecurityService(System.Object, QuantConnect.Interfaces.ISecurityService):
         ...
 
 
-class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Securities.Security], System.Collections.Generic.IDictionary[QuantConnect.Symbol, QuantConnect.Securities.Security], System.Collections.Specialized.INotifyCollectionChanged, typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.Security]]):
+class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, QuantConnect.Securities.Security], System.Collections.Generic.IDictionary[QuantConnect.Symbol, QuantConnect.Securities.Security], System.Collections.Specialized.INotifyCollectionChanged, typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.Security]]):
     """Enumerable security management class for grouping security objects into an array and providing any common properties."""
 
     @property
@@ -2351,6 +2351,14 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Securities.Se
     @overload
     def create_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], subscription_data_config: QuantConnect.Data.SubscriptionDataConfig, leverage: float = 0, add_to_symbol_cache: bool = True, underlying: QuantConnect.Securities.Security = None) -> QuantConnect.Securities.Security:
         """Creates a new security"""
+        ...
+
+    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.Security]]:
+        """
+        Gets all the items in the dictionary
+        
+        :returns: All the items in the dictionary.
+        """
         ...
 
     def on_collection_changed(self, changed_event_args: System.Collections.Specialized.NotifyCollectionChangedEventArgs) -> None:
@@ -3007,7 +3015,7 @@ class CashBookUpdatedEventArgs(System.EventArgs):
         ...
 
 
-class CashBook(System.Object, System.Collections.Generic.IDictionary[str, QuantConnect.Securities.Cash], QuantConnect.Securities.ICurrencyConverter, typing.Iterable[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]):
+class CashBook(QuantConnect.ExtendedDictionary[str, QuantConnect.Securities.Cash], System.Collections.Generic.IDictionary[str, QuantConnect.Securities.Cash], QuantConnect.Securities.ICurrencyConverter, typing.Iterable[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]):
     """Provides a means of keeping track of the different cash holdings of an algorithm"""
 
     @property
@@ -3047,13 +3055,21 @@ class CashBook(System.Object, System.Collections.Generic.IDictionary[str, QuantC
         ...
 
     @property
-    def keys(self) -> System.Collections.Generic.ICollection[str]:
-        """Gets the keys."""
+    def get_keys(self) -> typing.Iterable[str]:
+        """
+        Gets the keys.
+        
+        This property is protected.
+        """
         ...
 
     @property
-    def values(self) -> System.Collections.Generic.ICollection[QuantConnect.Securities.Cash]:
-        """Gets the values."""
+    def get_values(self) -> typing.Iterable[QuantConnect.Securities.Cash]:
+        """
+        Gets the values.
+        
+        This property is protected.
+        """
         ...
 
     def __contains__(self, symbol: str) -> bool:
@@ -3203,6 +3219,14 @@ class CashBook(System.Object, System.Collections.Generic.IDictionary[str, QuantC
         Gets the enumerator.
         
         :returns: The enumerator.
+        """
+        ...
+
+    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[str, QuantConnect.Securities.Cash]]:
+        """
+        Gets all the items in the dictionary
+        
+        :returns: All the items in the dictionary.
         """
         ...
 
@@ -3633,7 +3657,7 @@ class HasSufficientBuyingPowerForOrderResult(System.Object):
         ...
 
 
-class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Securities.SecurityHolding], System.Collections.Generic.IDictionary[QuantConnect.Symbol, QuantConnect.Securities.SecurityHolding], QuantConnect.Securities.ISecurityProvider, typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.SecurityHolding]]):
+class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, QuantConnect.Securities.SecurityHolding], System.Collections.Generic.IDictionary[QuantConnect.Symbol, QuantConnect.Securities.SecurityHolding], QuantConnect.Securities.ISecurityProvider, typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.SecurityHolding]]):
     """
     Portfolio manager class groups popular properties and makes them accessible through one interface.
     It also provide indexing by the vehicle symbol to get the Security.Holding objects.
@@ -3925,6 +3949,14 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Secu
         :param symbol: The symbol to compute margin remaining for
         :param direction: The order/trading direction
         :returns: The maximum order size that is currently executable in the specified direction.
+        """
+        ...
+
+    def get_items(self) -> typing.Iterable[System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Securities.SecurityHolding]]:
+        """
+        Gets all the items in the dictionary
+        
+        :returns: All the items in the dictionary.
         """
         ...
 

@@ -123,6 +123,7 @@ class EndpointSliceInitArgs:
         pulumi.set(self, "ports", value)
 
 
+@pulumi.type_token("kubernetes:discovery.k8s.io/v1beta1:EndpointSlice")
 class EndpointSlice(pulumi.CustomResource):
     @overload
     def __init__(__self__,

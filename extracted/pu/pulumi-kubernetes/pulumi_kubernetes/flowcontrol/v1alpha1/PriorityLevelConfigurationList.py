@@ -91,6 +91,7 @@ class PriorityLevelConfigurationListArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:flowcontrol.apiserver.k8s.io/v1alpha1:PriorityLevelConfigurationList")
 class PriorityLevelConfigurationList(pulumi.CustomResource):
     @overload
     def __init__(__self__,

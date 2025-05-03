@@ -139,6 +139,7 @@ class StatusPatchArgs:
         pulumi.set(self, "reason", value)
 
 
+@pulumi.type_token("kubernetes:meta/v1:StatusPatch")
 class StatusPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

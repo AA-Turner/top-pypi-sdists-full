@@ -8,7 +8,7 @@ from langgraph_api.serde import Fragment
 MetadataInput = dict[str, Any] | None
 MetadataValue = dict[str, Any]
 
-RunStatus = Literal["pending", "error", "success", "timeout", "interrupted"]
+RunStatus = Literal["pending", "running", "error", "success", "timeout", "interrupted"]
 
 ThreadStatus = Literal["idle", "busy", "interrupted", "error"]
 

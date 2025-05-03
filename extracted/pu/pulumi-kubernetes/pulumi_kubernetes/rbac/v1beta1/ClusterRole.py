@@ -108,6 +108,7 @@ class ClusterRoleInitArgs:
         pulumi.set(self, "rules", value)
 
 
+@pulumi.type_token("kubernetes:rbac.authorization.k8s.io/v1beta1:ClusterRole")
 class ClusterRole(pulumi.CustomResource):
     @overload
     def __init__(__self__,

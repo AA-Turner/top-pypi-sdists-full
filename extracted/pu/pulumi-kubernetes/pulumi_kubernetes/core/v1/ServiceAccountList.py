@@ -91,6 +91,7 @@ class ServiceAccountListArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:core/v1:ServiceAccountList")
 class ServiceAccountList(pulumi.CustomResource):
     @overload
     def __init__(__self__,

@@ -186,6 +186,7 @@ class StorageClassInitArgs:
         pulumi.set(self, "volume_binding_mode", value)
 
 
+@pulumi.type_token("kubernetes:storage.k8s.io/v1:StorageClass")
 class StorageClass(pulumi.CustomResource):
     @overload
     def __init__(__self__,

@@ -91,6 +91,7 @@ class NetworkPolicyListArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:extensions/v1beta1:NetworkPolicyList")
 class NetworkPolicyList(pulumi.CustomResource):
     @overload
     def __init__(__self__,

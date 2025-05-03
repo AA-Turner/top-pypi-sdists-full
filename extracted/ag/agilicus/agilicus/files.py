@@ -73,7 +73,7 @@ def upload(
 
     multipart_form_data = {}
     multipart_form_data["md5_hash"] = md5_hash
-    multipart_form_data["file_zip"] = (name, open(filename, "rb"))
+    multipart_form_data["file_zip"] = (name, open(filename, "r"))
 
     if org_id:
         multipart_form_data["org_id"] = (None, org_id)

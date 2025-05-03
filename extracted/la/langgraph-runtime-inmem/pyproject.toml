@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langgraph-runtime-inmem"
-version = "0.0.8"
+version = "0.0.9"
 description = "Inmem implementation for the LangGraph API server."
 authors = [
     "Will Fu-Hinthorn <will@langchain.dev>",

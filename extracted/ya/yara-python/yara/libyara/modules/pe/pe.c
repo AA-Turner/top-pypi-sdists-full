@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <yara/dotnet.h>
 #include <yara/endian.h>
+#include <yara/limits.h>
 #include <yara/mem.h>
 #include <yara/modules.h>
 #include <yara/pe.h>
@@ -366,9 +367,9 @@ static void pe_parse_debug_directory(PE* pe)
     if (pdb_path != NULL)
     {
       pdb_path_len = strnlen(
-          pdb_path, yr_min(available_space(pe, pdb_path), MAX_PATH));
+          pdb_path, yr_min(available_space(pe, pdb_path), YR_MAX_PATH));
 
-      if (pdb_path_len >= 0 && pdb_path_len < MAX_PATH)
+      if (pdb_path_len >= 0 && pdb_path_len < YR_MAX_PATH)
       {
         yr_set_sized_string(pdb_path, pdb_path_len, pe->object, "pdb_path");
         break;
@@ -380,7 +381,6 @@ static void pe_parse_debug_directory(PE* pe)
 // Return a pointer to the resource directory string or NULL.
 // The callback function will parse this and call yr_set_sized_string().
 // The pointer is guaranteed to have enough space to contain the entire string.
-
 static const PIMAGE_RESOURCE_DIR_STRING_U parse_resource_name(
     PE* pe,
     const uint8_t* rsrc_data,
@@ -397,8 +397,11 @@ static const PIMAGE_RESOURCE_DIR_STRING_U parse_resource_name(
 
     // A resource directory string is 2 bytes for the length and then a variable
     // length Unicode string. Make sure we have at least 2 bytes.
-
     if (!fits_in_pe(pe, pNameString, 2))
+      return NULL;
+
+    // Sanity check for strings that are excesively large.
+    if (pNameString->Length > 1000)
       return NULL;
 
     // Move past the length and make sure we have enough bytes for the string.
@@ -506,7 +509,11 @@ static int _pe_iterate_resources(
       if (struct_fits_in_pe(pe, data_entry, IMAGE_RESOURCE_DATA_ENTRY))
       {
         if (yr_le32toh(data_entry->Size) > 0 &&
-            yr_le32toh(data_entry->Size) < pe->data_size)
+            // We could use the PE's size as an upper bound for the entry size,
+            // but there are some truncated files where the PE size is lower.
+            // Use a reasonably large value as the upper bound and avoid some
+            // completely corrupt entries with random values.
+            yr_le32toh(data_entry->Size) <= 0x3FFFFFFF)
         {
           if (callback(
                   data_entry,
@@ -3369,7 +3376,7 @@ define_function(is_64bit)
 // Returns the number of rich signatures that match the specified version and
 // toolid numbers.
 //
-static uint64_t _rich_version(
+static int64_t _rich_version(
     YR_OBJECT* module,
     uint64_t version,
     uint64_t toolid)
@@ -3380,7 +3387,7 @@ static uint64_t _rich_version(
   PRICH_SIGNATURE clear_rich_signature;
   SIZED_STRING* rich_string;
 
-  uint64_t result = 0;
+  int64_t result = 0;
 
   // Check if the required fields are set
   if (yr_is_undefined(module, "rich_signature.length"))
@@ -3389,17 +3396,22 @@ static uint64_t _rich_version(
   rich_length = yr_get_integer(module, "rich_signature.length");
   rich_string = yr_get_string(module, "rich_signature.clear_data");
 
-  // If the clear_data was not set, return YR_UNDEFINED
+  // If clear_data was not set, return YR_UNDEFINED
   if (rich_string == NULL)
     return YR_UNDEFINED;
 
+  // File e77b007c9a964411c5e33afeec18be32c86963b78f3c3e906b28fcf1382f46c3
+  // has a Rich header of length 8, which is smaller than RICH_SIGNATURE and
+  // causes a crash.
+  if (rich_length < sizeof(RICH_SIGNATURE))
+    return YR_UNDEFINED;
+
   if (version == YR_UNDEFINED && toolid == YR_UNDEFINED)
-    return false;
+    return 0;
 
   clear_rich_signature = (PRICH_SIGNATURE) rich_string->c_string;
 
   // Loop over the versions in the rich signature
-
   rich_count = (rich_length - sizeof(RICH_SIGNATURE)) /
                sizeof(RICH_VERSION_INFO);
 

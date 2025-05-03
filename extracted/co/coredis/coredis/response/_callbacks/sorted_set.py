@@ -7,127 +7,117 @@ from coredis.response.types import ScoredMember, ScoredMembers
 from coredis.typing import (
     AnyStr,
     Generic,
-    List,
-    Optional,
     ResponsePrimitive,
     ResponseType,
-    Tuple,
-    Union,
     ValueT,
 )
 
 
 class ZRankCallback(
     ResponseCallback[
-        Optional[Union[int, List[ResponsePrimitive]]],
-        Optional[Union[int, List[ResponsePrimitive]]],
-        Optional[Union[int, Tuple[int, float]]],
+        int | list[ResponsePrimitive] | None,
+        int | list[ResponsePrimitive] | None,
+        int | tuple[int, float] | None,
     ],
 ):
     def transform(
         self,
-        response: Optional[Union[int, List[ResponsePrimitive]]],
-        **options: Optional[ValueT],
-    ) -> Optional[Union[int, Tuple[int, float]]]:
+        response: int | list[ResponsePrimitive] | None,
+        **options: ValueT | None,
+    ) -> int | tuple[int, float] | None:
         if options.get("withscore"):
             return (response[0], float(response[1])) if response else None
         else:
-            return cast(Optional[int], response)
+            return cast(int | None, response)
 
     def transform_3(
         self,
-        response: Optional[Union[int, List[ResponsePrimitive]]],
-        **options: Optional[ValueT],
-    ) -> Optional[Union[int, Tuple[int, float]]]:
+        response: int | list[ResponsePrimitive] | None,
+        **options: ValueT | None,
+    ) -> int | tuple[int, float] | None:
         if options.get("withscore"):
             return (response[0], response[1]) if response else None
         else:
-            return cast(Optional[int], response)
+            return cast(int | None, response)
 
 
 class ZMembersOrScoredMembers(
     ResponseCallback[
-        List[Union[AnyStr, List[ResponsePrimitive]]],
-        List[Union[AnyStr, List[ResponsePrimitive]]],
-        Tuple[Union[AnyStr, ScoredMember], ...],
+        list[AnyStr | list[ResponsePrimitive]],
+        list[AnyStr | list[ResponsePrimitive]],
+        tuple[AnyStr | ScoredMember, ...],
     ],
 ):
     def transform(
         self,
-        response: List[Union[AnyStr, List[ResponsePrimitive]]],
-        **options: Optional[ValueT],
-    ) -> Tuple[Union[AnyStr, ScoredMember], ...]:
+        response: list[AnyStr | list[ResponsePrimitive]],
+        **options: ValueT | None,
+    ) -> tuple[AnyStr | ScoredMember, ...]:
         if not response:
             return ()
         elif options.get("withscores"):
-            it = iter(cast(List[AnyStr], response))
+            it = iter(cast(list[AnyStr], response))
             return tuple(ScoredMember(*v) for v in zip(it, map(float, it)))
         else:
-            return cast(Tuple[AnyStr, ...], tuple(response))
+            return cast(tuple[AnyStr, ...], tuple(response))
 
     def transform_3(
         self,
-        response: List[Union[AnyStr, List[ResponsePrimitive]]],
-        **options: Optional[ValueT],
-    ) -> Tuple[Union[AnyStr, ScoredMember], ...]:
+        response: list[AnyStr | list[ResponsePrimitive]],
+        **options: ValueT | None,
+    ) -> tuple[AnyStr | ScoredMember, ...]:
         if options.get("withscores"):
-            return tuple(
-                ScoredMember(*v) for v in cast(List[Tuple[AnyStr, float]], response)
-            )
+            return tuple(ScoredMember(*v) for v in cast(list[tuple[AnyStr, float]], response))
         else:
-            return cast(Tuple[AnyStr, ...], tuple(response))
+            return cast(tuple[AnyStr, ...], tuple(response))
 
 
 class ZSetScorePairCallback(
     ResponseCallback[
-        Optional[List[ResponsePrimitive]],
-        Optional[List[Union[ResponsePrimitive, List[ResponsePrimitive]]]],
-        Optional[Union[ScoredMember, ScoredMembers]],
+        list[ResponsePrimitive] | None,
+        list[ResponsePrimitive | list[ResponsePrimitive]] | None,
+        ScoredMember | ScoredMembers | None,
     ],
     Generic[AnyStr],
 ):
     def transform(
-        self, response: Optional[List[ResponsePrimitive]], **options: Optional[ValueT]
-    ) -> Optional[Union[ScoredMember, ScoredMembers]]:
+        self, response: list[ResponsePrimitive] | None, **options: ValueT | None
+    ) -> ScoredMember | ScoredMembers | None:
         if not response:
             return None
 
         if not (options.get("withscores") or options.get("count")):
-            return ScoredMember(
-                cast(AnyStr, response[0]), float(cast(SupportsFloat, response[1]))
-            )
+            return ScoredMember(cast(AnyStr, response[0]), float(cast(SupportsFloat, response[1])))
 
         it = iter(response)
         return tuple(ScoredMember(*v) for v in zip(it, map(float, it)))
 
     def transform_3(
         self,
-        response: Optional[List[Union[ResponsePrimitive, List[ResponsePrimitive]]]],
-        **options: Optional[ValueT],
-    ) -> Optional[Union[ScoredMember, ScoredMembers]]:
+        response: list[ResponsePrimitive | list[ResponsePrimitive]] | None,
+        **options: ValueT | None,
+    ) -> ScoredMember | ScoredMembers | None:
         if not response:
             return None
 
         if not (options.get("withscores") or options.get("count")):
-            return ScoredMember(*cast(Tuple[AnyStr, float], response))
+            return ScoredMember(*cast(tuple[AnyStr, float], response))
 
-        return tuple(
-            ScoredMember(*v) for v in cast(List[Tuple[AnyStr, float]], response)
-        )
+        return tuple(ScoredMember(*v) for v in cast(list[tuple[AnyStr, float]], response))
 
 
 class ZMPopCallback(
     ResponseCallback[
-        Optional[List[ResponseType]],
-        Optional[List[ResponseType]],
-        Optional[Tuple[AnyStr, ScoredMembers]],
+        list[ResponseType] | None,
+        list[ResponseType] | None,
+        tuple[AnyStr, ScoredMembers] | None,
     ],
     Generic[AnyStr],
 ):
     def transform(
-        self, response: Optional[List[ResponseType]], **options: Optional[ValueT]
-    ) -> Optional[Tuple[AnyStr, ScoredMembers]]:
-        r = cast(Tuple[AnyStr, List[Tuple[AnyStr, int]]], response)
+        self, response: list[ResponseType] | None, **options: ValueT | None
+    ) -> tuple[AnyStr, ScoredMembers] | None:
+        r = cast(tuple[AnyStr, list[tuple[AnyStr, int]]], response)
         if r:
             return r[0], tuple(ScoredMember(v[0], float(v[1])) for v in r[1])
 
@@ -135,43 +125,40 @@ class ZMPopCallback(
 
 
 class ZMScoreCallback(
-    ResponseCallback[
-        List[ResponsePrimitive], List[ResponsePrimitive], Tuple[Optional[float], ...]
-    ]
+    ResponseCallback[list[ResponsePrimitive], list[ResponsePrimitive], tuple[float | None, ...]]
 ):
     def transform(
-        self, response: List[ResponsePrimitive], **options: Optional[ValueT]
-    ) -> Tuple[Optional[float], ...]:
+        self, response: list[ResponsePrimitive], **options: ValueT | None
+    ) -> tuple[float | None, ...]:
         return tuple(score if score is None else float(score) for score in response)
 
 
 class ZScanCallback(
-    ResponseCallback[List[ResponseType], List[ResponseType], Tuple[int, ScoredMembers]],
+    ResponseCallback[list[ResponseType], list[ResponseType], tuple[int, ScoredMembers]],
     Generic[AnyStr],
 ):
     def transform(
-        self, response: List[ResponseType], **options: Optional[ValueT]
-    ) -> Tuple[int, ScoredMembers]:
-        cursor, r = cast(Tuple[int, List[AnyStr]], response)
+        self, response: list[ResponseType], **options: ValueT | None
+    ) -> tuple[int, ScoredMembers]:
+        cursor, r = cast(tuple[int, list[AnyStr]], response)
         it = iter(r)
         return int(cursor), tuple(
-            ScoredMember(*cast(Tuple[AnyStr, float], v))
-            for v in zip(it, map(float, it))
+            ScoredMember(*cast(tuple[AnyStr, float], v)) for v in zip(it, map(float, it))
         )
 
 
 class ZRandMemberCallback(
     ResponseCallback[
-        Optional[Union[AnyStr, List[ResponsePrimitive]]],
-        Optional[Union[AnyStr, List[List[ResponsePrimitive]], List[ResponsePrimitive]]],
-        Optional[Union[AnyStr, Tuple[AnyStr, ...], ScoredMembers]],
+        AnyStr | list[ResponsePrimitive] | None,
+        AnyStr | list[list[ResponsePrimitive]] | list[ResponsePrimitive] | None,
+        AnyStr | tuple[AnyStr, ...] | ScoredMembers | None,
     ]
 ):
     def transform(
         self,
-        response: Optional[Union[AnyStr, List[ResponsePrimitive]]],
-        **options: Optional[ValueT],
-    ) -> Optional[Union[AnyStr, Tuple[AnyStr, ...], ScoredMembers]]:
+        response: AnyStr | list[ResponsePrimitive] | None,
+        **options: ValueT | None,
+    ) -> AnyStr | tuple[AnyStr, ...] | ScoredMembers | None:
         if not (response and options.get("withscores")):
             return tuple(response) if isinstance(response, list) else response
 
@@ -180,11 +167,9 @@ class ZRandMemberCallback(
 
     def transform_3(
         self,
-        response: Optional[
-            Union[AnyStr, List[List[ResponsePrimitive]], List[ResponsePrimitive]]
-        ],
-        **options: Optional[ValueT],
-    ) -> Optional[Union[AnyStr, Tuple[AnyStr, ...], ScoredMembers]]:
+        response: AnyStr | list[list[ResponsePrimitive]] | list[ResponsePrimitive] | None,
+        **options: ValueT | None,
+    ) -> AnyStr | tuple[AnyStr, ...] | ScoredMembers | None:
         if not (response and options.get("withscores")):
             return tuple(response) if isinstance(response, list) else response
 
@@ -193,30 +178,24 @@ class ZRandMemberCallback(
 
 class BZPopCallback(
     ResponseCallback[
-        Optional[List[ResponsePrimitive]],
-        Optional[List[ResponsePrimitive]],
-        Optional[Tuple[AnyStr, AnyStr, float]],
+        list[ResponsePrimitive] | None,
+        list[ResponsePrimitive] | None,
+        tuple[AnyStr, AnyStr, float] | None,
     ]
 ):
     def transform(
-        self, response: Optional[List[ResponsePrimitive]], **options: Optional[ValueT]
-    ) -> Optional[Tuple[AnyStr, AnyStr, float]]:
+        self, response: list[ResponsePrimitive] | None, **options: ValueT | None
+    ) -> tuple[AnyStr, AnyStr, float] | None:
         if response:
             return response[0], response[1], float(response[2])
         return None
 
 
-class ZAddCallback(
-    ResponseCallback[ResponsePrimitive, Union[int, float], Union[int, float]]
-):
-    def transform(
-        self, response: ResponsePrimitive, **options: Optional[ValueT]
-    ) -> Union[int, float]:
+class ZAddCallback(ResponseCallback[ResponsePrimitive, int | float, int | float]):
+    def transform(self, response: ResponsePrimitive, **options: ValueT | None) -> int | float:
         if options.get("condition"):
             return float(response)
         return int(response)
 
-    def transform_3(
-        self, response: Union[int, float], **options: Optional[ValueT]
-    ) -> Union[int, float]:
+    def transform_3(self, response: int | float, **options: ValueT | None) -> int | float:
         return response

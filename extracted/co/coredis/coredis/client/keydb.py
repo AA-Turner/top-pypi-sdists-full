@@ -29,27 +29,20 @@ from coredis.typing import (
     Callable,
     CommandArgList,
     Coroutine,
-    Dict,
     Iterable,
     KeyT,
     Literal,
-    Optional,
     P,
     Parameters,
     R,
-    Set,
     StringT,
-    Tuple,
-    Union,
     ValueT,
 )
 
 
 def _keydb_command_link(command: CommandName) -> str:
     canonical_command = str(command).lower().replace(" ", "-").replace(".", "")
-    return (
-        f"`{str(command)} <https://docs.keydb.dev/docs/commands#{canonical_command}>`_"
-    )
+    return f"`{str(command)} <https://docs.keydb.dev/docs/commands#{canonical_command}>`_"
 
 
 class CommandName(CaseAndEncodingInsensitiveEnum):
@@ -71,16 +64,14 @@ class CommandName(CaseAndEncodingInsensitiveEnum):
 
 def keydb_command(
     command_name: CommandName,
-    group: Optional[CommandGroup] = None,
-    version_introduced: Optional[str] = None,
-    version_deprecated: Optional[str] = None,
-    deprecation_reason: Optional[str] = None,
-    arguments: Optional[Dict[str, Dict[str, str]]] = None,
+    group: CommandGroup | None = None,
+    version_introduced: str | None = None,
+    version_deprecated: str | None = None,
+    deprecation_reason: str | None = None,
+    arguments: dict[str, dict[str, str]] | None = None,
     cluster: ClusterCommandConfig = ClusterCommandConfig(),
-    flags: Optional[Set[CommandFlag]] = None,
-) -> Callable[
-    [Callable[P, Coroutine[Any, Any, R]]], Callable[P, Coroutine[Any, Any, R]]
-]:
+    flags: set[CommandFlag] | None = None,
+) -> Callable[[Callable[P, Coroutine[Any, Any, R]]], Callable[P, Coroutine[Any, Any, R]]]:
     command_details = CommandDetails(
         command_name,
         group,
@@ -131,7 +122,7 @@ class KeyDBCommands(CommandMixin[AnyStr]):
         keys: Parameters[KeyT],
         operation: StringT,
         destkey: KeyT,
-        value: Optional[int] = None,
+        value: int | None = None,
     ) -> int:
         """
         Perform a bitwise operation using :paramref:`operation` between
@@ -140,9 +131,7 @@ class KeyDBCommands(CommandMixin[AnyStr]):
         pieces: CommandArgList = [operation, destkey, *keys]
         if value is not None:
             pieces.append(value)
-        return await self.execute_command(
-            CommandName.BITOP, *pieces, callback=IntCallback()
-        )
+        return await self.execute_command(CommandName.BITOP, *pieces, callback=IntCallback())
 
     @keydb_command(
         CommandName.CRON,
@@ -152,11 +141,11 @@ class KeyDBCommands(CommandMixin[AnyStr]):
         self,
         name: KeyT,
         repeat: bool,
-        delay: Union[int, datetime.timedelta],
+        delay: int | datetime.timedelta,
         script: StringT,
         keys: Parameters[KeyT],
         args: Parameters[ValueT],
-        start: Optional[Union[int, datetime.datetime]] = None,
+        start: int | datetime.datetime | None = None,
     ) -> bool:
         """
         Schedule a LUA script to run at a specified time and/or intervals.
@@ -207,7 +196,7 @@ class KeyDBCommands(CommandMixin[AnyStr]):
         key: KeyT,
         subkey: KeyT,
         delay: int,
-        unit: Optional[Literal[b"s", b"ms"]] = None,
+        unit: Literal[b"s", b"ms"] | None = None,
     ) -> bool:
         """
         Set a subkey's time to live in seconds (or milliseconds)
@@ -224,7 +213,7 @@ class KeyDBCommands(CommandMixin[AnyStr]):
         CommandGroup.GENERIC,
     )
     async def expirememberat(
-        self, key: KeyT, subkey: KeyT, unix_time_seconds: Union[int, datetime.datetime]
+        self, key: KeyT, subkey: KeyT, unix_time_seconds: int | datetime.datetime
     ) -> bool:
         """
         Set the expiration for a subkey as a UNIX timestamp
@@ -246,7 +235,7 @@ class KeyDBCommands(CommandMixin[AnyStr]):
         self,
         key: KeyT,
         subkey: KeyT,
-        unix_time_milliseconds: Union[int, datetime.datetime],
+        unix_time_milliseconds: int | datetime.datetime,
     ) -> bool:
         """
         Set the expiration for a subkey as a UNIX timestamp in milliseconds
@@ -261,9 +250,7 @@ class KeyDBCommands(CommandMixin[AnyStr]):
         )
 
     @keydb_command(CommandName.HRENAME, group=CommandGroup.HASH)
-    async def hrename(
-        self, key: KeyT, source_field: ValueT, destination_field: ValueT
-    ) -> bool:
+    async def hrename(self, key: KeyT, source_field: ValueT, destination_field: ValueT) -> bool:
         """
         Rename a field :paramref:`source_field` to :paramref:`destination_field`
         in hash :paramref:`key`
@@ -277,18 +264,14 @@ class KeyDBCommands(CommandMixin[AnyStr]):
             callback=BoolCallback(),
         )
 
-    @keydb_command(
-        CommandName.MEXISTS, group=CommandGroup.GENERIC, flags={CommandFlag.READONLY}
-    )
-    async def mexists(self, keys: Iterable[KeyT]) -> Tuple[bool, ...]:
+    @keydb_command(CommandName.MEXISTS, group=CommandGroup.GENERIC, flags={CommandFlag.READONLY})
+    async def mexists(self, keys: Iterable[KeyT]) -> tuple[bool, ...]:
         """
         Returns a tuple of bools in the same order as :paramref:`keys`
         denoting whether the keys exist
         """
 
-        return await self.execute_command(
-            CommandName.MEXISTS, *keys, callback=BoolsCallback()
-        )
+        return await self.execute_command(CommandName.MEXISTS, *keys, callback=BoolsCallback())
 
     @keydb_command(
         CommandName.OBJECT_LASTMODIFIED,
@@ -307,10 +290,8 @@ class KeyDBCommands(CommandMixin[AnyStr]):
             CommandName.OBJECT_LASTMODIFIED, key, callback=IntCallback()
         )
 
-    @keydb_command(
-        CommandName.PTTL, group=CommandGroup.GENERIC, flags={CommandFlag.READONLY}
-    )
-    async def pttl(self, key: KeyT, subkey: Optional[ValueT] = None) -> int:
+    @keydb_command(CommandName.PTTL, group=CommandGroup.GENERIC, flags={CommandFlag.READONLY})
+    async def pttl(self, key: KeyT, subkey: ValueT | None = None) -> int:
         """
         Returns the number of milliseconds until the key :paramref:`key` will expire.
         If :paramref:`subkey` is provided the response will be for the subkey.
@@ -321,14 +302,10 @@ class KeyDBCommands(CommandMixin[AnyStr]):
         if subkey is not None:
             pieces.append(subkey)
 
-        return await self.execute_command(
-            CommandName.PTTL, *pieces, callback=IntCallback()
-        )
+        return await self.execute_command(CommandName.PTTL, *pieces, callback=IntCallback())
 
-    @keydb_command(
-        CommandName.TTL, group=CommandGroup.GENERIC, flags={CommandFlag.READONLY}
-    )
-    async def ttl(self, key: KeyT, subkey: Optional[ValueT] = None) -> int:
+    @keydb_command(CommandName.TTL, group=CommandGroup.GENERIC, flags={CommandFlag.READONLY})
+    async def ttl(self, key: KeyT, subkey: ValueT | None = None) -> int:
         """
         Get the time to live for a key (or subkey) in seconds
 
@@ -338,9 +315,7 @@ class KeyDBCommands(CommandMixin[AnyStr]):
         pieces: CommandArgList = [key]
         if subkey is not None:
             pieces.append(subkey)
-        return await self.execute_command(
-            CommandName.TTL, *pieces, callback=IntCallback()
-        )
+        return await self.execute_command(CommandName.TTL, *pieces, callback=IntCallback())
 
 
 class KeyDB(KeyDBCommands[AnyStr], Redis[AnyStr]):

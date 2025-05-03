@@ -22,6 +22,7 @@ from typing import Any, Optional, Union
 from uuid import uuid4
 
 from assertionengine import AssertionOperator, verify_assertion
+from robot.api.logger import LOGLEVEL
 from robot.libraries.BuiltIn import EXECUTION_CONTEXTS, BuiltIn
 from robot.utils import get_link_path
 
@@ -200,7 +201,7 @@ class PlaywrightState(LibraryComponent):
                 self._get_browser_catalog(include_page_details=False)
             )
             if active_browser["id"] != browser_instance["id"]:
-                self.switch_browser(browser_instance["id"])
+                self._switch_browser(browser_instance["id"], "TRACE")
             with suppress(Exception):
                 contexts = self._get_context(context, browser_instance["contexts"])
                 self._close_pw_context(contexts, save_trace)
@@ -436,7 +437,7 @@ class PlaywrightState(LibraryComponent):
         | ``ignoreDefaultArgs`` | If True, Playwright does not pass its own configurations args and only uses the ones from args. If a list is given, then filters out the given default arguments. Dangerous option; use with care. Defaults to False. |
         | ``proxy`` | Network [#type-Proxy|Proxy] settings. Structure: ``{'server': <str>, 'bypass': <Optional[str]>, 'username': <Optional[str]>, 'password': <Optional[str]>}`` |
         | ``reuse_existing`` | If set to True, an existing browser instance, that matches the same arguments, will be reused. If no same configured Browser exist, a new one is started. Defaults to True. |
-        | ``slowMo`` | Slows down Playwright operations by the specified amount of milliseconds. Useful so that you can see what is going on. Defaults to no delay. |
+        | ``slowMo`` | Slows down Playwright operations by the specified amount of seconds or `timedelta`. Useful so that you can see what is going on. Defaults to no delay. |
         | ``timeout`` | Maximum time in Robot Framework time format to wait for the browser instance to start. Defaults to 30 seconds. Pass 0 to disable timeout. |
 
 
@@ -1116,7 +1117,7 @@ class PlaywrightState(LibraryComponent):
         *,
         full: bool = False,
         last: Union[int, timedelta, None] = None,
-    ) -> dict:
+    ) -> list[dict]:
         """Returns the console log of the active page.
 
         If assertions are used and fail, this keyword will fail immediately without retrying.
@@ -1131,7 +1132,7 @@ class PlaywrightState(LibraryComponent):
         The returned data is a `list` of log messages.
 
         A log message is a `dict` with the following structure:
-        | {
+        | [{
         |   "type": str,
         |   "text": str,
         |   "location": {
@@ -1140,7 +1141,7 @@ class PlaywrightState(LibraryComponent):
         |     "columnNumber": int
         |   },
         |   "time": str
-        | }
+        | }]
 
         Example:
         | [{
@@ -1268,9 +1269,15 @@ class PlaywrightState(LibraryComponent):
         [https://forum.robotframework.org/t//4334|Comment >>]
         """
         logger.info(f"Switching browser to {id}")
+        return self._switch_browser(id)
+
+    def _switch_browser(self, id: str, loglevel: LOGLEVEL = "INFO") -> str:  # noqa: A002
         with self.playwright.grpc_channel() as stub:
             response = stub.SwitchBrowser(Request().Index(index=id))
-            logger.info(response.log)
+            logger.write(
+                response.log,
+                loglevel=loglevel,
+            )
             return response.body
 
     @keyword(tags=("Setter", "BrowserControl"))

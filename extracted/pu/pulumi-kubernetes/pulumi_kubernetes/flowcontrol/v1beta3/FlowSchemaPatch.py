@@ -92,6 +92,7 @@ class FlowSchemaPatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:flowcontrol.apiserver.k8s.io/v1beta3:FlowSchemaPatch")
 class FlowSchemaPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

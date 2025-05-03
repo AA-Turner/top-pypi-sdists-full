@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect
-Version: 3.3.7
+Version: 3.4.0
 Summary: Workflow orchestration and management.
 Project-URL: Changelog, https://github.com/PrefectHQ/prefect/releases
 Project-URL: Documentation, https://docs.prefect.io
@@ -49,7 +49,7 @@ Requires-Dist: jsonpatch<2.0,>=1.32
 Requires-Dist: jsonschema<5.0.0,>=4.0.0
 Requires-Dist: opentelemetry-api<2.0.0,>=1.27.0
 Requires-Dist: orjson<4.0,>=3.7
-Requires-Dist: packaging<24.3,>=21.3
+Requires-Dist: packaging<25.1,>=21.3
 Requires-Dist: pathspec>=0.8.0
 Requires-Dist: pendulum<4,>=3.0.0; python_version < '3.13'
 Requires-Dist: prometheus-client>=0.20.0
@@ -75,7 +75,7 @@ Requires-Dist: ujson<6.0.0,>=5.8.0
 Requires-Dist: uv>=0.6.0
 Requires-Dist: uvicorn!=0.29.0,>=0.14.0
 Requires-Dist: websockets<16.0,>=13.0
-Requires-Dist: whenever<0.8.0,>=0.7.3; python_version >= '3.13'
+Requires-Dist: whenever<0.9.0,>=0.7.3; python_version >= '3.13'
 Provides-Extra: aws
 Requires-Dist: prefect-aws>=0.5.8; extra == 'aws'
 Provides-Extra: azure

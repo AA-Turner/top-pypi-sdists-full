@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: graphiti-core
-Version: 0.11.3
+Version: 0.11.5
 Summary: A temporal graph building library
 License: Apache-2.0
 Author: Paul Paliychuk

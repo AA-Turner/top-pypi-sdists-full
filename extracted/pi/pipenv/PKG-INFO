@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pipenv
-Version: 2025.0.1
+Version: 2025.0.2
 Summary: Python Development Workflow for Humans.
 Author-email: Pipenv maintainer team <distutils-sig@python.org>
 License: MIT License (MIT)

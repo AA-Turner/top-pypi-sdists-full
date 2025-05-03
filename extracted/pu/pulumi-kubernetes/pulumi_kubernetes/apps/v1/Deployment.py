@@ -93,6 +93,7 @@ class DeploymentInitArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:apps/v1:Deployment")
 class Deployment(pulumi.CustomResource):
     @overload
     def __init__(__self__,

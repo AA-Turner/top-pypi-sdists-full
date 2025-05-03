@@ -84,6 +84,7 @@ class StatefulSetListArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:apps/v1beta2:StatefulSetList")
 class StatefulSetList(pulumi.CustomResource):
     @overload
     def __init__(__self__,

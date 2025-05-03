@@ -91,6 +91,7 @@ class CSIDriverListArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:storage.k8s.io/v1:CSIDriverList")
 class CSIDriverList(pulumi.CustomResource):
     @overload
     def __init__(__self__,

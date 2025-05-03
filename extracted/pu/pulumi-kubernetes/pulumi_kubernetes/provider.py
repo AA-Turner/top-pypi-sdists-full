@@ -336,6 +336,7 @@ class ProviderArgs:
         pulumi.set(self, "suppress_helm_hook_warnings", value)
 
 
+@pulumi.type_token("pulumi:providers:kubernetes")
 class Provider(pulumi.ProviderResource):
     @overload
     def __init__(__self__,

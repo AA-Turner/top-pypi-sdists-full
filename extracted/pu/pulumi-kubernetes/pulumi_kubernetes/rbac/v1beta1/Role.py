@@ -92,6 +92,7 @@ class RoleInitArgs:
         pulumi.set(self, "rules", value)
 
 
+@pulumi.type_token("kubernetes:rbac.authorization.k8s.io/v1beta1:Role")
 class Role(pulumi.CustomResource):
     @overload
     def __init__(__self__,

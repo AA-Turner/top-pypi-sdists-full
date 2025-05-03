@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-tweet-queue
-Version: 2.0.803
+Version: 2.0.804
 Summary: Defines an SQS queue with tweet stream from a search
 Home-page: https://github.com/cdklabs/cdk-tweet-queue
 Author: Elad Ben-Israel<elad.benisrael@gmail.com>
@@ -19,7 +19,7 @@ Classifier: License :: OSI Approved
 Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.193.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.194.0
 Requires-Dist: constructs<11.0.0,>=10.4.2
 Requires-Dist: jsii<2.0.0,>=1.111.0
 Requires-Dist: publication>=0.0.3

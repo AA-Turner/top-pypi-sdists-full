@@ -1,13 +1,13 @@
 Metadata-Version: 2.1
 Name: langchain-openai
-Version: 0.3.15
+Version: 0.3.16
 Summary: An integration package connecting OpenAI and LangChain
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain/tree/master/libs/partners/openai
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain/releases?q=tag%3A%22langchain-openai%3D%3D0%22&expanded=true
 Project-URL: repository, https://github.com/langchain-ai/langchain
 Requires-Python: >=3.9
-Requires-Dist: langchain-core<1.0.0,>=0.3.56
+Requires-Dist: langchain-core<1.0.0,>=0.3.58
 Requires-Dist: openai<2.0.0,>=1.68.2
 Requires-Dist: tiktoken<1,>=0.7
 Description-Content-Type: text/markdown

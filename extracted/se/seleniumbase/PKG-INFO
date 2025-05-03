@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.37.12
+Version: 4.38.0
 Summary: A complete web automation framework for end-to-end testing.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -60,7 +60,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pip>=25.0.1; python_version < "3.9"
-Requires-Dist: pip>=25.1; python_version >= "3.9"
+Requires-Dist: pip>=25.1.1; python_version >= "3.9"
 Requires-Dist: packaging>=25.0
 Requires-Dist: setuptools~=70.2; python_version < "3.10"
 Requires-Dist: setuptools>=80.1.0; python_version >= "3.10"
@@ -93,7 +93,7 @@ Requires-Dist: tabcompleter>=1.4.0
 Requires-Dist: pdbp>=1.7.0
 Requires-Dist: idna==3.10
 Requires-Dist: chardet==5.2.0
-Requires-Dist: charset-normalizer==3.4.1
+Requires-Dist: charset-normalizer<4,>=3.4.2
 Requires-Dist: urllib3<2,>=1.26.20; python_version < "3.10"
 Requires-Dist: urllib3<2.5.0,>=1.26.20; python_version >= "3.10"
 Requires-Dist: requests==2.32.3
@@ -106,7 +106,7 @@ Requires-Dist: trio-websocket==0.12.2
 Requires-Dist: wsproto==1.2.0
 Requires-Dist: websocket-client==1.8.0
 Requires-Dist: selenium==4.27.1; python_version < "3.9"
-Requires-Dist: selenium==4.31.0; python_version >= "3.9"
+Requires-Dist: selenium==4.32.0; python_version >= "3.9"
 Requires-Dist: cssselect==1.2.0; python_version < "3.9"
 Requires-Dist: cssselect==1.3.0; python_version >= "3.9"
 Requires-Dist: sortedcontainers==2.4.0
@@ -156,7 +156,7 @@ Provides-Extra: pdfminer
 Requires-Dist: pdfminer.six==20250324; python_version < "3.9" and extra == "pdfminer"
 Requires-Dist: pdfminer.six==20250416; python_version >= "3.9" and extra == "pdfminer"
 Requires-Dist: cryptography==39.0.2; python_version < "3.9" and extra == "pdfminer"
-Requires-Dist: cryptography==44.0.2; python_version >= "3.9" and extra == "pdfminer"
+Requires-Dist: cryptography==44.0.3; python_version >= "3.9" and extra == "pdfminer"
 Requires-Dist: cffi==1.17.1; extra == "pdfminer"
 Requires-Dist: pycparser==2.22; extra == "pdfminer"
 Provides-Extra: pillow

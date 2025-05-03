@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: yfinance
-Version: 0.2.57
+Version: 0.2.58
 Summary: Download market data from Yahoo! Finance API
 Home-page: https://github.com/ranaroussi/yfinance
 Author: Ran Aroussi
@@ -33,6 +33,7 @@ Requires-Dist: pytz>=2022.5
 Requires-Dist: frozendict>=2.3.4
 Requires-Dist: peewee>=3.16.2
 Requires-Dist: beautifulsoup4>=4.11.1
+Requires-Dist: curl_cffi>=0.7
 Provides-Extra: nospam
 Requires-Dist: requests_cache>=1.0; extra == "nospam"
 Requires-Dist: requests_ratelimiter>=0.3.1; extra == "nospam"
@@ -84,7 +85,7 @@ Dynamic: summary
 > [!TIP]
 > THE NEW DOCUMENTATION WEBSITE IS NOW LIVE! 🤘
 > 
-> Visit [**ranaroussi.github.io/yfinance**](https://ranaroussi.github.io/yfinance) ›
+> Visit [**ranaroussi.github.io/yfinance**](https://ranaroussi.github.io/yfinance)
 
 ---
 
@@ -105,12 +106,6 @@ Install `yfinance` from PYPI using `pip`:
 ``` {.sourceCode .bash}
 $ pip install yfinance
 ```
-
-The list of changes can be found in the [Changelog](https://github.com/ranaroussi/yfinance/blob/main/CHANGELOG.rst)
-
-## Developers: want to contribute?
-
-`yfinance` relies on the community to investigate bugs, review code, and contribute code. Developer guide: https://github.com/ranaroussi/yfinance/discussions/1084
 
 ---
 

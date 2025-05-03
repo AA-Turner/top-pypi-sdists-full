@@ -489,8 +489,6 @@ class TrinoRequest:
         self._exceptions = self.HTTP_EXCEPTIONS
         self._auth = auth
         if self._auth:
-            if self._http_scheme == constants.HTTP:
-                raise ValueError("cannot use authentication with HTTP")
             self._auth.set_http_session(self._http_session)
             self._exceptions += self._auth.get_exceptions()
 
@@ -524,7 +522,8 @@ class TrinoRequest:
             headers[constants.HEADER_ENCODING] = self._client_session.encoding
         else:
             raise ValueError("Invalid type for encoding: expected str or list")
-        headers[constants.HEADER_CLIENT_CAPABILITIES] = 'PARAMETRIC_DATETIME'
+        headers[constants.HEADER_CLIENT_CAPABILITIES] = constants.CLIENT_CAPABILITIES
+
         headers["user-agent"] = f"{constants.CLIENT_NAME}/{__version__}"
         if len(self._client_session.roles.values()):
             headers[constants.HEADER_ROLE] = ",".join(
@@ -580,7 +579,8 @@ class TrinoRequest:
             max_attempts=self.max_attempts,
             request_timeout=self._request_timeout,
             handle_retry=self._handle_retry,
-            client_session=ClientSession(user=self._client_session.user))
+            client_session=ClientSession(user=self._client_session.user),
+            verify=self._http_session.verify)
 
     @property
     def max_attempts(self) -> int:

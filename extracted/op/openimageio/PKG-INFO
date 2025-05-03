@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: OpenImageIO
-Version: 3.0.6.0
+Version: 3.0.6.1
 Summary: Reading, writing, and processing images in a wide variety of file formats, using a format-agnostic API, aimed at VFX applications.
 Author-Email: Larry Gritz <lg@larrygritz.com>, OpenImageIO Contributors <oiio-dev@lists.aswf.io>
 Maintainer-Email: OpenImageIO Contributors <oiio-dev@lists.aswf.io>

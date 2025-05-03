@@ -85,6 +85,7 @@ class PodPresetInitArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:settings.k8s.io/v1alpha1:PodPreset")
 class PodPreset(pulumi.CustomResource):
     @overload
     def __init__(__self__,

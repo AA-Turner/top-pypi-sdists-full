@@ -37,16 +37,9 @@ from coredis.typing import (
     Awaitable,
     Callable,
     ClassVar,
-    Deque,
-    Dict,
-    List,
     Literal,
-    Optional,
     ResponseType,
-    Set,
-    Tuple,
     TypeVar,
-    Union,
     ValueT,
 )
 
@@ -61,7 +54,7 @@ class Request:
     connection: weakref.ProxyType[Connection]
     command: bytes
     decode: bool
-    encoding: Optional[str] = None
+    encoding: str | None = None
     raise_exceptions: bool = True
     future: asyncio.Future[ResponseType] = dataclasses.field(
         default_factory=lambda: asyncio.get_running_loop().create_future()
@@ -78,30 +71,28 @@ class Request:
     def enforce_deadline(self, timeout: float) -> None:
         if not self.future.done():
             self.future.set_exception(
-                TimeoutError(
-                    f"command {nativestr(self.command)} timed out after {timeout} seconds"
-                )
+                TimeoutError(f"command {nativestr(self.command)} timed out after {timeout} seconds")
             )
 
 
 @dataclasses.dataclass
 class CommandInvocation:
     command: bytes
-    args: Tuple[ValueT, ...]
-    decode: Optional[bool]
-    encoding: Optional[str]
+    args: tuple[ValueT, ...]
+    decode: bool | None
+    encoding: str | None
 
 
 class RedisSSLContext:
-    context: Optional[ssl.SSLContext]
+    context: ssl.SSLContext | None
 
     def __init__(
         self,
-        keyfile: Optional[str],
-        certfile: Optional[str],
-        cert_reqs: Optional[Union[str, ssl.VerifyMode]] = None,
-        ca_certs: Optional[str] = None,
-        check_hostname: Optional[bool] = None,
+        keyfile: str | None,
+        certfile: str | None,
+        cert_reqs: str | ssl.VerifyMode | None = None,
+        ca_certs: str | None = None,
+        check_hostname: bool | None = None,
     ) -> None:
         self.keyfile = keyfile
         self.certfile = certfile
@@ -125,16 +116,10 @@ class RedisSSLContext:
         if not self.context:
             self.context = ssl.create_default_context()
             if self.certfile and self.keyfile:
-                self.context.load_cert_chain(
-                    certfile=self.certfile, keyfile=self.keyfile
-                )
+                self.context.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
             if self.ca_certs:
                 self.context.load_verify_locations(
-                    **{
-                        (
-                            "capath" if os.path.isdir(self.ca_certs) else "cafile"
-                        ): self.ca_certs
-                    }
+                    **{("capath" if os.path.isdir(self.ca_certs) else "cafile"): self.ca_certs}
                 )
             self.context.check_hostname = self.check_hostname
             self.context.verify_mode = self.cert_reqs
@@ -150,11 +135,11 @@ class BaseConnection(asyncio.BaseProtocol):
     """
 
     #: id for this connection as returned by the redis server
-    client_id: Optional[int]
+    client_id: int | None
     #: Queue that collects any unread push message types
     push_messages: asyncio.Queue[ResponseType]
     #: client id that the redis server should send any redirected notifications to
-    tracking_client_id: Optional[int]
+    tracking_client_id: int | None
     #: Whether the connection should use RESP or RESP3
     protocol_version: Literal[2, 3]
 
@@ -166,45 +151,41 @@ class BaseConnection(asyncio.BaseProtocol):
 
     def __init__(
         self,
-        stream_timeout: Optional[float] = None,
+        stream_timeout: float | None = None,
         encoding: str = "utf-8",
         decode_responses: bool = False,
         *,
-        client_name: Optional[str] = None,
+        client_name: str | None = None,
         protocol_version: Literal[2, 3] = 3,
         noreply: bool = False,
         noevict: bool = False,
         notouch: bool = False,
     ):
         self._stream_timeout = stream_timeout
-        self.username: Optional[str] = None
-        self.password: Optional[str] = ""
-        self.credential_provider: Optional[AbstractCredentialProvider] = None
-        self.db: Optional[int] = None
+        self.username: str | None = None
+        self.password: str | None = ""
+        self.credential_provider: AbstractCredentialProvider | None = None
+        self.db: int | None = None
         self.pid: int = os.getpid()
-        self._description_args: Callable[..., Dict[str, Optional[Union[str, int]]]] = (
-            lambda: dict()
-        )
-        self._connect_callbacks: List[
-            Union[
-                Callable[[BaseConnection], Awaitable[None]],
-                Callable[[BaseConnection], None],
-            ]
+        self._description_args: Callable[..., dict[str, str | int | None]] = lambda: dict()
+        self._connect_callbacks: list[
+            (Callable[[BaseConnection], Awaitable[None]] | Callable[[BaseConnection], None])
         ] = list()
         self.encoding = encoding
         self.decode_responses = decode_responses
         self.protocol_version = protocol_version
-        self.server_version: Optional[str] = None
+        self.server_version: str | None = None
         self.client_name = client_name
         self.client_id = None
         self.tracking_client_id = None
 
         self.last_active_at: float = time.time()
-        self.last_request_processed_at: Optional[float] = None
+        self.last_request_processed_at: float | None = None
 
-        self._transport: Optional[asyncio.Transport] = None
+        self._transport: asyncio.Transport | None = None
         self._parser = Parser()
         self._read_flag = asyncio.Event()
+        self._read_waiters: set[asyncio.Task[bool]] = set()
         self.packer: Packer = Packer(self.encoding)
         self.push_messages: asyncio.Queue[ResponseType] = asyncio.Queue()
 
@@ -215,10 +196,10 @@ class BaseConnection(asyncio.BaseProtocol):
         self.notouch: bool = notouch
 
         self.needs_handshake: bool = True
-        self._last_error: Optional[BaseException] = None
-        self._connection_error: Optional[BaseException] = None
+        self._last_error: BaseException | None = None
+        self._connection_error: BaseException | None = None
 
-        self._requests: Deque[Request] = deque()
+        self._requests: deque[Request] = deque()
 
         self.average_response_time: float = 0
         self.requests_processed: int = 0
@@ -229,14 +210,12 @@ class BaseConnection(asyncio.BaseProtocol):
         return self.describe(self._description_args())
 
     @classmethod
-    def describe(cls, description_args: Dict[str, Any]) -> str:
+    def describe(cls, description_args: dict[str, Any]) -> str:
         return cls.description.format_map(defaultdict(lambda: None, description_args))
 
     @property
     def location(self) -> str:
-        return self.locator.format_map(
-            defaultdict(lambda: None, self._description_args())
-        )
+        return self.locator.format_map(defaultdict(lambda: None, self._description_args()))
 
     @property
     def estimated_time_to_idle(self) -> float:
@@ -282,10 +261,7 @@ class BaseConnection(asyncio.BaseProtocol):
 
     def register_connect_callback(
         self,
-        callback: Union[
-            Callable[[BaseConnection], None],
-            Callable[[BaseConnection], Awaitable[None]],
-        ],
+        callback: (Callable[[BaseConnection], None] | Callable[[BaseConnection], Awaitable[None]]),
     ) -> None:
         self._connect_callbacks.append(callback)
 
@@ -330,7 +306,7 @@ class BaseConnection(asyncio.BaseProtocol):
         self._transport = cast(asyncio.Transport, transport)
         self._write_ready.set()
 
-    def connection_lost(self, exc: Optional[BaseException]) -> None:
+    def connection_lost(self, exc: BaseException | None) -> None:
         """
         :meta private:
         """
@@ -377,8 +353,7 @@ class BaseConnection(asyncio.BaseProtocol):
             response_time = time.time() - request.created_at
 
             self.average_response_time = (
-                (self.average_response_time * (self.requests_processed - 1))
-                + response_time
+                (self.average_response_time * (self.requests_processed - 1)) + response_time
             ) / self.requests_processed
 
             try:
@@ -402,24 +377,18 @@ class BaseConnection(asyncio.BaseProtocol):
     async def _connect(self) -> None:
         raise NotImplementedError
 
-    async def update_tracking_client(
-        self, enabled: bool, client_id: Optional[int] = None
-    ) -> bool:
+    async def update_tracking_client(self, enabled: bool, client_id: int | None = None) -> bool:
         """
         Associate this connection to :paramref:`client_id` to
         relay any tracking notifications to.
         """
         try:
-            params: List[ValueT] = (
-                [b"ON", b"REDIRECT", client_id]
-                if (enabled and client_id is not None)
-                else [b"OFF"]
+            params: list[ValueT] = (
+                [b"ON", b"REDIRECT", client_id] if (enabled and client_id is not None) else [b"OFF"]
             )
 
             if (
-                await (
-                    await self.create_request(b"CLIENT TRACKING", *params, decode=False)
-                )
+                await (await self.create_request(b"CLIENT TRACKING", *params, decode=False))
                 != b"OK"
             ):
                 raise ConnectionError("Unable to toggle client tracking")
@@ -448,14 +417,12 @@ class BaseConnection(asyncio.BaseProtocol):
         if not self.needs_handshake:
             return
 
-        hello_command_args: List[Union[int, str, bytes]] = [self.protocol_version]
+        hello_command_args: list[int | str | bytes] = [self.protocol_version]
         if creds := (
             await self.credential_provider.get_credentials()
             if self.credential_provider
             else (
-                await UserPassCredentialProvider(
-                    self.username, self.password
-                ).get_credentials()
+                await UserPassCredentialProvider(self.username, self.password).get_credentials()
                 if (self.username or self.password)
                 else None
             )
@@ -473,12 +440,12 @@ class BaseConnection(asyncio.BaseProtocol):
             )
             assert isinstance(hello_resp, (list, dict))
             if self.protocol_version == 3:
-                resp3 = cast(Dict[bytes, ValueT], hello_resp)
+                resp3 = cast(dict[bytes, ValueT], hello_resp)
                 assert resp3[b"proto"] == 3
                 self.server_version = nativestr(resp3[b"version"])
                 self.client_id = int(resp3[b"id"])
             else:
-                resp = cast(List[ValueT], hello_resp)
+                resp = cast(list[ValueT], hello_resp)
                 self.server_version = nativestr(resp[3])
                 self.client_id = int(resp[7])
             if self.server_version >= "7.2":
@@ -521,19 +488,12 @@ class BaseConnection(asyncio.BaseProtocol):
         await self.perform_handshake()
 
         if self.db:
-            if (
-                await (await self.create_request(b"SELECT", self.db, decode=False))
-                != b"OK"
-            ):
+            if await (await self.create_request(b"SELECT", self.db, decode=False)) != b"OK":
                 raise ConnectionError(f"Invalid Database {self.db}")
 
         if self.client_name is not None:
             if (
-                await (
-                    await self.create_request(
-                        b"CLIENT SETNAME", self.client_name, decode=False
-                    )
-                )
+                await (await self.create_request(b"CLIENT SETNAME", self.client_name, decode=False))
                 != b"OK"
             ):
                 raise ConnectionError(f"Failed to set client name: {self.client_name}")
@@ -552,9 +512,9 @@ class BaseConnection(asyncio.BaseProtocol):
 
     async def fetch_push_message(
         self,
-        decode: Optional[ValueT] = None,
-        push_message_types: Optional[Set[bytes]] = None,
-        block: Optional[bool] = False,
+        decode: ValueT | None = None,
+        push_message_types: set[bytes] | None = None,
+        block: bool | None = False,
     ) -> ResponseType:
         """
         Read the next pending response
@@ -578,12 +538,19 @@ class BaseConnection(asyncio.BaseProtocol):
         ):
             self._read_flag.clear()
             try:
-                async with async_timeout.timeout(
-                    self._stream_timeout if not block else None
-                ):
-                    await self._read_flag.wait()
+                timeout = self._stream_timeout if not block else None
+                read_ready_task = asyncio.create_task(self._read_flag.wait())
+                read_ready_task.add_done_callback(
+                    lambda _: self._read_waiters.discard(read_ready_task)
+                )
+                self._read_waiters.add(read_ready_task)
+                await asyncio.wait_for(read_ready_task, timeout)
             except asyncio.TimeoutError:
                 raise TimeoutError
+            except asyncio.CancelledError:
+                if not self.is_connected:
+                    raise ConnectionError("Connection lost")
+                raise
             message = self._parser.get_response(
                 bool(decode) if decode is not None else self.decode_responses,
                 self.encoding,
@@ -592,7 +559,7 @@ class BaseConnection(asyncio.BaseProtocol):
         return message
 
     async def _send_packed_command(
-        self, command: List[bytes], timeout: Optional[float] = None
+        self, command: list[bytes], timeout: float | None = None
     ) -> None:
         """
         Sends an already packed command to the Redis server
@@ -605,9 +572,7 @@ class BaseConnection(asyncio.BaseProtocol):
         except asyncio.TimeoutError:
             if self._transport:
                 self.disconnect()
-            raise TimeoutError(
-                f"Unable to write after waiting for socket for {timeout} seconds"
-            )
+            raise TimeoutError(f"Unable to write after waiting for socket for {timeout} seconds")
         self._transport.writelines(command)
 
     async def send_command(
@@ -630,11 +595,11 @@ class BaseConnection(asyncio.BaseProtocol):
         self,
         command: bytes,
         *args: ValueT,
-        noreply: Optional[bool] = None,
-        decode: Optional[ValueT] = None,
-        encoding: Optional[str] = None,
+        noreply: bool | None = None,
+        decode: ValueT | None = None,
+        encoding: str | None = None,
         raise_exceptions: bool = True,
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> asyncio.Future[ResponseType]:
         """
         Send a command to the redis server
@@ -645,11 +610,9 @@ class BaseConnection(asyncio.BaseProtocol):
             await self.connect()
 
         cmd_list = []
-        request_timeout: Optional[float] = timeout or self._stream_timeout
+        request_timeout: float | None = timeout or self._stream_timeout
         if self.is_connected and noreply and not self.noreply:
-            cmd_list = self.packer.pack_command(
-                CommandName.CLIENT_REPLY, PureToken.SKIP
-            )
+            cmd_list = self.packer.pack_command(CommandName.CLIENT_REPLY, PureToken.SKIP)
         cmd_list.extend(self.packer.pack_command(command, *args))
         await self._send_packed_command(cmd_list, timeout=request_timeout)
 
@@ -680,10 +643,10 @@ class BaseConnection(asyncio.BaseProtocol):
 
     async def create_requests(
         self,
-        commands: List[CommandInvocation],
+        commands: list[CommandInvocation],
         raise_exceptions: bool = True,
-        timeout: Optional[float] = None,
-    ) -> List[asyncio.Future[ResponseType]]:
+        timeout: float | None = None,
+    ) -> list[asyncio.Future[ResponseType]]:
         """
         Send multiple commands to the redis server
         """
@@ -691,7 +654,7 @@ class BaseConnection(asyncio.BaseProtocol):
         if not self.is_connected:
             await self.connect()
 
-        request_timeout: Optional[float] = timeout or self._stream_timeout
+        request_timeout: float | None = timeout or self._stream_timeout
 
         await self._send_packed_command(
             self.packer.pack_commands(
@@ -701,7 +664,7 @@ class BaseConnection(asyncio.BaseProtocol):
         )
 
         self.last_active_at = time.time()
-        requests: List[asyncio.Future[ResponseType]] = []
+        requests: list[asyncio.Future[ResponseType]] = []
         for cmd in commands:
             request = Request(
                 weakref.proxy(self),
@@ -733,13 +696,16 @@ class BaseConnection(asyncio.BaseProtocol):
             except RuntimeError:  # noqa
                 pass
 
+        disconnect_exc = self._last_error or ConnectionError("connection lost")
+        while self._read_waiters:
+            waiter = self._read_waiters.pop()
+            if not waiter.done():
+                waiter.cancel()
         while True:
             try:
                 request = self._requests.popleft()
                 if not request.future.done():
-                    request.future.set_exception(
-                        self._last_error or ConnectionError("Connection lost")
-                    )
+                    request.future.set_exception(disconnect_exc)
             except IndexError:
                 break
         self._transport = None
@@ -753,19 +719,19 @@ class Connection(BaseConnection):
         self,
         host: str = "127.0.0.1",
         port: int = 6379,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        credential_provider: Optional[AbstractCredentialProvider] = None,
-        db: Optional[int] = 0,
-        stream_timeout: Optional[float] = None,
-        connect_timeout: Optional[float] = None,
-        ssl_context: Optional[ssl.SSLContext] = None,
+        username: str | None = None,
+        password: str | None = None,
+        credential_provider: AbstractCredentialProvider | None = None,
+        db: int | None = 0,
+        stream_timeout: float | None = None,
+        connect_timeout: float | None = None,
+        ssl_context: ssl.SSLContext | None = None,
         encoding: str = "utf-8",
         decode_responses: bool = False,
-        socket_keepalive: Optional[bool] = None,
-        socket_keepalive_options: Optional[Dict[int, Union[int, bytes]]] = None,
+        socket_keepalive: bool | None = None,
+        socket_keepalive_options: dict[int, int | bytes] | None = None,
         *,
-        client_name: Optional[str] = None,
+        client_name: str | None = None,
         protocol_version: Literal[2, 3] = 3,
         noreply: bool = False,
         noevict: bool = False,
@@ -783,25 +749,19 @@ class Connection(BaseConnection):
         )
         self.host = host
         self.port = port
-        self.username: Optional[str] = username
-        self.password: Optional[str] = password
-        self.credential_provider: Optional[AbstractCredentialProvider] = (
-            credential_provider
-        )
-        self.db: Optional[int] = db
+        self.username: str | None = username
+        self.password: str | None = password
+        self.credential_provider: AbstractCredentialProvider | None = credential_provider
+        self.db: int | None = db
         self.ssl_context = ssl_context
         self._connect_timeout = connect_timeout
-        self._description_args: Callable[..., Dict[str, Optional[Union[str, int]]]] = (
-            lambda: {
-                "host": self.host,
-                "port": self.port,
-                "db": self.db,
-            }
-        )
+        self._description_args: Callable[..., dict[str, str | int | None]] = lambda: {
+            "host": self.host,
+            "port": self.port,
+            "db": self.db,
+        }
         self.socket_keepalive = socket_keepalive
-        self.socket_keepalive_options: Dict[int, Union[int, bytes]] = (
-            socket_keepalive_options or {}
-        )
+        self.socket_keepalive_options: dict[int, int | bytes] = socket_keepalive_options or {}
 
     async def _connect(self) -> None:
         async with self._transport_lock:
@@ -847,16 +807,16 @@ class UnixDomainSocketConnection(BaseConnection):
     def __init__(
         self,
         path: str = "",
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        credential_provider: Optional[AbstractCredentialProvider] = None,
+        username: str | None = None,
+        password: str | None = None,
+        credential_provider: AbstractCredentialProvider | None = None,
         db: int = 0,
-        stream_timeout: Optional[float] = None,
-        connect_timeout: Optional[float] = None,
+        stream_timeout: float | None = None,
+        connect_timeout: float | None = None,
         encoding: str = "utf-8",
         decode_responses: bool = False,
         *,
-        client_name: Optional[str] = None,
+        client_name: str | None = None,
         protocol_version: Literal[2, 3] = 3,
         **_: ValueT,
     ) -> None:
@@ -877,9 +837,7 @@ class UnixDomainSocketConnection(BaseConnection):
 
     async def _connect(self) -> None:
         async with async_timeout.timeout(self._connect_timeout):
-            await asyncio.get_running_loop().create_unix_connection(
-                lambda: self, path=self.path
-            )
+            await asyncio.get_running_loop().create_unix_connection(lambda: self, path=self.path)
 
         await self.on_connect()
 
@@ -889,25 +847,25 @@ class ClusterConnection(Connection):
 
     description: ClassVar[str] = "ClusterConnection<host={host},port={port}>"
     locator: ClassVar[str] = "host={host},port={port}"
-    node: "ManagedNode"
+    node: ManagedNode
 
     def __init__(
         self,
         host: str = "127.0.0.1",
         port: int = 6379,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        credential_provider: Optional[AbstractCredentialProvider] = None,
-        db: Optional[int] = 0,
-        stream_timeout: Optional[float] = None,
-        connect_timeout: Optional[float] = None,
-        ssl_context: Optional[ssl.SSLContext] = None,
+        username: str | None = None,
+        password: str | None = None,
+        credential_provider: AbstractCredentialProvider | None = None,
+        db: int | None = 0,
+        stream_timeout: float | None = None,
+        connect_timeout: float | None = None,
+        ssl_context: ssl.SSLContext | None = None,
         encoding: str = "utf-8",
         decode_responses: bool = False,
-        socket_keepalive: Optional[bool] = None,
-        socket_keepalive_options: Optional[Dict[int, Union[int, bytes]]] = None,
+        socket_keepalive: bool | None = None,
+        socket_keepalive_options: dict[int, int | bytes] | None = None,
         *,
-        client_name: Optional[str] = None,
+        client_name: str | None = None,
         protocol_version: Literal[2, 3] = 3,
         read_from_replicas: bool = False,
         noreply: bool = False,
@@ -946,6 +904,4 @@ class ClusterConnection(Connection):
 
         await super().on_connect()
         if self.read_from_replicas:
-            assert (
-                await (await self.create_request(b"READONLY", decode=False))
-            ) == b"OK"
+            assert (await (await self.create_request(b"READONLY", decode=False))) == b"OK"

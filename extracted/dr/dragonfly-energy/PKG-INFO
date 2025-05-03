@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dragonfly-energy
-Version: 1.33.17
+Version: 1.33.19
 Summary: Dragonfly extension for energy simulation.
 Home-page: https://github.com/ladybug-tools/dragonfly-energy
 Author: Ladybug Tools
@@ -14,8 +14,8 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dragonfly-core==1.63.5
-Requires-Dist: honeybee-energy==1.116.18
+Requires-Dist: dragonfly-core==1.64.0
+Requires-Dist: honeybee-energy==1.116.19
 Provides-Extra: standards
 Requires-Dist: honeybee-energy-standards==2.2.6; extra == "standards"
 Provides-Extra: openstudio

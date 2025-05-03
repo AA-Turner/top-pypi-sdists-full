@@ -22,19 +22,13 @@ from ..tokens import PrefixToken, PureToken
 from ..typing import (
     AnyStr,
     CommandArgList,
-    Dict,
     KeyT,
-    List,
     Literal,
     Mapping,
-    Optional,
     Parameters,
     ResponsePrimitive,
     ResponseType,
-    Set,
     StringT,
-    Tuple,
-    Union,
     ValueT,
 )
 from .base import Module, ModuleGroup, module_command
@@ -51,9 +45,9 @@ from .response.types import SearchAggregationResult, SearchResult
 class RediSearch(Module[AnyStr]):
     NAME = "search"
     FULL_NAME = "RediSearch"
-    DESCRIPTION = """RedisSearch is a Redis module that enables querying, secondary 
-indexing, and full-text search for Redis. These features enable multi-field queries, 
-aggregation, exact phrase matching, numeric filtering, geo filtering and vector 
+    DESCRIPTION = """RedisSearch is a Redis module that enables querying, secondary
+indexing, and full-text search for Redis. These features enable multi-field queries,
+aggregation, exact phrase matching, numeric filtering, geo filtering and vector
 similarity semantic search on top of text queries."""
     DOCUMENTATION_URL = "https://redis.io/docs/stack/search"
 
@@ -83,47 +77,47 @@ class Field:
     #: Defines the alias associated to :paramref:`name`.
     #: For example, you can use this feature to alias a complex
     #: JSONPath expression with more memorable (and easier to type) name.
-    alias: Optional[StringT] = None
+    alias: StringT | None = None
     #: Whether to optimize for sorting.
-    sortable: Optional[bool] = None
+    sortable: bool | None = None
     #: Whether to use the unnormalized form of the field for sorting.
-    unf: Optional[bool] = None
+    unf: bool | None = None
     #: Whether to disable stemming for this field.
-    nostem: Optional[bool] = None
+    nostem: bool | None = None
     #: Skip indexing this field
-    noindex: Optional[bool] = None
+    noindex: bool | None = None
     #: Phonetic algorithm to use for this field.
-    phonetic: Optional[StringT] = None
+    phonetic: StringT | None = None
     #: Weight of this field in the document's ranking. The default is 1.0.
-    weight: Optional[Union[int, float]] = None
+    weight: int | float | None = None
     #: Separator to use for splitting tags if the field is of
     #: type :attr:`~coredis.PureToken.TAG`.
-    separator: Optional[StringT] = None
+    separator: StringT | None = None
     #: For fields of type :attr:`~coredis.PureToken.TAG`,
     #: keeps the original letter cases of the tags. If not specified,
     #: the characters are converted to lowercase.
-    casesensitive: Optional[bool] = None
+    casesensitive: bool | None = None
     #: For fields of type :attr:`~coredis.PureToken.TAG` &
     #: :attr:`~coredis.PureToken.TEXT`, keeps a suffix trie with all
     #: terms which match the suffix. It is used to optimize contains ``(foo)``
     #: and suffix ``(*foo)`` queries. Otherwise, a brute-force search on the trie
     #: is performed. If suffix trie exists for some fields, these queries will
     #: be disabled for other fields
-    withsuffixtrie: Optional[bool] = None
+    withsuffixtrie: bool | None = None
     #: The algorithm to use for indexing if the field is of type
     #: :attr:`~coredis.PureToken.VECTOR`.
     #: For more details refer to the
     #: `Vector similarity <https://redis.io/docs/stack/search/reference/vectors/>`__
     #: section of the RediSearch documentation.
-    algorithm: Optional[Literal["FLAT", "HSNW"]] = None
+    algorithm: Literal["FLAT", "HSNW"] | None = None
     #: A dictionary of attributes to be used with the :paramref:`algorithm` specified.
     #: For more details refer to the
     #: `Creation attributes per algorithm <https://redis.io/docs/stack/search/reference/vectors/#creation-attributes-per-algorithm>`__
     #: section of the RediSearch documentation.
-    attributes: Optional[Dict[StringT, ValueT]] = None
+    attributes: dict[StringT, ValueT] | None = None
 
     @property
-    def args(self) -> Tuple[ValueT, ...]:
+    def args(self) -> tuple[ValueT, ...]:
         args: CommandArgList = [self.name]
         if self.alias:
             args += [PrefixToken.AS, self.alias]
@@ -133,9 +127,7 @@ class Field:
 
             args += [self.algorithm]
             if self.attributes:
-                _attributes: List[ValueT] = list(
-                    itertools.chain(*self.attributes.items())
-                )
+                _attributes: list[ValueT] = list(itertools.chain(*self.attributes.items()))
                 args += [len(_attributes)]
                 args += _attributes
 
@@ -173,9 +165,9 @@ class Reduce:
     #: The name of the reducer function
     function: StringT
     #: The arguments to the reducer function
-    parameters: Optional[Parameters[ValueT]] = None
+    parameters: Parameters[ValueT] | None = None
     #: The alias to assign to the result of the reducer function
-    alias: Optional[StringT] = None
+    alias: StringT | None = None
 
     @property
     def args(self) -> CommandArgList:
@@ -199,9 +191,9 @@ class Group:
     """
 
     #: The field to group by
-    by: Union[StringT, Parameters[StringT]]
+    by: StringT | Parameters[StringT]
     #: The reducers to apply to each group
-    reducers: Optional[Parameters[Reduce]] = None
+    reducers: Parameters[Reduce] | None = None
 
     @property
     def args(self) -> CommandArgList:
@@ -209,7 +201,7 @@ class Group:
         if isinstance(self.by, (bytes, str)):
             args.extend([1, self.by])
         else:
-            bies: List[StringT] = list(self.by)
+            bies: list[StringT] = list(self.by)
             args.extend([len(bies), *bies])
         for reducer in self.reducers or []:
             args.append(PrefixToken.REDUCE)
@@ -274,22 +266,22 @@ class Search(ModuleGroup[AnyStr]):
         index: KeyT,
         schema: Parameters[Field],
         *,
-        on: Optional[Literal[PureToken.HASH, PureToken.JSON]] = None,
-        prefixes: Optional[Parameters[StringT]] = None,
-        filter_expression: Optional[StringT] = None,
-        language: Optional[StringT] = None,
-        language_field: Optional[StringT] = None,
-        score: Optional[Union[int, float]] = None,
-        score_field: Optional[StringT] = None,
-        payload_field: Optional[StringT] = None,
-        maxtextfields: Optional[bool] = None,
-        temporary: Optional[Union[int, timedelta]] = None,
-        nooffsets: Optional[bool] = None,
-        nohl: Optional[bool] = None,
-        nofields: Optional[bool] = None,
-        nofreqs: Optional[bool] = None,
-        stopwords: Optional[Parameters[StringT]] = None,
-        skipinitialscan: Optional[bool] = None,
+        on: Literal[PureToken.HASH, PureToken.JSON] | None = None,
+        prefixes: Parameters[StringT] | None = None,
+        filter_expression: StringT | None = None,
+        language: StringT | None = None,
+        language_field: StringT | None = None,
+        score: int | float | None = None,
+        score_field: StringT | None = None,
+        payload_field: StringT | None = None,
+        maxtextfields: bool | None = None,
+        temporary: int | timedelta | None = None,
+        nooffsets: bool | None = None,
+        nohl: bool | None = None,
+        nofields: bool | None = None,
+        nofreqs: bool | None = None,
+        stopwords: Parameters[StringT] | None = None,
+        skipinitialscan: bool | None = None,
     ) -> bool:
         """
         Creates an index with the given spec
@@ -320,7 +312,7 @@ class Search(ModuleGroup[AnyStr]):
             pieces.extend([PrefixToken.ON, on])
 
         if prefixes:
-            _prefixes: List[StringT] = list(prefixes)
+            _prefixes: list[StringT] = list(prefixes)
             pieces.extend([PrefixToken.PREFIX, len(_prefixes), *_prefixes])
         if filter_expression:
             pieces.extend([PrefixToken.FILTER, filter_expression])
@@ -347,7 +339,7 @@ class Search(ModuleGroup[AnyStr]):
         if nofreqs:
             pieces.append(PureToken.NOFREQS)
         if stopwords:
-            _stop: List[StringT] = list(stopwords)
+            _stop: list[StringT] = list(stopwords)
             pieces.extend([PrefixToken.STOPWORDS, len(_stop), *_stop])
         if skipinitialscan:
             pieces.append(PureToken.SKIPINITIALSCAN)
@@ -367,7 +359,7 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def info(self, index: KeyT) -> Dict[AnyStr, ResponseType]:
+    async def info(self, index: KeyT) -> dict[AnyStr, ResponseType]:
         """
         Returns information and statistics on the index
 
@@ -394,9 +386,7 @@ class Search(ModuleGroup[AnyStr]):
         group=COMMAND_GROUP,
         arguments={"dialect": {"version_introduced": "2.4.3"}},
     )
-    async def explain(
-        self, index: KeyT, query: StringT, dialect: Optional[int] = None
-    ) -> AnyStr:
+    async def explain(self, index: KeyT, query: StringT, dialect: int | None = None) -> AnyStr:
         """
         Returns the execution plan for a complex query
 
@@ -421,7 +411,7 @@ class Search(ModuleGroup[AnyStr]):
         self,
         index: KeyT,
         field: Field,
-        skipinitialscan: Optional[bool] = None,
+        skipinitialscan: bool | None = None,
     ) -> bool:
         """
         Adds a new field to the index
@@ -446,7 +436,7 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="2.0.0",
         group=COMMAND_GROUP,
     )
-    async def dropindex(self, index: KeyT, delete_docs: Optional[bool] = None) -> bool:
+    async def dropindex(self, index: KeyT, delete_docs: bool | None = None) -> bool:
         """
         Deletes the index
 
@@ -520,7 +510,7 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.0.0",
         group=COMMAND_GROUP,
     )
-    async def tagvals(self, index: KeyT, field_name: StringT) -> Set[AnyStr]:
+    async def tagvals(self, index: KeyT, field_name: StringT) -> set[AnyStr]:
         """
         Returns the distinct tags indexed in a Tag field
 
@@ -543,7 +533,7 @@ class Search(ModuleGroup[AnyStr]):
         index: KeyT,
         synonym_group: StringT,
         terms: Parameters[StringT],
-        skipinitialscan: Optional[bool] = None,
+        skipinitialscan: bool | None = None,
     ) -> bool:
         """
         Creates or updates a synonym group with additional terms
@@ -569,7 +559,7 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.2.0",
         group=COMMAND_GROUP,
     )
-    async def syndump(self, index: KeyT) -> Dict[AnyStr, List[AnyStr]]:
+    async def syndump(self, index: KeyT) -> dict[AnyStr, list[AnyStr]]:
         """
         Dumps the contents of a synonym group
 
@@ -577,7 +567,7 @@ class Search(ModuleGroup[AnyStr]):
         """
 
         return await self.execute_module_command(
-            CommandName.FT_SYNDUMP, index, callback=DictCallback[AnyStr, List[AnyStr]]()
+            CommandName.FT_SYNDUMP, index, callback=DictCallback[AnyStr, list[AnyStr]]()
         )
 
     @module_command(
@@ -591,10 +581,10 @@ class Search(ModuleGroup[AnyStr]):
         self,
         index: KeyT,
         query: StringT,
-        distance: Optional[int] = None,
-        include: Optional[StringT] = None,
-        exclude: Optional[StringT] = None,
-        dialect: Optional[int] = None,
+        distance: int | None = None,
+        include: StringT | None = None,
+        exclude: StringT | None = None,
+        dialect: int | None = None,
     ) -> SpellCheckResult:
         """
         Performs spelling correction on a query, returning suggestions for misspelled terms
@@ -671,7 +661,7 @@ class Search(ModuleGroup[AnyStr]):
         version_introduced="1.4.0",
         group=COMMAND_GROUP,
     )
-    async def dictdump(self, name: StringT) -> Set[AnyStr]:
+    async def dictdump(self, name: StringT) -> set[AnyStr]:
         """
         Dumps all terms in the given dictionary
 
@@ -692,7 +682,7 @@ class Search(ModuleGroup[AnyStr]):
             combine=ClusterMergeSets[AnyStr](),
         ),
     )
-    async def list(self) -> Set[AnyStr]:
+    async def list(self) -> set[AnyStr]:
         """
         Returns a list of all existing indexes
         """
@@ -728,7 +718,7 @@ class Search(ModuleGroup[AnyStr]):
             route=NodeFlag.RANDOM,
         ),
     )
-    async def config_get(self, option: StringT) -> Dict[AnyStr, ResponsePrimitive]:
+    async def config_get(self, option: StringT) -> dict[AnyStr, ResponsePrimitive]:
         """
         Retrieves runtime configuration options
         """
@@ -751,50 +741,48 @@ class Search(ModuleGroup[AnyStr]):
         index: KeyT,
         query: StringT,
         *,
-        nocontent: Optional[bool] = None,
-        verbatim: Optional[bool] = None,
-        nostopwords: Optional[bool] = None,
-        withscores: Optional[bool] = None,
-        withpayloads: Optional[bool] = None,
-        withsortkeys: Optional[bool] = None,
-        numeric_filters: Optional[
-            Mapping[
-                StringT, Tuple[Union[int, float, StringT], Union[int, float, StringT]]
-            ]
-        ] = None,
-        geo_filters: Optional[
+        nocontent: bool | None = None,
+        verbatim: bool | None = None,
+        nostopwords: bool | None = None,
+        withscores: bool | None = None,
+        withpayloads: bool | None = None,
+        withsortkeys: bool | None = None,
+        numeric_filters: None
+        | (Mapping[StringT, tuple[int | float | StringT, int | float | StringT]]) = None,
+        geo_filters: None
+        | (
             Mapping[
                 StringT,
-                Tuple[
-                    Tuple[Union[int, float], Union[int, float]],
-                    Union[int, float],
+                tuple[
+                    tuple[int | float, int | float],
+                    int | float,
                     Literal[PureToken.KM, PureToken.M, PureToken.MI, PureToken.FT],
                 ],
             ]
-        ] = None,
-        in_keys: Optional[Parameters[StringT]] = None,
-        in_fields: Optional[Parameters[StringT]] = None,
-        returns: Optional[Mapping[StringT, Optional[StringT]]] = None,
-        summarize_fields: Optional[Parameters[StringT]] = None,
-        summarize_frags: Optional[int] = None,
-        summarize_length: Optional[int] = None,
-        summarize_separator: Optional[StringT] = None,
-        highlight_fields: Optional[Parameters[StringT]] = None,
-        highlight_tags: Optional[Tuple[StringT, StringT]] = None,
-        slop: Optional[int] = None,
-        timeout: Optional[Union[int, timedelta]] = None,
-        inorder: Optional[bool] = None,
-        language: Optional[StringT] = None,
-        expander: Optional[StringT] = None,
-        scorer: Optional[StringT] = None,
-        explainscore: Optional[bool] = None,
-        payload: Optional[StringT] = None,
-        sortby: Optional[StringT] = None,
-        sort_order: Optional[Literal[PureToken.ASC, PureToken.DESC]] = None,
-        offset: Optional[int] = 0,
-        limit: Optional[int] = None,
-        parameters: Optional[Mapping[StringT, ValueT]] = None,
-        dialect: Optional[int] = None,
+        ) = None,
+        in_keys: Parameters[StringT] | None = None,
+        in_fields: Parameters[StringT] | None = None,
+        returns: Mapping[StringT, StringT | None] | None = None,
+        summarize_fields: Parameters[StringT] | None = None,
+        summarize_frags: int | None = None,
+        summarize_length: int | None = None,
+        summarize_separator: StringT | None = None,
+        highlight_fields: Parameters[StringT] | None = None,
+        highlight_tags: tuple[StringT, StringT] | None = None,
+        slop: int | None = None,
+        timeout: int | timedelta | None = None,
+        inorder: bool | None = None,
+        language: StringT | None = None,
+        expander: StringT | None = None,
+        scorer: StringT | None = None,
+        explainscore: bool | None = None,
+        payload: StringT | None = None,
+        sortby: StringT | None = None,
+        sort_order: Literal[PureToken.ASC, PureToken.DESC] | None = None,
+        offset: int | None = 0,
+        limit: int | None = None,
+        parameters: Mapping[StringT, ValueT] | None = None,
+        dialect: int | None = None,
     ) -> SearchResult[AnyStr]:
         """
         Searches the index with a textual query, returning either documents or just ids
@@ -859,9 +847,7 @@ class Search(ModuleGroup[AnyStr]):
             pieces.append(PureToken.WITHSORTKEYS)
         if numeric_filters:
             for field, numeric_filter in numeric_filters.items():
-                pieces.extend(
-                    [PrefixToken.FILTER, field, numeric_filter[0], numeric_filter[1]]
-                )
+                pieces.extend([PrefixToken.FILTER, field, numeric_filter[0], numeric_filter[1]])
         if geo_filters:
             for field, gfilter in geo_filters.items():
                 pieces.extend(
@@ -875,10 +861,10 @@ class Search(ModuleGroup[AnyStr]):
                     ]
                 )
         if in_keys:
-            _in_keys: List[StringT] = list(in_keys)
+            _in_keys: list[StringT] = list(in_keys)
             pieces.extend([PrefixToken.INKEYS, len(_in_keys), *_in_keys])
         if in_fields:
-            _in_fields: List[StringT] = list(in_fields)
+            _in_fields: list[StringT] = list(in_fields)
             pieces.extend([PrefixToken.INFIELDS, len(_in_fields), *_in_fields])
         if returns:
             return_items: CommandArgList = []
@@ -891,15 +877,10 @@ class Search(ModuleGroup[AnyStr]):
             pieces.extend([PrefixToken.SORTBY, sortby])
             if sort_order:
                 pieces.append(sort_order)
-        if (
-            summarize_fields
-            or summarize_frags
-            or summarize_length
-            or summarize_separator
-        ):
+        if summarize_fields or summarize_frags or summarize_length or summarize_separator:
             pieces.append(PureToken.SUMMARIZE)
             if summarize_fields:
-                _fields: List[StringT] = list(summarize_fields)
+                _fields: list[StringT] = list(summarize_fields)
                 pieces.extend([PrefixToken.FIELDS, len(_fields), *_fields])
             if summarize_frags:
                 pieces.extend([PrefixToken.FRAGS, summarize_frags])
@@ -933,7 +914,7 @@ class Search(ModuleGroup[AnyStr]):
         if limit is not None:
             pieces.extend([PrefixToken.LIMIT, offset or 0, limit])
         if parameters:
-            _parameters: List[ValueT] = list(itertools.chain(*parameters.items()))
+            _parameters: list[ValueT] = list(itertools.chain(*parameters.items()))
             pieces.extend([PureToken.PARAMS, len(_parameters), *_parameters])
         if dialect:
             pieces.extend([PrefixToken.DIALECT, dialect])
@@ -961,23 +942,19 @@ class Search(ModuleGroup[AnyStr]):
         index: KeyT,
         query: StringT,
         *,
-        verbatim: Optional[bool] = None,
-        load: Optional[
-            Union[Literal["*"], Parameters[Union[StringT, Tuple[StringT, StringT]]]]
-        ] = None,
-        timeout: Optional[Union[int, timedelta]] = None,
-        transforms: Optional[Parameters[Union[Group, Apply, Filter]]] = None,
-        sortby: Optional[
-            Mapping[StringT, Literal[PureToken.ASC, PureToken.DESC]]
-        ] = None,
-        sortby_max: Optional[int] = None,
-        offset: Optional[int] = 0,
-        limit: Optional[int] = None,
-        with_cursor: Optional[bool] = None,
-        cursor_read_size: Optional[int] = None,
-        cursor_maxidle: Optional[Union[int, timedelta]] = None,
-        parameters: Optional[Mapping[StringT, StringT]] = None,
-        dialect: Optional[int] = None,
+        verbatim: bool | None = None,
+        load: None | (Literal["*"] | Parameters[StringT | tuple[StringT, StringT]]) = None,
+        timeout: int | timedelta | None = None,
+        transforms: Parameters[Group | Apply | Filter] | None = None,
+        sortby: Mapping[StringT, Literal[PureToken.ASC, PureToken.DESC]] | None = None,
+        sortby_max: int | None = None,
+        offset: int | None = 0,
+        limit: int | None = None,
+        with_cursor: bool | None = None,
+        cursor_read_size: int | None = None,
+        cursor_maxidle: int | timedelta | None = None,
+        parameters: Mapping[StringT, StringT] | None = None,
+        dialect: int | None = None,
     ) -> SearchAggregationResult[AnyStr]:
         """
         Perform aggregate transformations on search results from a Redis index.
@@ -1011,7 +988,7 @@ class Search(ModuleGroup[AnyStr]):
             if isinstance(load, (bytes, str)):
                 pieces.append(load)
             else:
-                _load_fields: List[StringT] = []
+                _load_fields: list[StringT] = []
                 for field in load:
                     if isinstance(field, (bytes, str)):
                         _load_fields.append(field)
@@ -1040,11 +1017,9 @@ class Search(ModuleGroup[AnyStr]):
             if cursor_read_size:
                 pieces.extend([PrefixToken.COUNT, cursor_read_size])
             if cursor_maxidle:
-                pieces.extend(
-                    [PrefixToken.MAXIDLE, normalized_milliseconds(cursor_maxidle)]
-                )
+                pieces.extend([PrefixToken.MAXIDLE, normalized_milliseconds(cursor_maxidle)])
         if parameters:
-            _parameters: List[StringT] = list(itertools.chain(*parameters.items()))
+            _parameters: list[StringT] = list(itertools.chain(*parameters.items()))
             pieces.extend([PureToken.PARAMS, len(_parameters), *_parameters])
         if dialect:
             pieces.extend([PrefixToken.DIALECT, dialect])
@@ -1063,7 +1038,7 @@ class Search(ModuleGroup[AnyStr]):
         group=COMMAND_GROUP,
     )
     async def cursor_read(
-        self, index: KeyT, cursor_id: int, count: Optional[int] = None
+        self, index: KeyT, cursor_id: int, count: int | None = None
     ) -> SearchAggregationResult[AnyStr]:
         """
         Reads from a cursor

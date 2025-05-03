@@ -93,6 +93,7 @@ class VolumeAttachmentPatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:storage.k8s.io/v1:VolumeAttachmentPatch")
 class VolumeAttachmentPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

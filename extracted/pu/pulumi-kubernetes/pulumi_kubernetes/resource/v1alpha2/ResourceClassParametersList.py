@@ -91,6 +91,7 @@ class ResourceClassParametersListArgs:
         pulumi.set(self, "metadata", value)
 
 
+@pulumi.type_token("kubernetes:resource.k8s.io/v1alpha2:ResourceClassParametersList")
 class ResourceClassParametersList(pulumi.CustomResource):
     @overload
     def __init__(__self__,

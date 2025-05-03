@@ -92,6 +92,7 @@ class IngressClassPatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:networking.k8s.io/v1:IngressClassPatch")
 class IngressClassPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

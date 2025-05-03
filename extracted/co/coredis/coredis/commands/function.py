@@ -15,18 +15,14 @@ from coredis.typing import (
     AnyStr,
     Awaitable,
     Callable,
-    Dict,
     Generator,
     Generic,
     KeyT,
-    List,
-    Optional,
     P,
     Parameters,
     R,
     ResponseType,
     StringT,
-    Tuple,
     TypeVar,
     ValueT,
     add_runtime_checks,
@@ -43,15 +39,15 @@ LibraryBytesT = TypeVar("LibraryBytesT", bound="Library[bytes]")
 
 class Library(Generic[AnyStr]):
     #: Class variable equivalent of the :paramref:`Library.name` argument.
-    NAME: ClassVar[Optional[StringT]] = None
+    NAME: ClassVar[StringT | None] = None
     #: Class variable equivalent of the :paramref:`Library.code` argument.
-    CODE: ClassVar[Optional[StringT]] = None
+    CODE: ClassVar[StringT | None] = None
 
     def __init__(
         self,
         client: coredis.client.Client[AnyStr],
-        name: Optional[StringT] = None,
-        code: Optional[StringT] = None,
+        name: StringT | None = None,
+        code: StringT | None = None,
         replace: bool = False,
     ) -> None:
         """
@@ -79,17 +75,13 @@ class Library(Generic[AnyStr]):
          an exception will be raised if the library was already loaded in the target
          redis instance.
         """
-        self._client: weakref.ReferenceType[coredis.client.Client[AnyStr]] = (
-            weakref.ref(client)
-        )
+        self._client: weakref.ReferenceType[coredis.client.Client[AnyStr]] = weakref.ref(client)
         self.name = nativestr(name or self.NAME)
         self.code = (code or self.CODE or "").lstrip()
         self._functions: EncodingInsensitiveDict = EncodingInsensitiveDict()
         self.replace = replace
         if self.replace and not self.code:
-            raise RuntimeError(
-                "library code must be provided when the ``replace`` option is used"
-            )
+            raise RuntimeError("library code must be provided when the ``replace`` option is used")
 
     @property
     def client(self) -> coredis.client.Client[AnyStr]:
@@ -98,7 +90,7 @@ class Library(Generic[AnyStr]):
         return c
 
     @property
-    def functions(self) -> Dict[str, Function[AnyStr]]:
+    def functions(self) -> dict[str, Function[AnyStr]]:
         """
         mapping of function names to :class:`~coredis.commands.function.Function`
         instances that can be directly called.
@@ -136,20 +128,20 @@ class Library(Generic[AnyStr]):
     def __await__(self: LibraryT) -> Generator[Any, None, LibraryT]:
         return self.initialize().__await__()
 
-    def __getitem__(self, function: str) -> Optional[Function[AnyStr]]:
-        return cast(Optional[Function[AnyStr]], self._functions.get(function))
+    def __getitem__(self, function: str) -> Function[AnyStr] | None:
+        return cast(Function[AnyStr] | None, self._functions.get(function))
 
     @classmethod
     @versionadded(version="3.5.0")
     def wraps(
         cls,
         function_name: str,
-        key_spec: Optional[List[KeyT]] = None,
+        key_spec: list[KeyT] | None = None,
         param_is_key: Callable[[inspect.Parameter], bool] = lambda p: (
             p.annotation in {"KeyT", KeyT}
         ),
         runtime_checks: bool = False,
-        readonly: Optional[bool] = None,
+        readonly: bool | None = None,
     ) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
         """
         Decorator for wrapping methods of subclasses of :class:`Library`
@@ -275,15 +267,11 @@ class Library(Generic[AnyStr]):
         def wrapper(func: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
             sig = inspect.signature(func)
             first_arg: str = list(sig.parameters.keys())[0]
-            runtime_check_wrapper = (
-                add_runtime_checks if not runtime_checks else safe_beartype
-            )
+            runtime_check_wrapper = add_runtime_checks if not runtime_checks else safe_beartype
             key_params = (
-                key_spec
-                if key_spec
-                else [n for n, p in sig.parameters.items() if param_is_key(p)]
+                key_spec if key_spec else [n for n, p in sig.parameters.items() if param_is_key(p)]
             )
-            arg_fetch: Dict[str, Callable[..., Parameters[Any]]] = {
+            arg_fetch: dict[str, Callable[..., Parameters[Any]]] = {
                 n: (
                     (lambda v: [v])
                     if p.kind
@@ -303,10 +291,10 @@ class Library(Generic[AnyStr]):
 
             def split_args(
                 *a: P.args, **k: P.kwargs
-            ) -> Tuple[Library[AnyStr], Parameters[KeyT], Parameters[ValueT]]:
+            ) -> tuple[Library[AnyStr], Parameters[KeyT], Parameters[ValueT]]:
                 bound_arguments = sig.bind(*a, **k)
                 bound_arguments.apply_defaults()
-                arguments: Dict[str, Any] = bound_arguments.arguments
+                arguments: dict[str, Any] = bound_arguments.arguments
                 instance: Library[AnyStr] = arguments.pop(first_arg)
                 if not isinstance(instance, Library):
                     raise RuntimeError(
@@ -316,8 +304,8 @@ class Library(Generic[AnyStr]):
                         " Please refer to the documentation at https://coredis.readthedocs.org/"
                         " for instructions on how to bind a class to a redis library."
                     )
-                keys: List[KeyT] = []
-                args: List[ValueT] = []
+                keys: list[KeyT] = []
+                args: list[ValueT] = []
                 for name in sig.parameters:
                     if name == first_arg:
                         continue
@@ -367,9 +355,7 @@ class Function(Generic[AnyStr]):
             func = await Function(client, "mylib", "myfunc")
             response = await func(keys=["a"], args=[1])
         """
-        self._client: weakref.ReferenceType[coredis.client.Client[AnyStr]] = (
-            weakref.ref(client)
-        )
+        self._client: weakref.ReferenceType[coredis.client.Client[AnyStr]] = weakref.ref(client)
         self.library: Library[AnyStr] = Library[AnyStr](client, library_name)
         self.name = name
         self.readonly = readonly
@@ -389,11 +375,11 @@ class Function(Generic[AnyStr]):
 
     async def __call__(
         self,
-        keys: Optional[Parameters[KeyT]] = None,
-        args: Optional[Parameters[ValueT]] = None,
+        keys: Parameters[KeyT] | None = None,
+        args: Parameters[ValueT] | None = None,
         *,
-        client: Optional[coredis.client.Client[AnyStr]] = None,
-        readonly: Optional[bool] = None,
+        client: coredis.client.Client[AnyStr] | None = None,
+        readonly: bool | None = None,
     ) -> ResponseType:
         """
         Wrapper to call :meth:`~coredis.Redis.fcall` with the

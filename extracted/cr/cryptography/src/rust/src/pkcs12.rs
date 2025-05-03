@@ -2,17 +2,19 @@
 // 2.0, and the BSD License. See the LICENSE file in the root of this repository
 // for complete details.
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
+use cryptography_x509::common::Utf8StoredBMPString;
+use pyo3::types::{PyAnyMethods, PyBytesMethods, PyListMethods};
+use pyo3::IntoPyObject;
+
 use crate::backend::{ciphers, hashes, hmac, kdf, keys};
 use crate::buf::CffiBuf;
 use crate::error::{CryptographyError, CryptographyResult};
 use crate::padding::PKCS7PaddingContext;
 use crate::x509::certificate::Certificate;
 use crate::{types, x509};
-use cryptography_x509::common::Utf8StoredBMPString;
-use pyo3::types::{PyAnyMethods, PyBytesMethods, PyListMethods};
-use pyo3::IntoPyObject;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 #[pyo3::pyclass(frozen)]
 struct PKCS12Certificate {
@@ -386,14 +388,14 @@ fn cert_to_bag<'a>(
 ) -> CryptographyResult<cryptography_x509::pkcs12::SafeBag<'a>> {
     Ok(cryptography_x509::pkcs12::SafeBag {
         _bag_id: asn1::DefinedByMarker::marker(),
-        bag_value: asn1::Explicit::new(cryptography_x509::pkcs12::BagValue::CertBag(
+        bag_value: asn1::Explicit::new(cryptography_x509::pkcs12::BagValue::CertBag(Box::new(
             cryptography_x509::pkcs12::CertBag {
                 _cert_id: asn1::DefinedByMarker::marker(),
                 cert_value: asn1::Explicit::new(cryptography_x509::pkcs12::CertType::X509(
                     asn1::OctetStringEncoded::new(cert.raw.borrow_dependent().clone()),
                 )),
             },
-        )),
+        ))),
         attributes: pkcs12_attributes(friendly_name, local_key_id)?,
     })
 }

@@ -92,6 +92,7 @@ class PriorityLevelConfigurationPatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:flowcontrol.apiserver.k8s.io/v1alpha1:PriorityLevelConfigurationPatch")
 class PriorityLevelConfigurationPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,

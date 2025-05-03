@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-sdk
-Version: 0.51.0
+Version: 0.52.0
 Summary: Databricks SDK for Python (Beta)
 Project-URL: Documentation, https://databricks-sdk-py.readthedocs.io
 Keywords: databricks,sdk

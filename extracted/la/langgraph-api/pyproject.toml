@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "langgraph-api"
-version = "0.2.6"
+version = "0.2.9"
 description = ""
 authors = [
     "Nuno Campos <nuno@langchain.dev>",
@@ -50,7 +50,7 @@ pyjwt = "^2.9.0"
 cryptography = ">=42.0.0,<45.0"
 langgraph-sdk = { version = "^0.1.66", python = "<4.0" }
 cloudpickle = "^3.0.0"
-langgraph-runtime-inmem = ">=0.0.7"
+langgraph-runtime-inmem = ">=0.0.9,<0.1"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.11.7"

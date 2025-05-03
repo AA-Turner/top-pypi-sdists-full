@@ -92,6 +92,7 @@ class IPAddressPatchArgs:
         pulumi.set(self, "spec", value)
 
 
+@pulumi.type_token("kubernetes:networking.k8s.io/v1alpha1:IPAddressPatch")
 class IPAddressPatch(pulumi.CustomResource):
     @overload
     def __init__(__self__,
@@ -165,7 +166,7 @@ class IPAddressPatch(pulumi.CustomResource):
             __props__.__dict__["kind"] = 'IPAddress'
             __props__.__dict__["metadata"] = metadata
             __props__.__dict__["spec"] = spec
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:networking.k8s.io/v1beta1:IPAddressPatch")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:networking.k8s.io/v1:IPAddressPatch"), pulumi.Alias(type_="kubernetes:networking.k8s.io/v1beta1:IPAddressPatch")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(IPAddressPatch, __self__).__init__(
             'kubernetes:networking.k8s.io/v1alpha1:IPAddressPatch',

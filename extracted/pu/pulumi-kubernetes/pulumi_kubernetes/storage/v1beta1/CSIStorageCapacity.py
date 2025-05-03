@@ -153,6 +153,7 @@ class CSIStorageCapacityInitArgs:
         pulumi.set(self, "node_topology", value)
 
 
+@pulumi.type_token("kubernetes:storage.k8s.io/v1beta1:CSIStorageCapacity")
 class CSIStorageCapacity(pulumi.CustomResource):
     @overload
     def __init__(__self__,

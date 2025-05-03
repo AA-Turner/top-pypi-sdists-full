@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crytic-compile
-Version: 0.3.9
+Version: 0.3.10
 Summary: Util to facilitate smart contracts compilation.
 Home-page: https://github.com/crytic/crytic-compile
 Author: Trail of Bits

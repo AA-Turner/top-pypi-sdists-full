@@ -1,53 +1,43 @@
 from __future__ import annotations
 
 import warnings
-from types import ModuleType
-from typing import (
-    TYPE_CHECKING,
-    AbstractSet,
-    AnyStr,
+from collections import OrderedDict
+from collections.abc import (
     AsyncGenerator,
     AsyncIterator,
     Awaitable,
     Callable,
-    ClassVar,
-    ContextManager,
     Coroutine,
-    Dict,
-    FrozenSet,
     Generator,
-    Generic,
     Hashable,
     Iterable,
     Iterator,
-    List,
     Mapping,
     MutableMapping,
     MutableSequence,
     MutableSet,
-    NamedTuple,
-    Optional,
     Sequence,
     Set,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
     ValuesView,
 )
-
-from typing_extensions import (
-    Deque,
+from types import ModuleType
+from typing import (
+    TYPE_CHECKING,
+    AnyStr,
+    ClassVar,
     Final,
+    Generic,
     Literal,
-    OrderedDict,
+    NamedTuple,
     ParamSpec,
     Protocol,
-    Self,
     TypedDict,
     TypeGuard,
+    TypeVar,
     runtime_checkable,
 )
+
+from typing_extensions import Self
 
 from coredis.config import Config
 
@@ -59,21 +49,14 @@ try:
 
     if not TYPE_CHECKING:
         from beartype.typing import (  # noqa: F811
-            AbstractSet,
-            Deque,
-            Dict,
-            FrozenSet,
             Iterable,
             Iterator,
-            List,
             Mapping,
             MutableMapping,
             MutableSequence,
             MutableSet,
             OrderedDict,
             Sequence,
-            Set,
-            Tuple,
             ValuesView,
         )
     _beartype_found = True
@@ -117,7 +100,7 @@ class RedisError(Exception):
     """
 
 
-CommandArgList = List[Union[str, bytes, int, float]]
+CommandArgList = list[str | bytes | int | float]
 
 
 class Node(TypedDict):
@@ -130,17 +113,17 @@ class Node(TypedDict):
 
 
 #: Represents the acceptable types of a redis key
-KeyT = Union[str, bytes]
+KeyT = str | bytes
 
 #: Represents the different python primitives that are accepted
 #: as input parameters for commands that can be used with loosely
 #: defined types. These are encoded using the configured encoding
 #: before being transmitted.
-ValueT = Union[str, bytes, int, float]
+ValueT = str | bytes | int | float
 
 #: The canonical type used for input parameters that represent "strings"
 #: that are transmitted to redis.
-StringT = Union[str, bytes]
+StringT = str | bytes
 
 #: Restricted union of container types accepted as arguments to apis
 #: that accept a variable number values for an argument (such as keys, values).
@@ -162,12 +145,10 @@ StringT = Union[str, bytes]
 #:     length({"1": 2})            # invalid
 #:     length("123")               # invalid
 #:     length(b"123")              # invalid
-Parameters = Union[
-    List[T_co], AbstractSet[T_co], Tuple[T_co, ...], ValuesView[T_co], Iterator[T_co]
-]
+Parameters = list[T_co] | Set[T_co] | tuple[T_co, ...] | ValuesView[T_co] | Iterator[T_co]
 
 #: Mapping of primitives returned by redis
-ResponsePrimitive = Optional[Union[StringT, int, float, bool]]
+ResponsePrimitive = StringT | int | float | bool | None
 
 #: Represents the total structure of any response for a redis
 #: command.
@@ -177,51 +158,34 @@ ResponsePrimitive = Optional[Union[StringT, int, float, bool]]
 #: the definition with the use of  :class:`typing.Any` for now.
 
 if TYPE_CHECKING:
-    ResponseType = Union[
-        ResponsePrimitive,
-        List["ResponseType"],
-        MutableSet[
-            Union[
-                ResponsePrimitive,
-                Tuple[ResponsePrimitive, ...],
-                FrozenSet[ResponsePrimitive],
-            ]
-        ],
-        Dict[
-            Union[
-                ResponsePrimitive,
-                Tuple[ResponsePrimitive, ...],
-                FrozenSet[ResponsePrimitive],
-            ],
+    ResponseType = (
+        ResponsePrimitive
+        | list["ResponseType"]
+        | MutableSet[
+            ResponsePrimitive | tuple[ResponsePrimitive, ...] | frozenset[ResponsePrimitive]
+        ]
+        | dict[
+            ResponsePrimitive | tuple[ResponsePrimitive, ...] | frozenset[ResponsePrimitive],
             "ResponseType",
-        ],
-        RedisError,  # response errors get mapped to exceptions.
-    ]
+        ]
+        | RedisError  # response errors get mapped to exceptions.
+    )
 else:
     from typing import Any
 
-    ResponseType = Union[
-        ResponsePrimitive,
-        List[Any],
-        MutableSet[
-            Union[
-                ResponsePrimitive,
-                Tuple[ResponsePrimitive, ...],
-                FrozenSet[ResponsePrimitive],
-            ]
-        ],
-        Dict[
-            Union[
-                ResponsePrimitive,
-                Tuple[ResponsePrimitive, ...],
-                FrozenSet[ResponsePrimitive],
-            ],
+    ResponseType = (
+        ResponsePrimitive
+        | list[Any]
+        | MutableSet[
+            ResponsePrimitive | tuple[ResponsePrimitive, ...] | frozenset[ResponsePrimitive]
+        ]
+        | dict[
+            ResponsePrimitive | tuple[ResponsePrimitive, ...] | frozenset[ResponsePrimitive],
             Any,
-        ],
-        RedisError,  # response errors get mapped to exceptions.
-    ]
+        ]
+        | RedisError  # response errors get mapped to exceptions.
+    )
 __all__ = [
-    "AbstractSet",
     "AnyStr",
     "AsyncIterator",
     "AsyncGenerator",
@@ -229,19 +193,14 @@ __all__ = [
     "Callable",
     "ClassVar",
     "CommandArgList",
-    "ContextManager",
     "Coroutine",
-    "Deque",
-    "Dict",
     "Final",
-    "FrozenSet",
     "Generic",
     "Generator",
     "Hashable",
     "Iterable",
     "Iterator",
     "KeyT",
-    "List",
     "Literal",
     "Mapping",
     "ModuleType",
@@ -251,23 +210,18 @@ __all__ = [
     "NamedTuple",
     "Node",
     "OrderedDict",
-    "Optional",
     "Parameters",
     "ParamSpec",
     "Protocol",
     "ResponsePrimitive",
     "ResponseType",
     "runtime_checkable",
-    "Sequence",
     "Self",
-    "Set",
+    "Sequence",
     "StringT",
-    "Tuple",
-    "Type",
     "TypeGuard",
     "TypedDict",
     "TypeVar",
-    "Union",
     "ValueT",
     "ValuesView",
     "TYPE_CHECKING",
