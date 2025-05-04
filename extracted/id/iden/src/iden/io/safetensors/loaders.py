@@ -4,14 +4,14 @@ from __future__ import annotations
 
 __all__ = ["NumpySafetensorsLoader", "TorchSafetensorsLoader"]
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
 from coola.utils import check_numpy, check_torch, is_numpy_available, is_torch_available
+from coola.utils.path import sanitize_path
 
 from iden.io.base import BaseLoader
 from iden.utils.imports import check_safetensors, is_safetensors_available
-from iden.utils.path import sanitize_path
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -46,6 +46,9 @@ class NumpySafetensorsLoader(BaseLoader[dict[str, np.ndarray]]):
     def __repr__(self) -> str:
         return f"{self.__class__.__qualname__}()"
 
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
+        return isinstance(other, self.__class__)
+
     def load(self, path: Path) -> dict[str, np.ndarray]:
         return sn.load_file(sanitize_path(path))
 
@@ -64,6 +67,9 @@ class TorchSafetensorsLoader(BaseLoader[dict[str, torch.Tensor]]):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__qualname__}(device={self._device})"
+
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
+        return isinstance(other, self.__class__)
 
     def load(self, path: Path) -> dict[str, torch.Tensor]:
         return st.load_file(sanitize_path(path), device=self._device)

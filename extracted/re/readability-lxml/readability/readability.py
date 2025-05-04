@@ -1,20 +1,25 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import logging
 import re
 import sys
+import urllib.request
+import urllib.parse
+import urllib.error
 
+from lxml.etree import tostring
 from lxml.etree import tounicode
+from lxml.etree import _ElementTree
 from lxml.html import document_fromstring
 from lxml.html import fragment_fromstring
+from lxml.html import HtmlElement
 
 from .cleaners import clean_attributes
 from .cleaners import html_cleaner
 from .htmls import build_doc
 from .htmls import get_body
 from .htmls import get_title
+from .htmls import get_author
 from .htmls import shorten_title
-from .compat import str_, bytes_, tostring_
 from .debug import describe, text_content
 
 
@@ -37,11 +42,11 @@ REGEXES = {
     "divToPElementsRe": re.compile(
         r"<(a|blockquote|dl|div|img|ol|p|pre|table|ul)", re.I
     ),
-    #'replaceBrsRe': re.compile(r'(<br[^>]*>[ \n\r\t]*){2,}',re.I),
-    #'replaceFontsRe': re.compile(r'<(\/?)font[^>]*>',re.I),
-    #'trimRe': re.compile(r'^\s+|\s+$/'),
-    #'normalizeRe': re.compile(r'\s{2,}/'),
-    #'killBreaksRe': re.compile(r'(<br\s*\/?>(\s|&nbsp;?)*){1,}/'),
+    # 'replaceBrsRe': re.compile(r'(<br[^>]*>[ \n\r\t]*){2,}',re.I),
+    # 'replaceFontsRe': re.compile(r'<(\/?)font[^>]*>',re.I),
+    # 'trimRe': re.compile(r'^\s+|\s+$/'),
+    # 'normalizeRe': re.compile(r'\s{2,}/'),
+    # 'killBreaksRe': re.compile(r'(<br\s*\/?>(\s|&nbsp;?)*){1,}/'),
     "videoRe": re.compile(r"https?:\/\/(www\.)?(youtube|vimeo)\.com", re.I),
     # skipFootnoteLink:      /^\s*(\[?[a-z0-9]{1,2}\]?|^|edit|citation needed)\s*$/i,
 }
@@ -77,16 +82,16 @@ def text_length(i):
 def compile_pattern(elements):
     if not elements:
         return None
-    elif isinstance(elements, re._pattern_type):
+    elif isinstance(elements, re.Pattern):
         return elements
-    elif isinstance(elements, (str_, bytes_)):
-        if isinstance(elements, bytes_):
-            elements = str_(elements, "utf-8")
-        elements = elements.split(u",")
+    elif isinstance(elements, (str, bytes)):
+        if isinstance(elements, bytes):
+            elements = str(elements, "utf-8")
+        elements = elements.split(",")
     if isinstance(elements, (list, tuple)):
-        return re.compile(u"|".join([re.escape(x.strip()) for x in elements]), re.U)
+        return re.compile("|".join([re.escape(x.strip()) for x in elements]), re.U)
     else:
-        raise Exception("Unknown type for the pattern: {}".format(type(elements)))
+        raise Exception(f"Unknown type for the pattern: {type(elements)}")
         # assume string or string like object
 
 
@@ -154,7 +159,11 @@ class Document:
         return self.html
 
     def _parse(self, input):
-        doc, self.encoding = build_doc(input)
+        if isinstance(input, (_ElementTree, HtmlElement)):
+            doc = input
+            self.encoding = 'utf-8'
+        else:
+            doc, self.encoding = build_doc(input)
         doc = html_cleaner.clean_html(doc)
         base_href = self.url
         if base_href:
@@ -186,6 +195,10 @@ class Document:
         """Returns document title"""
         return get_title(self._html(True))
 
+    def author(self):
+        """Returns document author"""
+        return get_author(self._html(True))
+
     def short_title(self):
         """Returns cleaned up document title"""
         return shorten_title(self._html(True))
@@ -197,12 +210,13 @@ class Document:
         """
         return clean_attributes(tounicode(self.html, method="html"))
 
-    def summary(self, html_partial=False):
+    def summary(self, html_partial=False, keep_all_images=False):
         """
         Given a HTML file, extracts the text of the article.
 
         :param html_partial: return only the div of the document, don't wrap
                              in html and body tags.
+        :param keep_all_images: Keep all images in summary.
 
         Warning: It mutates internal DOM representation of the HTML document,
         so it is better to call other API methods before this one.
@@ -231,24 +245,20 @@ class Document:
                         log.info("ruthless removal did not work. ")
                         ruthless = False
                         log.debug(
-                            (
                                 "ended up stripping too much - "
                                 "going for a safer _parse"
-                            )
                         )
                         # try again
                         continue
                     else:
                         log.debug(
-                            (
                                 "Ruthless and lenient parsing did not work. "
                                 "Returning raw html"
-                            )
                         )
                         article = self.html.find("body")
                         if article is None:
                             article = self.html
-                cleaned_article = self.sanitize(article, candidates)
+                cleaned_article = self.sanitize(article, candidates, keep_all_images)
 
                 article_length = len(cleaned_article or "")
                 retry_length = self.retry_length
@@ -261,11 +271,7 @@ class Document:
                     return cleaned_article
         except Exception as e:
             log.exception("error getting summary: ")
-            if sys.version_info[0] == 2:
-                from .compat.two import raise_with_traceback
-            else:
-                from .compat.three import raise_with_traceback
-            raise_with_traceback(Unparseable, sys.exc_info()[2], str_(e))
+            raise Unparseable(str(e)).with_traceback(sys.exc_info()[2])
 
     def get_article(self, candidates, best_candidate, html_partial=False):
         # Now that we have the top candidate, look through its siblings for
@@ -327,7 +333,7 @@ class Document:
         )
         for candidate in sorted_candidates[:5]:
             elem = candidate["elem"]
-            log.debug("Top 5 : %6.3f %s" % (candidate["content_score"], describe(elem)))
+            log.debug("Top 5 : {:6.3f} {}".format(candidate["content_score"], describe(elem)))
 
         best_candidate = sorted_candidates[0]
         return best_candidate
@@ -443,7 +449,7 @@ class Document:
 
     def remove_unlikely_candidates(self):
         for elem in self.html.findall(".//*"):
-            s = "%s %s" % (elem.get("class", ""), elem.get("id", ""))
+            s = "{} {}".format(elem.get("class", ""), elem.get("id", ""))
             if len(s) < 2:
                 continue
             if (
@@ -463,7 +469,8 @@ class Document:
             # This results in incorrect results in case there is an <img>
             # buried within an <a> for example
             if not REGEXES["divToPElementsRe"].search(
-                str_(b"".join(map(tostring_, list(elem))))
+                str(b"".join(tostring(s, encoding='utf-8') for s in elem))
+                # str(b"".join(map(tostring_, list(elem))))
             ):
                 # log.debug("Altering %s to p" % (describe(elem)))
                 elem.tag = "p"
@@ -490,15 +497,13 @@ class Document:
 
     def tags(self, node, *tag_names):
         for tag_name in tag_names:
-            for e in node.findall(".//%s" % tag_name):
-                yield e
+            yield from node.findall(".//%s" % tag_name)
 
     def reverse_tags(self, node, *tag_names):
         for tag_name in tag_names:
-            for e in reversed(node.findall(".//%s" % tag_name)):
-                yield e
+            yield from reversed(node.findall(".//%s" % tag_name))
 
-    def sanitize(self, node, candidates):
+    def sanitize(self, node, candidates, keep_all_images=False):
         MIN_LEN = self.min_text_length
         for header in self.tags(node, "h1", "h2", "h3", "h4", "h5", "h6"):
             if self.class_weight(header) < 0 or self.get_link_density(header) > 0.33:
@@ -559,8 +564,8 @@ class Document:
                 to_remove = False
                 reason = ""
 
-                # if el.tag == 'div' and counts["img"] >= 1:
-                #    continue
+                if keep_all_images and el.tag == 'div' and counts["img"] >= 1:
+                    continue
                 if counts["p"] and counts["img"] > 1 + counts["p"] * 1.3:
                     reason = "too many images (%s)" % counts["img"]
                     to_remove = True
@@ -583,13 +588,13 @@ class Document:
                     )
                     to_remove = True
                 elif weight < 25 and link_density > 0.2:
-                    reason = "too many links %.3f for its weight %s" % (
+                    reason = "too many links {:.3f} for its weight {}".format(
                         link_density,
                         weight,
                     )
                     to_remove = True
                 elif weight >= 25 and link_density > 0.5:
-                    reason = "too many links %.3f for its weight %s" % (
+                    reason = "too many links {:.3f} for its weight {}".format(
                         link_density,
                         weight,
                     )
@@ -715,18 +720,10 @@ def main():
     file = None
     if options.url:
         headers = {"User-Agent": "Mozilla/5.0"}
-        if sys.version_info[0] == 3:
-            import urllib.request, urllib.parse, urllib.error
-
-            request = urllib.request.Request(options.url, None, headers)
-            file = urllib.request.urlopen(request)
-        else:
-            import urllib2
-
-            request = urllib2.Request(options.url, None, headers)
-            file = urllib2.urlopen(request)
+        request = urllib.request.Request(options.url, None, headers)
+        file = urllib.request.urlopen(request)
     else:
-        file = open(args[0], "rt")
+        file = open(args[0])
     try:
         doc = Document(
             file.read(),
@@ -740,14 +737,8 @@ def main():
             result = "<h2>" + doc.short_title() + "</h2><br/>" + doc.summary()
             open_in_browser(result)
         else:
-            enc = (
-                sys.__stdout__.encoding or "utf-8"
-            )  # XXX: this hack could not always work, better to set PYTHONIOENCODING
             result = "Title:" + doc.short_title() + "\n" + doc.summary()
-            if sys.version_info[0] == 3:
-                print(result)
-            else:
-                print(result.encode(enc, "replace"))
+            print(result)
     finally:
         file.close()
 

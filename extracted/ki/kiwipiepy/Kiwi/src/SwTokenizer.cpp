@@ -265,7 +265,7 @@ namespace kiwi
 			if (morph->kform->size() <= s->kform->size()) continue;
 			if (equal(morph->kform->end() - s->kform->size(), morph->kform->end(), s->kform->begin()))
 			{
-				auto base = kiwi->findMorpheme(u16string{ morph->kform->begin(), morph->kform->end() - s->kform->size() }, tag);
+				auto base = kiwi->findMorphemes(u16string{ morph->kform->begin(), morph->kform->end() - s->kform->size() }, tag);
 				if (base.empty()) return make_pair(nullptr, nullptr);
 				return make_pair(base[0], s);
 			}
@@ -576,7 +576,7 @@ namespace kiwi
 		};
 	};
 
-	inline void utf8To16IgnoringErrors(nonstd::string_view str, std::u16string& ret)
+	inline void utf8To16IgnoringErrors(std::string_view str, std::u16string& ret)
 	{
 		ret.clear();
 		for (auto it = str.begin(); it != str.end(); ++it)
@@ -675,7 +675,7 @@ namespace kiwi
 		}
 	}
 
-	inline std::u16string utf8To16IgnoringErrors(nonstd::string_view str)
+	inline std::u16string utf8To16IgnoringErrors(std::string_view str)
 	{
 		std::u16string ret;
 		utf8To16IgnoringErrors(str, ret);
@@ -798,7 +798,7 @@ SwTokenizer SwTokenizerBuilder::build() const
 		else
 		{
 			matchedMorphs.clear();
-			kiwi->findMorpheme(matchedMorphs, u16form, config.simpleTag ? POSTag::unknown : t.pos);
+			kiwi->findMorphemes(matchedMorphs, u16form, config.simpleTag ? POSTag::unknown : t.pos);
 			if (matchedMorphs.empty()) continue;
 			auto rtag = toReprTag(t.pos);
 			const Morpheme* firstMorph = nullptr;
@@ -904,7 +904,7 @@ SwTokenizer SwTokenizerBuilder::build() const
 				if (f.substr(f.size() - p.first.size()) != p.first) continue;
 				foundMorphs.clear();
 				auto prefix = joinHangul(f.substr(0, f.size() - p.first.size()));
-				kiwi->findMorpheme(foundMorphs, prefix);
+				kiwi->findMorphemes(foundMorphs, prefix);
 
 				for (auto m : foundMorphs)
 				{
@@ -1291,7 +1291,7 @@ namespace kiwi
 			size_t length = str.size();
 			if (offsetOut) offsetOut->emplace_back(position + length);
 			offset = str.size() + (get<2>(p) ? 1 : 0);
-			auto morphs = kw->findMorpheme(str, tag);
+			auto morphs = kw->findMorphemes(str, tag);
 			if (morphs.empty())
 			{
 				if (isVerbClass(tag))
@@ -1474,7 +1474,9 @@ string SwTokenizer::decode(const uint32_t* ids, size_t length, bool ignoreErrors
 
 future<vector<uint32_t>> SwTokenizer::asyncEncode(const string& str) const
 {
-	return kiwi->getThreadPool()->enqueue([&](size_t, const string& str)
+	auto* pool = kiwi->getThreadPool();
+	if (!pool) throw SwTokenizerException{ "async mode is unavailable in `numThreads == 0`" };
+	return pool->enqueue([&](size_t, const string& str)
 	{
 		return encode(str);
 	}, str);
@@ -1482,7 +1484,9 @@ future<vector<uint32_t>> SwTokenizer::asyncEncode(const string& str) const
 
 future<pair<vector<uint32_t>, vector<pair<uint32_t, uint32_t>>>> SwTokenizer::asyncEncodeOffset(const string& str, bool offsetInChrLevel) const
 {
-	return kiwi->getThreadPool()->enqueue([&, offsetInChrLevel](size_t, const string& str)
+	auto* pool = kiwi->getThreadPool();
+	if (!pool) throw SwTokenizerException{ "async mode is unavailable in `numThreads == 0`" };
+	return pool->enqueue([&, offsetInChrLevel](size_t, const string& str)
 	{
 		vector<pair<uint32_t, uint32_t>> offset;
 		auto ids = encode(str, &offset, offsetInChrLevel);

@@ -28,6 +28,7 @@ class ShardIterable(Iterable):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import create_json_shard
@@ -71,6 +72,7 @@ def get_dict_uris(shards: dict[str, BaseShard]) -> dict[str, str]:
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import create_json_shard, get_dict_uris
@@ -104,6 +106,7 @@ def get_list_uris(shards: Iterable[BaseShard]) -> list[str]:
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import get_list_uris, create_json_shard
@@ -137,6 +140,7 @@ def sort_by_uri(shards: Iterable[BaseShard], /, *, reverse: bool = False) -> lis
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import create_json_shard, sort_by_uri

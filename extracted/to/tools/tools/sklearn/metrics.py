@@ -5,19 +5,49 @@ import numpy as np
 from sklearn.metrics import r2_score as r2_score_sklearn
 
 def squared_error(y_true, y_pred, axis=None):
-    '''MSE without mean
-    if axis is provided, it will return the mean along the axis
-    '''
+    """
+    MSE averaging across specified axis.
+    if axis=(), returns entry-by-entry squared error.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+    y_pred : np.ndarray
+
+    axis : int or iterable of int, default=None
+        Axis to collapse.
+
+    Returns
+    -------
+    score : numpy.ndarray of shape with collapsed axis
+    """
+    if axis is None:
+        axis = tuple(range(y_true.ndim)) # Collapse all dimensions
     score = (y_true-y_pred)**2
-    if axis is not None:
-        score = np.mean(score, axis=axis)
+    score = np.mean(score, axis=axis)
     return score
 
 def absolute_error(y_true, y_pred, axis=None):
-    '''MAE without mean'''
+    """
+    MAE averaging across specified axis.
+    if axis=(), returns entry-by-entry squared error.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+    y_pred : np.ndarray
+
+    axis : int or iterable of int, default=None
+        Axis to collapse.
+
+    Returns
+    -------
+    score : numpy.ndarray of shape with collapsed axis
+    """
+    if axis is None:
+        axis = tuple(range(y_true.ndim)) # Collapse all dimensions
     score = np.abs(y_true-y_pred)
-    if axis is not None:
-        score = np.mean(score, axis=axis)
+    score = np.mean(score, axis=axis)
     return score
 
 def r2_score(y_true, y_pred, axis=None, multioutput='raw_values'):
@@ -43,10 +73,14 @@ def r2_score(y_true, y_pred, axis=None, multioutput='raw_values'):
     assert y_true.shape == y_pred.shape, f"y_true and y_pred must have the same shape, received: {y_true.shape} and {y_pred.shape}"
     if axis is None:
         axis = list(range(y_true.ndim)) # Collapse all dimensions
+        axis_was_none = True
     elif not isinstance(axis, Iterable):
         axis = [axis]
+        axis_was_none = False
     else:
         axis = list(axis)
+        axis_was_none = False
+
     if len(axis) > y_true.ndim:
         raise ValueError("Axis is greater than the number of dimensions of y_true and y_pred")
 
@@ -66,7 +100,8 @@ def r2_score(y_true, y_pred, axis=None, multioutput='raw_values'):
         return score
 
     if multioutput == 'raw_values':
-        return score.reshape(*shape_final)
+        score = score.reshape(*shape_final) if not axis_was_none else score[0]
+        return score
     elif multioutput == 'uniform_average':
         return score.mean()
     elif multioutput == 'variance_weighted':

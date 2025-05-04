@@ -7,6 +7,8 @@ from awkward._nplikes.array_like import ArrayLike
 from awkward._nplikes.array_module import ArrayModuleNumpyLike
 from awkward._nplikes.dispatch import register_nplike
 from awkward._nplikes.numpy_like import UfuncLike
+from awkward._nplikes.placeholder import PlaceholderArray
+from awkward._nplikes.virtual import VirtualArray, materialize_if_virtual
 from awkward._typing import Final, cast
 
 
@@ -14,7 +16,7 @@ from awkward._typing import Final, cast
 class Jax(ArrayModuleNumpyLike):
     is_eager: Final = True
     supports_structured_dtypes: Final = False
-    supports_virtual_arrays: Final = False
+    supports_virtual_arrays: Final = True
 
     def __init__(self):
         jax = ak.jax.import_jax()
@@ -65,6 +67,10 @@ class Jax(ArrayModuleNumpyLike):
         module, _, suffix = type_.__module__.partition(".")
         return module == "jaxlib"
 
+    def is_currently_tracing(self) -> bool:
+        jax = ak.jax.import_jax()
+        return isinstance(self._module.array(1) + 1, jax.core.Tracer)
+
     @classmethod
     def is_tracer_type(cls, type_: type) -> bool:
         """
@@ -81,10 +87,71 @@ class Jax(ArrayModuleNumpyLike):
         return True
 
     def ascontiguousarray(self, x: ArrayLike) -> ArrayLike:
-        return x
+        if isinstance(x, VirtualArray) and x.is_materialized:
+            return x.materialize()
+        else:
+            return x
 
     def strides(self, x: ArrayLike) -> tuple[int, ...]:
         out: tuple[int, ...] = (x.dtype.itemsize,)
         for item in cast(tuple[int, ...], x.shape[-1:0:-1]):
             out = (item * out[0], *out)
         return out
+
+    ############################ ufuncs, need to overwrite those because JAX doesn't support `out=` for ufuncs
+
+    def add(
+        self, x1: ArrayLike, x2: ArrayLike, maybe_out: ArrayLike | None = None
+    ) -> ArrayLike:
+        del maybe_out
+        assert not isinstance(x1, PlaceholderArray)
+        assert not isinstance(x2, PlaceholderArray)
+        x1, x2 = materialize_if_virtual(x1, x2)
+        return self._module.add(x1, x2)
+
+    def logical_or(
+        self, x1: ArrayLike, x2: ArrayLike, *, maybe_out: ArrayLike | None = None
+    ) -> ArrayLike:
+        del maybe_out
+        assert not isinstance(x1, PlaceholderArray)
+        assert not isinstance(x2, PlaceholderArray)
+        x1, x2 = materialize_if_virtual(x1, x2)
+        return self._module.logical_or(x1, x2)
+
+    def logical_and(
+        self, x1: ArrayLike, x2: ArrayLike, *, maybe_out: ArrayLike | None = None
+    ) -> ArrayLike:
+        del maybe_out
+        assert not isinstance(x1, PlaceholderArray)
+        assert not isinstance(x2, PlaceholderArray)
+        x1, x2 = materialize_if_virtual(x1, x2)
+        return self._module.logical_and(x1, x2)
+
+    def logical_not(
+        self, x: ArrayLike, maybe_out: ArrayLike | None = None
+    ) -> ArrayLike:
+        del maybe_out
+        assert not isinstance(x, PlaceholderArray)
+        (x,) = materialize_if_virtual(x)
+        return self._module.logical_not(x)
+
+    def sqrt(self, x: ArrayLike, maybe_out: ArrayLike | None = None) -> ArrayLike:
+        del maybe_out
+        assert not isinstance(x, PlaceholderArray)
+        (x,) = materialize_if_virtual(x)
+        return self._module.sqrt(x)
+
+    def exp(self, x: ArrayLike, maybe_out: ArrayLike | None = None) -> ArrayLike:
+        del maybe_out
+        assert not isinstance(x, PlaceholderArray)
+        (x,) = materialize_if_virtual(x)
+        return self._module.exp(x)
+
+    def divide(
+        self, x1: ArrayLike, x2: ArrayLike, maybe_out: ArrayLike | None = None
+    ) -> ArrayLike:
+        del maybe_out
+        assert not isinstance(x1, PlaceholderArray)
+        assert not isinstance(x2, PlaceholderArray)
+        x1, x2 = materialize_if_virtual(x1, x2)
+        return self._module.divide(x1, x2)

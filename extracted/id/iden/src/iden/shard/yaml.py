@@ -7,12 +7,12 @@ __all__ = ["YamlShard", "create_yaml_shard"]
 import logging
 from typing import TYPE_CHECKING, Any
 
+from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
 
 from iden.constants import KWARGS, LOADER
 from iden.io import JsonSaver, YamlLoader, YamlSaver
 from iden.shard.file import FileShard
-from iden.utils.path import sanitize_path
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -27,11 +27,12 @@ class YamlShard(FileShard[Any]):
 
     Args:
         uri: The shard's URI.
-        path: Specifies the path to the YAML file.
+        path: The path to the YAML file.
 
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import YamlShard
@@ -66,6 +67,7 @@ class YamlShard(FileShard[Any]):
         Example usage:
 
         ```pycon
+
         >>> import tempfile
         >>> from pathlib import Path
         >>> from iden.shard import YamlShard
@@ -104,6 +106,7 @@ def create_yaml_shard(data: Any, uri: str, path: Path | None = None) -> YamlShar
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import create_yaml_shard

@@ -19,6 +19,7 @@ class YamlShardLoader(BaseShardLoader[Any]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import create_yaml_shard

@@ -5,12 +5,13 @@ from __future__ import annotations
 import enum
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from re import Pattern
 from typing import TYPE_CHECKING, Any, Literal
 
 import httpx
-from mcp.types import EmbeddedResource, ImageContent, TextContent
+from mcp.types import EmbeddedResource, ImageContent, TextContent, ToolAnnotations
 from pydantic.networks import AnyUrl
 
 from fastmcp.resources import Resource, ResourceTemplate
@@ -126,6 +127,8 @@ class OpenAPITool(Tool):
         is_async: bool = True,
         tags: set[str] = set(),
         timeout: float | None = None,
+        annotations: ToolAnnotations | None = None,
+        serializer: Callable[[Any], str] | None = None,
     ):
         super().__init__(
             name=name,
@@ -136,6 +139,8 @@ class OpenAPITool(Tool):
             is_async=is_async,
             context_kwarg="context",  # Default context keyword argument
             tags=tags,
+            annotations=annotations,
+            serializer=serializer,
         )
         self._client = client
         self._route = route
@@ -534,10 +539,12 @@ class FastMCPOpenAPI(FastMCP):
             or f"Executes {route.method} {route.path}"
         )
 
-        # Format enhanced description
+        # Format enhanced description with parameters and request body
         enhanced_description = format_description_with_responses(
             base_description=base_description,
             responses=route.responses,
+            parameters=route.parameters,
+            request_body=route.request_body,
         )
 
         tool = OpenAPITool(
@@ -565,10 +572,12 @@ class FastMCPOpenAPI(FastMCP):
             route.description or route.summary or f"Represents {route.path}"
         )
 
-        # Format enhanced description
+        # Format enhanced description with parameters and request body
         enhanced_description = format_description_with_responses(
             base_description=base_description,
             responses=route.responses,
+            parameters=route.parameters,
+            request_body=route.request_body,
         )
 
         resource = OpenAPIResource(
@@ -600,16 +609,30 @@ class FastMCPOpenAPI(FastMCP):
             route.description or route.summary or f"Template for {route.path}"
         )
 
-        # Format enhanced description
+        # Format enhanced description with parameters and request body
         enhanced_description = format_description_with_responses(
             base_description=base_description,
             responses=route.responses,
+            parameters=route.parameters,
+            request_body=route.request_body,
         )
 
         template_params_schema = {
             "type": "object",
             "properties": {
-                p.name: p.schema_ for p in route.parameters if p.location == "path"
+                p.name: {
+                    **(p.schema_.copy() if isinstance(p.schema_, dict) else {}),
+                    **(
+                        {"description": p.description}
+                        if p.description
+                        and not (
+                            isinstance(p.schema_, dict) and "description" in p.schema_
+                        )
+                        else {}
+                    ),
+                }
+                for p in route.parameters
+                if p.location == "path"
             },
             "required": [
                 p.name for p in route.parameters if p.location == "path" and p.required

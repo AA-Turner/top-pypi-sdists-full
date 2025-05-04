@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: kiwipiepy
-Version: 0.20.4
+Version: 0.21.0
 Summary: Kiwi, the Korean Tokenizer for Python
 Home-page: https://github.com/bab2min/kiwipiepy
 Author: bab2min
@@ -17,7 +17,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: C++
 License-File: LICENSE.txt
 Requires-Dist: dataclasses; python_version < "3.7"
-Requires-Dist: kiwipiepy_model<0.21,>=0.20
+Requires-Dist: kiwipiepy_model<0.22,>=0.21
 Requires-Dist: numpy<2; python_version < "3.9"
 Requires-Dist: numpy; python_version >= "3.9"
 Requires-Dist: tqdm

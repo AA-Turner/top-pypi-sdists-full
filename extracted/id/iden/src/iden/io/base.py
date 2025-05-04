@@ -4,9 +4,9 @@ object."""
 from __future__ import annotations
 
 __all__ = [
+    "BaseFileSaver",
     "BaseLoader",
     "BaseSaver",
-    "BaseFileSaver",
     "is_loader_config",
     "is_saver_config",
     "setup_loader",
@@ -15,7 +15,7 @@ __all__ = [
 
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from objectory import AbstractFactory
 from objectory.utils import is_object_config
@@ -36,6 +36,7 @@ class BaseLoader(Generic[T], ABC, metaclass=AbstractFactory):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_json, JsonLoader
@@ -49,6 +50,34 @@ class BaseLoader(Generic[T], ABC, metaclass=AbstractFactory):
 
     ```
     """
+
+    def __eq__(self, other: object) -> bool:
+        return self.equal(other)
+
+    @abstractmethod
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:
+        r"""Indicate if two objects are equal or not.
+
+        Args:
+            other: The object to compare with.
+            equal_nan: If ``True``, then two ``NaN``s will be
+                considered equal.
+
+        Returns:
+            ``True`` if the two objects are equal, otherwise ``False``.
+
+        Example usage:
+
+        ```pycon
+
+        >>> from iden.io import JsonLoader, YamlLoader
+        >>> JsonLoader().equal(JsonLoader())
+        True
+        >>> JsonLoader().equal(YamlLoader())
+        False
+
+        ```
+        """
 
     @abstractmethod
     def load(self, path: Path) -> T:
@@ -84,6 +113,7 @@ class BaseSaver(Generic[T], ABC, metaclass=AbstractFactory):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import JsonSaver, JsonLoader
@@ -98,6 +128,34 @@ class BaseSaver(Generic[T], ABC, metaclass=AbstractFactory):
     ```
     """
 
+    def __eq__(self, other: object) -> bool:
+        return self.equal(other)
+
+    @abstractmethod
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:
+        r"""Indicate if two objects are equal or not.
+
+        Args:
+            other: The object to compare with.
+            equal_nan: If ``True``, then two ``NaN``s will be
+                considered equal.
+
+        Returns:
+            ``True`` if the two objects are equal, otherwise ``False``.
+
+        Example usage:
+
+        ```pycon
+
+        >>> from iden.io import JsonSaver, YamlSaver
+        >>> JsonSaver().equal(JsonSaver())
+        True
+        >>> JsonSaver().equal(YamlSaver())
+        False
+
+        ```
+        """
+
     @abstractmethod
     def save(self, to_save: T, path: Path, *, exist_ok: bool = False) -> None:
         r"""Save the data into the given path.
@@ -105,7 +163,7 @@ class BaseSaver(Generic[T], ABC, metaclass=AbstractFactory):
         Args:
             to_save: The data to save. The data should be compatible
                 with the saving engine.
-            path: Specifies the path where to save the data.
+            path: The path where to save the data.
             exist_ok: If ``exist_ok`` is ``False`` (the default),
                 an exception is raised if the target path already
                 exists.
@@ -134,6 +192,7 @@ class BaseFileSaver(BaseSaver[T]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import JsonSaver, JsonLoader
@@ -154,7 +213,7 @@ class BaseFileSaver(BaseSaver[T]):
         Args:
             to_save: The data to save. The data should be compatible
                 with the saving engine.
-            path: Specifies the path where to save the data.
+            path: The path where to save the data.
             exist_ok: If ``exist_ok`` is ``False`` (the default),
                 ``FileExistsError`` is raised if the target file
                 already exists. If ``exist_ok`` is ``True``,
@@ -205,7 +264,7 @@ class BaseFileSaver(BaseSaver[T]):
         Args:
             to_save: The data to save. The data should be compatible
                 with the saving engine.
-            path: Specifies the path where to save the data.
+            path: The path where to save the data.
         """
 
 
@@ -219,7 +278,7 @@ def is_loader_config(config: dict) -> bool:
     the class.
 
     Args:
-        config: Specifies the configuration to check.
+        config: The configuration to check.
 
     Returns:
         ``True`` if the input configuration is a configuration for a
@@ -228,6 +287,7 @@ def is_loader_config(config: dict) -> bool:
     Example usage:
 
     ```pycon
+
     >>> from iden.io import is_loader_config
     >>> is_loader_config({"_target_": "iden.io.JsonLoader"})
     True
@@ -247,7 +307,7 @@ def is_saver_config(config: dict) -> bool:
     the class.
 
     Args:
-        config: Specifies the configuration to check.
+        config: The configuration to check.
 
     Returns:
         ``True`` if the input configuration is a configuration for a
@@ -256,6 +316,7 @@ def is_saver_config(config: dict) -> bool:
     Example usage:
 
     ```pycon
+
     >>> from iden.io import is_saver_config
     >>> is_saver_config({"_target_": "iden.io.JsonSaver"})
     True
@@ -272,7 +333,7 @@ def setup_loader(loader: BaseLoader[T] | dict) -> BaseLoader[T]:
     ``BaseLoader`` factory function.
 
     Args:
-        loader: Specifies the data loader or its configuration.
+        loader: The data loader or its configuration.
 
     Returns:
         The instantiated data loader.
@@ -280,6 +341,7 @@ def setup_loader(loader: BaseLoader[T] | dict) -> BaseLoader[T]:
     Example usage:
 
     ```pycon
+
     >>> from iden.io import setup_loader
     >>> loader = setup_loader({"_target_": "iden.io.JsonLoader"})
     >>> loader
@@ -302,7 +364,7 @@ def setup_saver(saver: BaseSaver[T] | dict) -> BaseSaver[T]:
     ``BaseSaver`` factory function.
 
     Args:
-        saver: Specifies the data saver or its configuration.
+        saver: The data saver or its configuration.
 
     Returns:
         The instantiated data saver.
@@ -310,6 +372,7 @@ def setup_saver(saver: BaseSaver[T] | dict) -> BaseSaver[T]:
     Example usage:
 
     ```pycon
+
     >>> from iden.io import setup_saver
     >>> saver = setup_saver({"_target_": "iden.io.JsonSaver"})
     >>> saver

@@ -447,7 +447,6 @@ class QueueManager:
 
         await self.verify_structure()
 
-        job_status_log_buffer_timeout = timedelta(seconds=0.01)
         heartbeat_buffer_timeout = helpers.retry_timer_buffer_timeout(
             [x.parameters.retry_timer for x in self.entrypoint_registry.values()]
         )
@@ -460,19 +459,17 @@ class QueueManager:
         async with (
             buffers.JobStatusLogBuffer(
                 max_size=batch_size,
-                timeout=job_status_log_buffer_timeout,
                 callback=self.queries.log_jobs,
             ) as jbuff,
             buffers.HeartbeatBuffer(
                 # Flush will be mainly driven by timeouts, but allow flush if
                 # backlog becomes too large.
                 max_size=batch_size**2,
-                timeout=heartbeat_buffer_timeout,
+                timeout=heartbeat_buffer_timeout / 2,
                 callback=self.queries.update_heartbeat,
             ) as hbuff,
             buffers.RequestsPerSecondBuffer(
                 max_size=batch_size,
-                timeout=timedelta(seconds=0.01),
                 callback=self.update_rps_stats,
             ) as rpsbuff,
             tm.TaskManager() as task_manager,
@@ -571,7 +568,7 @@ class QueueManager:
         async with (
             heartbeat.Heartbeat(
                 job.id,
-                executor.parameters.retry_timer / 2,
+                executor.parameters.retry_timer,
                 hbuff,
             ),
             self.entrypoint_statistics[job.entrypoint].concurrency_limiter,

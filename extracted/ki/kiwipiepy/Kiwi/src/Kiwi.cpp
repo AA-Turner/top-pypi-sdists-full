@@ -4,16 +4,17 @@
 #include <kiwi/Utils.h>
 #include <kiwi/TemplateUtils.hpp>
 #include <kiwi/Form.h>
+#include <kiwi/LangModel.h>
 #include "ArchAvailable.h"
 #include "KTrie.h"
 #include "FeatureTestor.h"
 #include "FrozenTrie.hpp"
-#include "LmState.hpp"
 #include "StrUtils.h"
 #include "SortUtils.hpp"
 #include "serializer.hpp"
 #include "Joiner.hpp"
 #include "PathEvaluator.hpp"
+#include "Kiwi.hpp"
 
 using namespace std;
 
@@ -42,68 +43,19 @@ namespace kiwi
 	}
 
 	Kiwi::Kiwi(ArchType arch, 
-		LangModel _langMdl, 
+		const std::shared_ptr<lm::ILangModel> & _langMdl, 
 		bool typoTolerant, 
 		bool continualTypoTolerant, 
 		bool lengtheningTypoTolerant)
-		: langMdl(_langMdl)
+		: langMdl{ _langMdl }, selectedArch{ arch }
 	{
-		selectedArch = arch;
 		dfSplitByTrie = (void*)getSplitByTrieFn(selectedArch, 
 			typoTolerant, 
 			continualTypoTolerant, 
 			lengtheningTypoTolerant);
 		dfFindForm = (void*)getFindFormFn(selectedArch, typoTolerant);
-
-		static tp::Table<FnFindBestPath, AvailableArch> lmKnLM_8{ FindBestPathGetter<WrappedKnLM<uint8_t>::type>{} };
-		static tp::Table<FnFindBestPath, AvailableArch> lmKnLM_16{ FindBestPathGetter<WrappedKnLM<uint16_t>::type>{} };
-		static tp::Table<FnFindBestPath, AvailableArch> lmKnLM_32{ FindBestPathGetter<WrappedKnLM<uint32_t>::type>{} };
-		static tp::Table<FnFindBestPath, AvailableArch> lmKnLM_64{ FindBestPathGetter<WrappedKnLM<uint64_t>::type>{} };
-		static tp::Table<FnFindBestPath, AvailableArch> lmSbg_8{ FindBestPathGetter<WrappedSbg<8, uint8_t>::type>{} };
-		static tp::Table<FnFindBestPath, AvailableArch> lmSbg_16{ FindBestPathGetter<WrappedSbg<8, uint16_t>::type>{} };
-		static tp::Table<FnFindBestPath, AvailableArch> lmSbg_32{ FindBestPathGetter<WrappedSbg<8, uint32_t>::type>{} };
-		static tp::Table<FnFindBestPath, AvailableArch> lmSbg_64{ FindBestPathGetter<WrappedSbg<8, uint64_t>::type>{} };
-
-		if (langMdl.sbg)
-		{
-			switch (langMdl.sbg->getHeader().keySize)
-			{
-			case 1:
-				dfFindBestPath = (void*)lmSbg_8[static_cast<std::ptrdiff_t>(selectedArch)];
-				break;
-			case 2:
-				dfFindBestPath = (void*)lmSbg_16[static_cast<std::ptrdiff_t>(selectedArch)];
-				break;
-			case 4:
-				dfFindBestPath = (void*)lmSbg_32[static_cast<std::ptrdiff_t>(selectedArch)];
-				break;
-			case 8:
-				dfFindBestPath = (void*)lmSbg_64[static_cast<std::ptrdiff_t>(selectedArch)];
-				break;
-			default:
-				throw Exception{ "Wrong `lmKeySize`" };
-			}
-		}
-		else if(langMdl.knlm)
-		{
-			switch (langMdl.knlm->getHeader().key_size)
-			{
-			case 1:
-				dfFindBestPath = (void*)lmKnLM_8[static_cast<std::ptrdiff_t>(selectedArch)];
-				break;
-			case 2:
-				dfFindBestPath = (void*)lmKnLM_16[static_cast<std::ptrdiff_t>(selectedArch)];
-				break;
-			case 4:
-				dfFindBestPath = (void*)lmKnLM_32[static_cast<std::ptrdiff_t>(selectedArch)];
-				break;
-			case 8:
-				dfFindBestPath = (void*)lmKnLM_64[static_cast<std::ptrdiff_t>(selectedArch)];
-				break;
-			default:
-				throw Exception{ "Wrong `lmKeySize`" };
-			}
-		}
+		dfFindBestPath = langMdl ? langMdl->getFindBestPathFn() : nullptr;
+		dfNewJoiner = langMdl ? langMdl->getNewJoinerFn() : nullptr;
 	}
 
 	Kiwi::~Kiwi() = default;
@@ -651,7 +603,7 @@ namespace kiwi
 	inline void insertPathIntoResults(
 		vector<TokenResult>& ret, 
 		Vector<SpecialState>& spStatesByRet,
-		const Vector<PathEvaluator::ChunkResult>& pathes,
+		const Vector<PathResult>& pathes,
 		size_t topN, 
 		Match matchOptions,
 		bool integrateAllomorph,
@@ -677,7 +629,7 @@ namespace kiwi
 			Vector<uint8_t> selectedPathes(pathes.size());
 			for (size_t i = 0; i < ret.size(); ++i)
 			{
-				auto pred = [&](const PathEvaluator::ChunkResult& p)
+				auto pred = [&](const PathResult& p)
 				{
 					return p.prevState == spStatesByRet[i];
 				};
@@ -999,8 +951,7 @@ namespace kiwi
 		ret.resize(nodes.size(), -1);
 	}
 
-	vector<TokenResult> Kiwi::analyze(const u16string& str, size_t topN, Match matchOptions, 
-		const std::unordered_set<const Morpheme*>* blocklist,
+	vector<TokenResult> Kiwi::analyze(const u16string& str, size_t topN, AnalyzeOption option,
 		const std::vector<PretokenizedSpan>& pretokenized
 	) const
 	{
@@ -1012,7 +963,7 @@ namespace kiwi
 		pretokenizedGroup.clear();
 		normalizeHangulWithPosition(str.begin(), str.end(), back_inserter(normalizedStr), back_inserter(positionTable));
 
-		if (!!(matchOptions & Match::normalizeCoda)) normalizeCoda(normalizedStr.begin(), normalizedStr.end());
+		if (!!(option.match & Match::normalizeCoda)) normalizeCoda(normalizedStr.begin(), normalizedStr.end());
 
 		makePretokenizedSpanGroup(
 			pretokenizedGroup, 
@@ -1047,7 +998,7 @@ namespace kiwi
 				formTrie,
 				U16StringView{ normalizedStr.data() + splitEnd, normalizedStr.size() - splitEnd },
 				splitEnd,
-				matchOptions,
+				option.match,
 				maxUnkFormSize,
 				spaceTolerance,
 				continualTypoCost,
@@ -1059,19 +1010,19 @@ namespace kiwi
 			if (nodes.size() <= 2) continue;
 			findPretokenizedGroupOfNode(nodeInWhichPretokenized, nodes, pretokenizedPrev, pretokenizedFirst);
 
-			Vector<PathEvaluator::ChunkResult> res = (*reinterpret_cast<FnFindBestPath>(dfFindBestPath))(
+			Vector<PathResult> res = (*reinterpret_cast<FnFindBestPath>(dfFindBestPath))(
 				this,
 				spStatesByRet,
 				nodes.data(),
 				nodes.size(),
 				topN,
-				false,
-				!!(matchOptions & Match::splitComplex),
-				!!(matchOptions & Match::splitSaisiot),
-				!!(matchOptions & Match::mergeSaisiot),
-				blocklist
+				option.openEnding && splitEnd == normalizedStr.size(),
+				!!(option.match & Match::splitComplex),
+				!!(option.match & Match::splitSaisiot),
+				!!(option.match & Match::mergeSaisiot),
+				option.blocklist
 			);
-			insertPathIntoResults(ret, spStatesByRet, res, topN, matchOptions, integrateAllomorph, positionTable, wordPositions, pretokenizedGroup, nodeInWhichPretokenized);
+			insertPathIntoResults(ret, spStatesByRet, res, topN, option.match, integrateAllomorph, positionTable, wordPositions, pretokenizedGroup, nodeInWhichPretokenized);
 		}
 
 		sort(ret.begin(), ret.end(), [](const TokenResult& a, const TokenResult& b)
@@ -1117,217 +1068,85 @@ namespace kiwi
 		}, forward<Rest>(args)...);
 	}
 
-	future<vector<TokenResult>> Kiwi::asyncAnalyze(const string& str, size_t topN, Match matchOptions, 
-		const unordered_set<const Morpheme*>* blocklist,
+	future<vector<TokenResult>> Kiwi::asyncAnalyze(const string& str, size_t topN, AnalyzeOption option,
 		const vector<PretokenizedSpan>& pretokenized
 	) const
 	{
-		return _asyncAnalyze(str, pretokenized, topN, matchOptions, blocklist);
+		return _asyncAnalyze(str, pretokenized, topN, option);
 	}
 
-	future<vector<TokenResult>> Kiwi::asyncAnalyze(string&& str, size_t topN, Match matchOptions, 
-		const unordered_set<const Morpheme*>* blocklist,
+	future<vector<TokenResult>> Kiwi::asyncAnalyze(string&& str, size_t topN, AnalyzeOption option,
 		vector<PretokenizedSpan>&& pretokenized
 	) const
 	{
-		return _asyncAnalyze(move(str), move(pretokenized), topN, matchOptions, blocklist);
+		return _asyncAnalyze(move(str), move(pretokenized), topN, option);
 	}
 
-	future<TokenResult> Kiwi::asyncAnalyze(const string& str, Match matchOptions, 
-		const unordered_set<const Morpheme*>* blocklist,
+	future<TokenResult> Kiwi::asyncAnalyze(const string& str, AnalyzeOption option,
 		const vector<PretokenizedSpan>& pretokenized
 	) const
 	{
-		return _asyncAnalyze(str, pretokenized, matchOptions, blocklist);
+		return _asyncAnalyze(str, pretokenized, option);
 	}
 
-	future<TokenResult> Kiwi::asyncAnalyze(string&& str, Match matchOptions, 
-		const unordered_set<const Morpheme*>* blocklist,
+	future<TokenResult> Kiwi::asyncAnalyze(string&& str, AnalyzeOption option,
 		vector<PretokenizedSpan>&& pretokenized
 	) const
 	{
-		return _asyncAnalyze(move(str), move(pretokenized), matchOptions, blocklist);
+		return _asyncAnalyze(move(str), move(pretokenized), option);
 	}
 
-	future<pair<TokenResult, string>> Kiwi::asyncAnalyzeEcho(string&& str, Match matchOptions, 
-		const unordered_set<const Morpheme*>* blocklist,
+	future<pair<TokenResult, string>> Kiwi::asyncAnalyzeEcho(string&& str, AnalyzeOption option,
 		vector<PretokenizedSpan>&& pretokenized
 	) const
 	{
-		return _asyncAnalyzeEcho(move(str), move(pretokenized), matchOptions, blocklist);
+		return _asyncAnalyzeEcho(move(str), move(pretokenized), option);
 	}
 
-	future<vector<TokenResult>> Kiwi::asyncAnalyze(const u16string& str, size_t topN, Match matchOptions, 
-		const unordered_set<const Morpheme*>* blocklist,
+	future<vector<TokenResult>> Kiwi::asyncAnalyze(const u16string& str, size_t topN, AnalyzeOption option,
 		const vector<PretokenizedSpan>& pretokenized
 	) const
 	{
-		return _asyncAnalyze(str, pretokenized, topN, matchOptions, blocklist);
+		return _asyncAnalyze(str, pretokenized, topN, option);
 	}
 
-	future<vector<TokenResult>> Kiwi::asyncAnalyze(u16string&& str, size_t topN, Match matchOptions, 
-		const unordered_set<const Morpheme*>* blocklist,
+	future<vector<TokenResult>> Kiwi::asyncAnalyze(u16string&& str, size_t topN, AnalyzeOption option,
 		vector<PretokenizedSpan>&& pretokenized
 	) const
 	{
-		return _asyncAnalyze(move(str), move(pretokenized), topN, matchOptions, blocklist);
+		return _asyncAnalyze(move(str), move(pretokenized), topN, option);
 	}
 
-	future<TokenResult> Kiwi::asyncAnalyze(const u16string& str, Match matchOptions, 
-		const unordered_set<const Morpheme*>* blocklist,
+	future<TokenResult> Kiwi::asyncAnalyze(const u16string& str, AnalyzeOption option,
 		const vector<PretokenizedSpan>& pretokenized
 	) const
 	{
-		return _asyncAnalyze(str, pretokenized, matchOptions, blocklist);
+		return _asyncAnalyze(str, pretokenized, option);
 	}
 
-	future<TokenResult> Kiwi::asyncAnalyze(u16string&& str, Match matchOptions, 
-		const unordered_set<const Morpheme*>* blocklist,
+	future<TokenResult> Kiwi::asyncAnalyze(u16string&& str, AnalyzeOption option,
 		vector<PretokenizedSpan>&& pretokenized
 	) const
 	{
-		return _asyncAnalyze(move(str), move(pretokenized), matchOptions, blocklist);
+		return _asyncAnalyze(move(str), move(pretokenized), option);
 	}
 
-	future<pair<TokenResult, u16string>> Kiwi::asyncAnalyzeEcho(u16string&& str, Match matchOptions, 
-		const unordered_set<const Morpheme*>* blocklist,
+	future<pair<TokenResult, u16string>> Kiwi::asyncAnalyzeEcho(u16string&& str, AnalyzeOption option,
 		vector<PretokenizedSpan>&& pretokenized
 	) const
 	{
-		return _asyncAnalyzeEcho(move(str), move(pretokenized), matchOptions, blocklist);
+		return _asyncAnalyzeEcho(move(str), move(pretokenized), option);
 	}
-
-	using FnNewAutoJoiner = cmb::AutoJoiner(Kiwi::*)() const;
-
-	template<template<ArchType> class LmState>
-	struct NewAutoJoinerGetter
-	{
-		template<std::ptrdiff_t i>
-		struct Wrapper
-		{
-			static constexpr FnNewAutoJoiner value = &Kiwi::newJoinerImpl<LmState<static_cast<ArchType>(i)>>;
-		};
-	};
 
 	cmb::AutoJoiner Kiwi::newJoiner(bool lmSearch) const
 	{
-		static tp::Table<FnNewAutoJoiner, AvailableArch> lmVoid{ NewAutoJoinerGetter<VoidState>{} };
-		static tp::Table<FnNewAutoJoiner, AvailableArch> lmKnLM_8{ NewAutoJoinerGetter<WrappedKnLM<uint8_t>::type>{} };
-		static tp::Table<FnNewAutoJoiner, AvailableArch> lmKnLM_16{ NewAutoJoinerGetter<WrappedKnLM<uint16_t>::type>{} };
-		static tp::Table<FnNewAutoJoiner, AvailableArch> lmKnLM_32{ NewAutoJoinerGetter<WrappedKnLM<uint32_t>::type>{} };
-		static tp::Table<FnNewAutoJoiner, AvailableArch> lmKnLM_64{ NewAutoJoinerGetter<WrappedKnLM<uint64_t>::type>{} };
-		static tp::Table<FnNewAutoJoiner, AvailableArch> lmSbg_8{ NewAutoJoinerGetter<WrappedSbg<8, uint8_t>::type>{} };
-		static tp::Table<FnNewAutoJoiner, AvailableArch> lmSbg_16{ NewAutoJoinerGetter<WrappedSbg<8, uint16_t>::type>{} };
-		static tp::Table<FnNewAutoJoiner, AvailableArch> lmSbg_32{ NewAutoJoinerGetter<WrappedSbg<8, uint32_t>::type>{} };
-		static tp::Table<FnNewAutoJoiner, AvailableArch> lmSbg_64{ NewAutoJoinerGetter<WrappedSbg<8, uint64_t>::type>{} };
-		
-		const auto archIdx = static_cast<std::ptrdiff_t>(selectedArch);
-
 		if (lmSearch)
 		{
-			size_t vocabTySize = langMdl.knlm->getHeader().key_size;
-			if (langMdl.sbg)
-			{
-				switch (vocabTySize)
-				{
-				case 1:
-					return (this->*lmSbg_8[archIdx])();
-				case 2:
-					return (this->*lmSbg_16[archIdx])();
-				case 4:
-					return (this->*lmSbg_32[archIdx])();
-				case 8:
-					return (this->*lmSbg_64[archIdx])();
-				default:
-					throw Exception{ "invalid `key_size`=" + to_string(vocabTySize)};
-				}
-			}
-			else
-			{
-				switch (vocabTySize)
-				{
-				case 1:
-					return (this->*lmKnLM_8[archIdx])();
-				case 2:
-					return (this->*lmKnLM_16[archIdx])();
-				case 4:
-					return (this->*lmKnLM_32[archIdx])();
-				case 8:
-					return (this->*lmKnLM_64[archIdx])();
-				default:
-					throw Exception{ "invalid `key_size`=" + to_string(vocabTySize) };
-				}
-			}
+			return (*reinterpret_cast<FnNewJoiner>(dfNewJoiner))(this);
 		}
 		else
 		{
-			return (this->*lmVoid[archIdx])();
-		}
-	}
-
-	using FnNewLmObject = std::unique_ptr<LmObjectBase>(*)(const LangModel&);
-
-	template<class Ty>
-	std::unique_ptr<LmObjectBase> makeNewLmObject(const LangModel& lm)
-	{
-		return make_unique<LmObject<Ty>>(lm);
-	}
-
-	template<template<ArchType> class LmState>
-	struct NewLmObjectGetter
-	{
-		template<std::ptrdiff_t i>
-		struct Wrapper
-		{
-			static constexpr FnNewLmObject value = makeNewLmObject<LmState<static_cast<ArchType>(i)>>;
-		};
-	};
-
-	std::unique_ptr<LmObjectBase> Kiwi::newLmObject() const
-	{
-		static tp::Table<FnNewLmObject, AvailableArch> lmKnLM_8{ NewLmObjectGetter<WrappedKnLM<uint8_t>::type>{} };
-		static tp::Table<FnNewLmObject, AvailableArch> lmKnLM_16{ NewLmObjectGetter<WrappedKnLM<uint16_t>::type>{} };
-		static tp::Table<FnNewLmObject, AvailableArch> lmKnLM_32{ NewLmObjectGetter<WrappedKnLM<uint32_t>::type>{} };
-		static tp::Table<FnNewLmObject, AvailableArch> lmKnLM_64{ NewLmObjectGetter<WrappedKnLM<uint64_t>::type>{} };
-		static tp::Table<FnNewLmObject, AvailableArch> lmSbg_8{ NewLmObjectGetter<WrappedSbg<8, uint8_t>::type>{} };
-		static tp::Table<FnNewLmObject, AvailableArch> lmSbg_16{ NewLmObjectGetter<WrappedSbg<8, uint16_t>::type>{} };
-		static tp::Table<FnNewLmObject, AvailableArch> lmSbg_32{ NewLmObjectGetter<WrappedSbg<8, uint32_t>::type>{} };
-		static tp::Table<FnNewLmObject, AvailableArch> lmSbg_64{ NewLmObjectGetter<WrappedSbg<8, uint64_t>::type>{} };
-
-		const auto archIdx = static_cast<std::ptrdiff_t>(selectedArch);
-
-		size_t vocabTySize = langMdl.knlm->getHeader().key_size;
-		if (langMdl.sbg)
-		{
-			switch (vocabTySize)
-			{
-			case 1:
-				return (lmSbg_8[archIdx])(langMdl);
-			case 2:
-				return (lmSbg_16[archIdx])(langMdl);
-			case 4:
-				return (lmSbg_32[archIdx])(langMdl);
-			case 8:
-				return (lmSbg_64[archIdx])(langMdl);
-			default:
-				throw Exception{ "invalid `key_size`=" + to_string(vocabTySize) };
-			}
-		}
-		else
-		{
-			switch (vocabTySize)
-			{
-			case 1:
-				return (lmKnLM_8[archIdx])(langMdl);
-			case 2:
-				return (lmKnLM_16[archIdx])(langMdl);
-			case 4:
-				return (lmKnLM_32[archIdx])(langMdl);
-			case 8:
-				return (lmKnLM_64[archIdx])(langMdl);
-			default:
-				throw Exception{ "invalid `key_size`=" + to_string(vocabTySize) };
-			}
+			return cmb::AutoJoiner{ *this, cmb::Candidate<lm::VoidState<ArchType::none>>{ *combiningRule, langMdl.get() }};
 		}
 	}
 
@@ -1338,7 +1157,7 @@ namespace kiwi
 		return joinHangul(typoPool.begin() + p[0], typoPool.begin() + p[1]);
 	}
 
-	void Kiwi::findMorpheme(vector<const Morpheme*>& ret, const u16string& s, POSTag tag) const
+	void Kiwi::findMorphemes(vector<const Morpheme*>& ret, const u16string_view& s, POSTag tag) const
 	{
 		auto normalized = normalizeHangul(s);
 		auto form = (*reinterpret_cast<FnFindForm>(dfFindForm))(formTrie, forms.data(), normalized);
@@ -1354,10 +1173,27 @@ namespace kiwi
 		}
 	}
 
-	vector<const Morpheme*> Kiwi::findMorpheme(const u16string& s, POSTag tag) const
+	const Morpheme* Kiwi::findMorpheme(const u16string_view& s, POSTag tag) const
+	{
+		auto normalized = normalizeHangul(s);
+		auto form = (*reinterpret_cast<FnFindForm>(dfFindForm))(formTrie, forms.data(), normalized);
+		if (!form) return nullptr;
+		tag = clearIrregular(tag);
+		for (auto c : form->candidate)
+		{
+			if (c->combineSocket
+				|| (tag != POSTag::unknown
+					&& clearIrregular(c->tag) != tag))
+				continue;
+			return c;
+		}
+		return nullptr;
+	}
+
+	vector<const Morpheme*> Kiwi::findMorphemes(const u16string_view& s, POSTag tag) const
 	{
 		vector<const Morpheme*> ret;
-		findMorpheme(ret, s, tag);
+		findMorphemes(ret, s, tag);
 		return ret;
 	}
 }

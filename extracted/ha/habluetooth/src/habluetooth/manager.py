@@ -65,6 +65,7 @@ APPLE_FINDMY_START_BYTE: Final = 0x12  # FindMy network advertisements
 
 
 _str = str
+_int = int
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -117,6 +118,7 @@ class BluetoothManager:
         "_connectable_history",
         "_connectable_scanners",
         "_connectable_unavailable_callbacks",
+        "_connection_history",
         "_debug",
         "_disappeared_callbacks",
         "_fallback_intervals",
@@ -746,6 +748,7 @@ class BluetoothManager:
         _LOGGER.debug("Unregistering scanner %s", scanner.name)
         self._advertisement_tracker.async_remove_source(scanner.source)
         scanners.remove(scanner)
+        scanner._clear_connection_history()
         del self._sources[scanner.source]
         del self._adapter_sources[scanner.adapter]
         self._allocations.pop(scanner.source, None)
@@ -768,6 +771,7 @@ class BluetoothManager:
                 source=scanner.source, slots=0, free=0, allocated=[]
             )
         scanners.add(scanner)
+        scanner._clear_connection_history()
         self._sources[scanner.source] = scanner
         self._adapter_sources[scanner.adapter] = scanner.source
         if connection_slots:

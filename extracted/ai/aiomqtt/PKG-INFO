@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: aiomqtt
-Version: 2.3.2
+Version: 2.4.0
 Summary: The idiomatic asyncio MQTT client
-Project-URL: source, https://github.com/empicano/aiomqtt
-Project-URL: documentation, https://aiomqtt.bo3hm.com
-Project-URL: issues, https://github.com/empicano/aiomqtt/issues
+Project-URL: Source, https://github.com/empicano/aiomqtt
+Project-URL: Documentation, https://aiomqtt.bo3hm.com
+Project-URL: Issue tracker, https://github.com/empicano/aiomqtt/issues
 Author-email: Frederik Aalund <fpa@sbtinstruments.com>, Felix Böhm <f@bo3hm.com>, Jonathan Plasse <jonathan.plasse@live.fr>
 License-File: LICENSE
 Keywords: asyncio,internet-of-things,iot,mqtt,mqttv5,paho-mqtt
@@ -98,7 +98,7 @@ Note that the underlying paho-mqtt library is dual-licensed. One of the licenses
 
 ## Contributing
 
-We're happy about contributions to aiomqtt! 🎉 You can get started by reading [CONTRIBUTING.md](https://github.com/empicano/aiomqtt/blob/main/CONTRIBUTING.md).
+We're happy about contributions to aiomqtt! 🎉 Get started by reading [CONTRIBUTING.md](https://github.com/empicano/aiomqtt/blob/main/CONTRIBUTING.md).
 
 ## Versioning
 

@@ -27,7 +27,7 @@ class _Client:
     _snapshotted: bool
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "0.74.40"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "0.74.41"
     ): ...
     def is_closed(self) -> bool: ...
     @property
@@ -85,7 +85,7 @@ class Client:
     _snapshotted: bool
 
     def __init__(
-        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "0.74.40"
+        self, server_url: str, client_type: int, credentials: typing.Optional[tuple[str, str]], version: str = "0.74.41"
     ): ...
     def is_closed(self) -> bool: ...
     @property

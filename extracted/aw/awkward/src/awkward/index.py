@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 
+import awkward as ak
 from awkward._nplikes import to_nplike
 from awkward._nplikes.array_like import ArrayLike
 from awkward._nplikes.cupy import Cupy
@@ -67,7 +68,7 @@ class Index:
             self._nplike.asarray(data, dtype=self._expected_dtype)
         )
 
-        if len(self._data.shape) != 1:
+        if len(ak._util.maybe_shape_of(self._data)) != 1:
             raise TypeError("Index data must be one-dimensional")
 
         if np.issubdtype(self._data.dtype, np.longlong):
@@ -140,6 +141,8 @@ class Index:
             return self._data.ctypes.data
         elif isinstance(self._nplike, Cupy):
             return self._data.data.ptr
+        elif isinstance(self._nplike, Jax):
+            return self._data.unsafe_buffer_pointer()
         elif isinstance(self._nplike, TypeTracer):
             return 0
         else:
@@ -209,7 +212,7 @@ class Index:
         out = [indent, pre, "<Index dtype="]
         out.append(repr(str(self.dtype)))
         out.append(" len=")
-        out.append(repr(str(self._data.shape[0])))
+        out.append(repr(str(ak._util.maybe_length_of(self))))
 
         arraystr_lines = self._nplike.array_str(self._data, max_line_width=30).split(
             "\n"
@@ -257,7 +260,15 @@ class Index:
             return out
 
     def __setitem__(self, where, what):
-        self._data[where] = what
+        (data, where, what) = materialize_if_virtual(self._data, where, what)
+        if isinstance(self._nplike, Jax):
+            new_data = data.at[where].set(what)
+            if isinstance(self._data, VirtualArray):
+                self._data._array = new_data
+            else:
+                self._data = new_data
+        else:
+            self._data[where] = what
 
     def to64(self) -> Index:
         return Index(self._nplike.astype(self._data, dtype=np.int64))

@@ -25,6 +25,7 @@ class ShardDictGenerator(BaseShardGenerator[dict[str, BaseShard]]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> import torch
     >>> from pathlib import Path

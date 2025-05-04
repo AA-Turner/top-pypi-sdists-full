@@ -16,6 +16,7 @@ class BaseShard(Generic[T], ABC):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_json

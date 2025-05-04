@@ -20,16 +20,16 @@ from datahub.utilities._custom_package_loader import get_custom_models_package
 _custom_package_path = get_custom_models_package()
 
 if TYPE_CHECKING or not _custom_package_path:
-    from ._schema_classes import *
+    from ._internal_schema_classes import *
 
     # Required explicitly because __all__ doesn't include _ prefixed names.
-    from ._schema_classes import __SCHEMA_TYPES
+    from ._internal_schema_classes import __SCHEMA_TYPES
 
     if IS_SPHINX_BUILD:
         # Set __module__ to the current module so that Sphinx will document the
         # classes as belonging to this module instead of the custom package.
         for _cls in list(globals().values()):
-            if hasattr(_cls, "__module__") and "datahub.metadata._schema_classes" in _cls.__module__:
+            if hasattr(_cls, "__module__") and "datahub.metadata._internal_schema_classes" in _cls.__module__:
                 _cls.__module__ = __name__
 else:
     _custom_package = importlib.import_module(_custom_package_path)

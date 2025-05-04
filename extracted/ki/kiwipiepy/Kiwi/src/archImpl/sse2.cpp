@@ -1,22 +1,34 @@
-#include "../SkipBigramModelImpl.hpp"
+#include "../MathFunc.hpp"
+#include "../qgemm.h"
 
 namespace kiwi
 {
-	namespace sb
+	namespace lm
+	{
+		template float logSumExp<ArchType::sse2>(const float* arr, size_t size);
+		template void logSumExpTransposed<ArchType::sse2>(float* arr, size_t size, size_t batchSize, size_t stride);
+		template void logSoftmax<ArchType::sse2>(float* arr, size_t size);
+		template void logSoftmaxTransposed<ArchType::sse2>(float* arr, size_t size, size_t batchSize, size_t stride);
+	}
+
+	namespace qgemm
 	{
 		template<>
-		struct LogExpSum<ArchType::sse2>
+		float requantizePackedU4<ArchType::sse2>(
+			size_t n,
+			size_t qgroup,
+			const uint8_t* packedInput,
+			const uint8_t* localScale,
+			float globalScale,
+			bool toUint8,
+			uint8_t* out
+		)
 		{
-			template<size_t size>
-			float operator()(const float* arr, std::integral_constant<size_t, size>)
-			{
-				return logExpSumImpl<ArchType::sse2, size>(arr);
-			}
-		};
-
-		template class SkipBigramModel<ArchType::sse2, uint8_t, 8>;
-		template class SkipBigramModel<ArchType::sse2, uint16_t, 8>;
-		template class SkipBigramModel<ArchType::sse2, uint32_t, 8>;
-		template class SkipBigramModel<ArchType::sse2, uint64_t, 8>;
+			return requantizePackedU4<ArchType::none>(n, qgroup, packedInput, localScale, globalScale, toUint8, out);
+		}
 	}
 }
+
+#define Eigen EigenSSE2
+#define ARCH_TYPE ArchType::sse2
+#include "eigen_gemm.hpp"

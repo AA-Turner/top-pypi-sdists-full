@@ -131,8 +131,10 @@ def gltf(
     bone_shape_scale_factor: float | None = 1.0,
     guess_original_bind_pose: bool | None = True,
     import_webp_texture: bool | None = False,
+    import_unused_materials: bool | None = False,
     import_select_created_objects: bool | None = True,
     import_scene_extras: bool | None = True,
+    import_scene_as_collection: bool | None = True,
 ):
     """Load a glTF 2.0 file
 
@@ -182,8 +184,12 @@ def gltf(
         :type guess_original_bind_pose: bool | None
         :param import_webp_texture: Import WebP Textures, If a texture exists in WebP format, loads the WebP texture instead of the fallback PNG/JPEG one
         :type import_webp_texture: bool | None
+        :param import_unused_materials: Import Unused Materials & Images, Import materials & Images not assigned to any mesh
+        :type import_unused_materials: bool | None
         :param import_select_created_objects: Select Imported Objects, Select created objects at the end of the import
         :type import_select_created_objects: bool | None
         :param import_scene_extras: Import Scene Extras, Import scene extras as custom properties. Existing custom properties will be overwritten
         :type import_scene_extras: bool | None
+        :param import_scene_as_collection: Import Scene as Collection, Import the scene as a collection
+        :type import_scene_as_collection: bool | None
     """

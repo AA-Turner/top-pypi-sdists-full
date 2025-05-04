@@ -4,8 +4,9 @@ from typing import Optional, overload
 
 from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
-from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.sdk.entity_client import EntityClient
+from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.resolver_client import ResolverClient
 from datahub.sdk.search_client import SearchClient
 
@@ -83,7 +84,7 @@ class DataHubClient:
         # Inspired by the DockerClient.from_env() method.
         # TODO: This one also reads from ~/.datahubenv, so the "from_env" name might be a bit confusing.
         # That file is part of the "environment", but is not a traditional "env variable".
-        graph = get_default_graph()
+        graph = get_default_graph(ClientMode.SDK)
 
         return cls(graph=graph)
 
@@ -99,4 +100,6 @@ class DataHubClient:
     def search(self) -> SearchClient:
         return SearchClient(self)
 
-    # TODO: lineage client
+    @property
+    def lineage(self) -> LineageClient:
+        return LineageClient(self)

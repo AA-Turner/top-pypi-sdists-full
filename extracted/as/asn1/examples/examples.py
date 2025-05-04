@@ -30,20 +30,23 @@ def example2():
     print('Example 2')
     with open('example2.der', 'wb') as f:
         encoder = asn1.Encoder()
-        encoder.start(f)
+        encoder.start(f, asn1.Encoding.DER)  # CER is the default when using a stream
         encoder.write('1.2.3', asn1.Numbers.ObjectIdentifier)
+        encoder.output()  # Do nt forget to call output() to flush the buffer
+
 
 def example3():
-    """Encoding of a complex data."""
+    """Encoding of complex data."""
     print('Example 3')
     with open('example3.der', 'wb') as f:
         encoder = asn1.Encoder()
-        encoder.start(f)
+        encoder.start(f, asn1.Encoding.DER)  # CER is the default when using a stream
         encoder.write(['test1', 'test2', [
             1,
             0.125,
             b'\x01\x02\x03'
         ]])
+        encoder.output()  # Do nt forget to call output() to flush the buffer
     print()
 
 
@@ -180,6 +183,24 @@ def example8():
     print()
 
 
+def example9():
+    """Using CER encoding with a stream (file)."""
+    with open('exmple9.cer', 'wb') as f:
+        encoder = asn1.Encoder()
+        encoder.start(f)
+        encoder.write('1.2.3', asn1.Numbers.ObjectIdentifier)
+        # No need to call encoder.output() with CER encoding and a stream
+
+
+def example10():
+    """Using DER encoding with a stream (file)."""
+    with open('exmple10.der', 'wb') as f:
+        encoder = asn1.Encoder()
+        encoder.start(f, asn1.Encoding.DER)
+        encoder.write('1.2.3', asn1.Numbers.ObjectIdentifier)
+        encoder.output()  # Do nt forget to call output() to flush the buffer
+
+
 example1()
 example2()
 example3()
@@ -188,3 +209,5 @@ example5()
 example6()
 example7()
 example8()
+example9()
+example10()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tools
-Version: 1.0.1
+Version: 1.0.2
 Summary: python syntax tool
 Home-page: https://github.com/jsyoo61/tools
 Author: JaeSung Yoo
@@ -36,3 +36,4 @@ I'm happy to discuss questions or suggestions, please contact me via email. :)
 1.0.1. (2025.5.1.)
 
 - `tools.sklearn.metrics.r2_score()` `multioutput` argument fixed
+- `tools.sklearn.metrics` axis=None returns a single np.float object

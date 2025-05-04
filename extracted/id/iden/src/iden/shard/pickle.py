@@ -7,12 +7,12 @@ __all__ = ["PickleShard", "create_pickle_shard"]
 import logging
 from typing import TYPE_CHECKING, Any
 
+from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
 
 from iden.constants import KWARGS, LOADER
 from iden.io import JsonSaver, PickleLoader, PickleSaver
 from iden.shard.file import FileShard
-from iden.utils.path import sanitize_path
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -27,11 +27,12 @@ class PickleShard(FileShard[Any]):
 
     Args:
         uri: The shard's URI.
-        path: Specifies the path to the pickle file.
+        path: The path to the pickle file.
 
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import PickleShard
@@ -66,6 +67,7 @@ class PickleShard(FileShard[Any]):
         Example usage:
 
         ```pycon
+
         >>> import tempfile
         >>> from pathlib import Path
         >>> from iden.shard import PickleShard
@@ -104,6 +106,7 @@ def create_pickle_shard(data: Any, uri: str, path: Path | None = None) -> Pickle
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import create_pickle_shard

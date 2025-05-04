@@ -18,6 +18,7 @@ class PickleShardLoader(BaseShardLoader[Any]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import create_pickle_shard

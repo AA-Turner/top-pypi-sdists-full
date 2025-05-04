@@ -23,6 +23,7 @@ class JsonShardGenerator(BaseFileShardGenerator[T]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.data.generator import DataGenerator

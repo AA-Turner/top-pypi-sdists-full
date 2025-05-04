@@ -1,3 +1,5 @@
+# BSD 3-Clause License; see https://github.com/scikit-hep/awkward/blob/main/LICENSE
+
 from __future__ import annotations
 
 import numpy as np
@@ -281,7 +283,8 @@ def test_init_valid(numpy_like, simple_array_generator):
 def test_init_invalid_shape():
     nplike = Numpy.instance()
     with pytest.raises(
-        TypeError, match=r"Only shapes of integer dimensions are supported"
+        TypeError,
+        match=r"Only shapes of integer dimensions or unknown_length are supported",
     ):
         VirtualArray(
             nplike,
@@ -344,7 +347,7 @@ def test_is_materialized(virtual_array):
 def test_materialize_shape_mismatch(numpy_like):
     # Generator returns array with different shape than declared
     with pytest.raises(
-        TypeError,
+        ValueError,
         match=r"had shape \(5,\) before materialization while the materialized array has shape \(3,\)",
     ):
         va = VirtualArray(
@@ -359,7 +362,7 @@ def test_materialize_shape_mismatch(numpy_like):
 def test_materialize_dtype_mismatch(numpy_like):
     # Generator returns array with different dtype than declared
     with pytest.raises(
-        TypeError,
+        ValueError,
         match=r"had dtype int64 before materialization while the materialized array has dtype float64",
     ):
         va = VirtualArray(
@@ -417,7 +420,7 @@ def test_view_invalid_size():
 
 # Test generator property
 def test_generator(virtual_array, simple_array_generator):
-    assert virtual_array.generator is simple_array_generator
+    assert virtual_array._generator is simple_array_generator
 
 
 # Test nplike property
@@ -2354,6 +2357,13 @@ def test_numpyarray_argmax(numpyarray, virtual_numpyarray):
     assert virtual_numpyarray.is_all_materialized
 
 
+def test_numpyarray_nanargmax(numpyarray, virtual_numpyarray):
+    assert not virtual_numpyarray.is_any_materialized
+    assert ak.nanargmax(virtual_numpyarray, axis=0) == ak.nanargmax(numpyarray, axis=0)
+    assert virtual_numpyarray.is_any_materialized
+    assert virtual_numpyarray.is_all_materialized
+
+
 def test_numpyarray_sort(numpyarray, virtual_numpyarray):
     assert not virtual_numpyarray.is_any_materialized
     assert ak.array_equal(
@@ -2376,7 +2386,7 @@ def test_numpyarray_argsort(numpyarray, virtual_numpyarray):
 
 def test_numpyarray_is_none(numpyarray, virtual_numpyarray):
     assert not virtual_numpyarray.is_any_materialized
-    assert np.all(ak.is_none(virtual_numpyarray) == ak.is_none(numpyarray))
+    assert ak.all(ak.is_none(virtual_numpyarray) == ak.is_none(numpyarray))
     assert not virtual_numpyarray.is_any_materialized
     assert not virtual_numpyarray.is_all_materialized
 
@@ -3088,7 +3098,7 @@ def test_listoffsetarray_argsort(listoffsetarray, virtual_listoffsetarray):
 
 def test_listoffsetarray_is_none(listoffsetarray, virtual_listoffsetarray):
     assert not virtual_listoffsetarray.is_any_materialized
-    assert np.all(ak.is_none(virtual_listoffsetarray) == ak.is_none(listoffsetarray))
+    assert ak.all(ak.is_none(virtual_listoffsetarray) == ak.is_none(listoffsetarray))
     assert virtual_listoffsetarray.is_any_materialized
     assert not virtual_listoffsetarray.is_all_materialized
 
@@ -4073,7 +4083,7 @@ def test_listarray_argsort(listarray, virtual_listarray):
 
 def test_listarray_is_none(listarray, virtual_listarray):
     assert not virtual_listarray.is_any_materialized
-    assert np.all(ak.is_none(virtual_listarray) == ak.is_none(listarray))
+    assert ak.all(ak.is_none(virtual_listarray) == ak.is_none(listarray))
     assert virtual_listarray.is_any_materialized
     assert not virtual_listarray.is_all_materialized
 

@@ -9,12 +9,12 @@ from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
 from coola.utils import is_torch_available
+from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
 
 from iden.constants import KWARGS, LOADER
 from iden.io import JsonSaver, TorchLoader, TorchSaver
 from iden.shard.file import FileShard
-from iden.utils.path import sanitize_path
 
 if is_torch_available():
     import torch
@@ -34,7 +34,7 @@ class TorchShard(FileShard[Any]):
 
     Args:
         uri: The shard's URI.
-        path: Specifies the path to the PyTorch file.
+        path: The path to the PyTorch file.
 
     Raises:
         RuntimeError: if ``torch`` is not installed.
@@ -42,6 +42,7 @@ class TorchShard(FileShard[Any]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import TorchShard
@@ -117,6 +118,7 @@ def create_torch_shard(data: Any, uri: str, path: Path | None = None) -> TorchSh
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> import torch

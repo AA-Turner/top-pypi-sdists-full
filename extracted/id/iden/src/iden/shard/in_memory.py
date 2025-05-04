@@ -20,6 +20,7 @@ class InMemoryShard(BaseShard[Any]):
     Example usage:
 
     ```pycon
+
     >>> from iden.shard import InMemoryShard
     >>> shard = InMemoryShard([1, 2, 3])
     >>> shard.get_data()

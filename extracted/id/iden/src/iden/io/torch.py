@@ -2,12 +2,14 @@ r"""Contain torch-based data loaders and savers."""
 
 from __future__ import annotations
 
-__all__ = ["TorchLoader", "TorchSaver", "load_torch", "save_torch", "get_loader_mapping"]
+__all__ = ["TorchLoader", "TorchSaver", "get_loader_mapping", "load_torch", "save_torch"]
 
 from typing import TYPE_CHECKING, Any
 from unittest.mock import Mock
 
+from coola import objects_are_equal
 from coola.utils import check_torch, is_torch_available
+from coola.utils.format import repr_mapping_line
 
 from iden.io.base import BaseFileSaver, BaseLoader
 
@@ -21,11 +23,15 @@ if TYPE_CHECKING:
 
 
 class TorchLoader(BaseLoader[Any]):
-    r"""Implement a data loader to load data in a JSON file.
+    r"""Implement a data loader to load data in a PyTorch file.
+
+    Args:
+        **kwargs: Additional arguments passed to ``torch.load``.
 
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_torch, TorchLoader
@@ -40,25 +46,32 @@ class TorchLoader(BaseLoader[Any]):
     ```
     """
 
-    def __init__(self) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         check_torch()
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__)
+        self._kwargs = kwargs
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__qualname__}()"
+        return f"{self.__class__.__qualname__}({repr_mapping_line(self._kwargs)})"
+
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return objects_are_equal(self._kwargs, other._kwargs, equal_nan=equal_nan)
 
     def load(self, path: Path) -> Any:
-        return torch.load(path)
+        return torch.load(path, **self._kwargs)
 
 
 class TorchSaver(BaseFileSaver[Any]):
-    r"""Implement a file saver to save data with a JSON file.
+    r"""Implement a file saver to save data with a PyTorch file.
+
+    Args:
+        **kwargs: Additional arguments passed to ``torch.save``.
 
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import TorchSaver, TorchLoader
@@ -73,31 +86,36 @@ class TorchSaver(BaseFileSaver[Any]):
     ```
     """
 
-    def __init__(self) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         check_torch()
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__)
+        self._kwargs = kwargs
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__qualname__}()"
+        return f"{self.__class__.__qualname__}({repr_mapping_line(self._kwargs)})"
+
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:
+        if not isinstance(other, self.__class__):
+            return False
+        return objects_are_equal(self._kwargs, other._kwargs, equal_nan=equal_nan)
 
     def _save_file(self, to_save: Any, path: Path) -> None:
-        torch.save(to_save, path)
+        torch.save(to_save, path, **self._kwargs)
 
 
-def load_torch(path: Path) -> Any:
-    r"""Load the data from a given JSON file.
+def load_torch(path: Path, **kwargs: Any) -> Any:
+    r"""Load the data from a given PyTorch file.
 
     Args:
-        path: Specifies the path to the JSON file.
+        path: The path to the PyTorch file.
+        **kwargs: Additional arguments passed to ``torch.load``.
 
     Returns:
-        The data from the JSON file.
+        The data from the PyTorch file.
 
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_torch, load_torch
@@ -111,21 +129,22 @@ def load_torch(path: Path) -> Any:
 
     ```
     """
-    return TorchLoader().load(path)
+    return TorchLoader(**kwargs).load(path)
 
 
-def save_torch(to_save: Any, path: Path, *, exist_ok: bool = False) -> None:
-    r"""Save the given data in a JSON file.
+def save_torch(to_save: Any, path: Path, *, exist_ok: bool = False, **kwargs: Any) -> None:
+    r"""Save the given data in a PyTorch file.
 
     Args:
-        to_save: Specifies the data to write in a JSON file.
-        path: Specifies the path where to write the JSON file.
+        to_save: The data to write in a PyTorch file.
+        path: The path where to write the PyTorch file.
         exist_ok: If ``exist_ok`` is ``False`` (the default),
             ``FileExistsError`` is raised if the target file
             already exists. If ``exist_ok`` is ``True``,
             ``FileExistsError`` will not be raised unless the
             given path already exists in the file system and is
             not a file.
+        **kwargs: Additional arguments passed to ``torch.save``.
 
     Raises:
         FileExistsError: if the file already exists.
@@ -133,6 +152,7 @@ def save_torch(to_save: Any, path: Path, *, exist_ok: bool = False) -> None:
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_torch, load_torch
@@ -146,7 +166,7 @@ def save_torch(to_save: Any, path: Path, *, exist_ok: bool = False) -> None:
 
     ```
     """
-    TorchSaver().save(to_save, path, exist_ok=exist_ok)
+    TorchSaver(**kwargs).save(to_save, path, exist_ok=exist_ok)
 
 
 def get_loader_mapping() -> dict[str, BaseLoader]:
@@ -158,6 +178,7 @@ def get_loader_mapping() -> dict[str, BaseLoader]:
     Example usage:
 
     ```pycon
+
     >>> from iden.io.torch import get_loader_mapping
     >>> get_loader_mapping()
     {'pt': TorchLoader()}

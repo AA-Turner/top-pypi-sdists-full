@@ -7,12 +7,12 @@ __all__ = ["JsonShard", "create_json_shard"]
 import logging
 from typing import TYPE_CHECKING, Any
 
+from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
 
 from iden.constants import KWARGS, LOADER
 from iden.io import JsonLoader, JsonSaver
 from iden.shard.file import FileShard
-from iden.utils.path import sanitize_path
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -27,11 +27,12 @@ class JsonShard(FileShard[Any]):
 
     Args:
         uri: The shard's URI.
-        path: Specifies the path to the JSON file.
+        path: The path to the JSON file.
 
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import JsonShard
@@ -104,6 +105,7 @@ def create_json_shard(data: Any, uri: str, path: Path | None = None) -> JsonShar
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import create_json_shard

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xvfbwrapper
-Version: 0.2.12
+Version: 0.2.13
 Summary: Manage headless displays with Xvfb (X virtual framebuffer)
 Author: Corey Goldberg
 Maintainer: Corey Goldberg

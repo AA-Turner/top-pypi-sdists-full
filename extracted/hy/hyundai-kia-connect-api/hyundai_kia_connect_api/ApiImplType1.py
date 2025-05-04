@@ -292,6 +292,7 @@ class ApiImplType1(ApiImpl):
         vehicle.back_right_window_is_open = get_child_value(
             state, "Cabin.Window.Row2.Right.Open"
         )
+        vehicle.sunroof_is_open = get_child_value(state, "Body.Sunroof.Glass.Open")
         vehicle.tire_pressure_rear_left_warning_is_on = bool(
             get_child_value(state, "Chassis.Axle.Row2.Left.Tire.PressureLow")
         )
@@ -443,7 +444,7 @@ class ApiImplType1(ApiImpl):
         vehicle.smart_key_battery_warning_is_on = bool(
             get_child_value(state, "Electronics.FOB.LowBattery")
         )
-        if vehicle._ev_estimated_current_charge_duration is None:
+        if vehicle._ev_estimated_current_charge_duration is not None:
             if vehicle._ev_estimated_current_charge_duration == 0:
                 vehicle.ev_battery_is_charging = False
             elif vehicle._ev_estimated_current_charge_duration > 0:
@@ -952,6 +953,7 @@ class ApiImplType1(ApiImpl):
         ).json()
         _LOGGER.debug(f"{DOMAIN} - Window State Action Response: {response}")
         _check_response_for_errors(response)
+        token.device_id = self._get_device_id(self._get_stamp())
         return response["msgId"]
 
     def _get_control_token(self, token: Token) -> Token:

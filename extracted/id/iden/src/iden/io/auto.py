@@ -5,7 +5,7 @@ from __future__ import annotations
 
 __all__ = ["AutoFileLoader"]
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from coola.utils import str_indent, str_mapping
 
@@ -22,6 +22,7 @@ class AutoFileLoader(BaseLoader[Any]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_json, AutoFileLoader
@@ -37,10 +38,13 @@ class AutoFileLoader(BaseLoader[Any]):
     ```
     """
 
-    registry: dict[str, BaseLoader] = {}
+    registry: ClassVar[dict[str, BaseLoader]] = {}
 
     def __repr__(self) -> str:
         return f"{self.__class__.__qualname__}(\n  {str_indent(str_mapping(self.registry))}\n)"
+
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
+        return isinstance(other, self.__class__)
 
     def load(self, path: Path) -> Any:
         extension = "".join(path.suffixes)[1:]

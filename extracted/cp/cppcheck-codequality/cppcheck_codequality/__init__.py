@@ -26,13 +26,14 @@ import hashlib
 import json
 import logging
 import os
+import sys
 import typing
 from copy import deepcopy
 
 # third-party
 import xmltodict
 
-__version__ = "1.4.1"
+__version__ = "1.4.2"
 
 log = logging.getLogger(__name__)
 
@@ -231,7 +232,6 @@ def _convert(
 
     # The "errors" XML tag holds all the code quality issues found.
     for error in dict_in["results"]["errors"]["error"]:
-
         log.debug("Processing -- %s", str(error))
 
         # Some information messages are not related to the code.
@@ -324,9 +324,13 @@ def _convert(
 
         fingerprint_str = "cppcheck-" + rule + "-" + path + "-" + codeline
         log.debug("Fingerprint string: '%s'", fingerprint_str)
-        tmp_dict["fingerprint"] = hashlib.md5(
-            (fingerprint_str).encode("utf-8")
-        ).hexdigest()
+        fingerprint_bytes = fingerprint_str.encode("utf-8")
+        if sys.version_info >= (3, 9):
+            tmp_dict["fingerprint"] = hashlib.md5(
+                fingerprint_bytes, usedforsecurity=False
+            ).hexdigest()
+        else:
+            tmp_dict["fingerprint"] = hashlib.md5(fingerprint_bytes).hexdigest()
 
         # Append this record.
         dict_out.append(deepcopy(tmp_dict))

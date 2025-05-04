@@ -291,7 +291,8 @@ def gltf(
     export_draco_color_quantization: int | None = 10,
     export_draco_generic_quantization: int | None = 12,
     export_tangents: bool | None = False,
-    export_materials: typing.Literal["EXPORT", "PLACEHOLDER", "NONE"] | None = "EXPORT",
+    export_materials: typing.Literal["EXPORT", "PLACEHOLDER", "VIEWPORT", "NONE"]
+    | None = "EXPORT",
     export_unused_images: bool | None = False,
     export_unused_textures: bool | None = False,
     export_vertex_color: typing.Literal["MATERIAL", "ACTIVE", "NAME", "NONE"]
@@ -498,9 +499,12 @@ def gltf(
     PLACEHOLDER
     Placeholder -- Do not export materials, but write multiple primitive groups per mesh, keeping material slot information.
 
+    VIEWPORT
+    Viewport -- Export minimal materials as defined in Viewport display properties.
+
     NONE
     No export -- Do not export materials, and combine mesh primitive groups, losing material slot information.
-        :type export_materials: typing.Literal['EXPORT','PLACEHOLDER','NONE'] | None
+        :type export_materials: typing.Literal['EXPORT','PLACEHOLDER','VIEWPORT','NONE'] | None
         :param export_unused_images: Unused Images, Export images not assigned to any material
         :type export_unused_images: bool | None
         :param export_unused_textures: Prepare Unused Textures, Export image texture nodes not assigned to any material. This feature is not standard and needs an external extension to be included in the glTF file

@@ -2,7 +2,7 @@ r"""Contain JSON-based data loaders and savers."""
 
 from __future__ import annotations
 
-__all__ = ["JsonLoader", "JsonSaver", "load_json", "save_json", "get_loader_mapping"]
+__all__ = ["JsonLoader", "JsonSaver", "get_loader_mapping", "load_json", "save_json"]
 
 import json
 from pathlib import Path
@@ -19,6 +19,7 @@ class JsonLoader(BaseLoader[Any]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_json, JsonLoader
@@ -33,11 +34,11 @@ class JsonLoader(BaseLoader[Any]):
     ```
     """
 
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__)
-
     def __repr__(self) -> str:
         return f"{self.__class__.__qualname__}()"
+
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
+        return isinstance(other, self.__class__)
 
     def load(self, path: Path) -> Any:
         with Path.open(path, mode="rb") as file:
@@ -50,6 +51,7 @@ class JsonSaver(BaseFileSaver[Any]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import JsonSaver, JsonLoader
@@ -64,11 +66,11 @@ class JsonSaver(BaseFileSaver[Any]):
     ```
     """
 
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__)
-
     def __repr__(self) -> str:
         return f"{self.__class__.__qualname__}()"
+
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
+        return isinstance(other, self.__class__)
 
     def _save_file(self, to_save: Any, path: Path) -> None:
         with Path.open(path, "w") as file:
@@ -79,7 +81,7 @@ def load_json(path: Path) -> Any:
     r"""Load the data from a given JSON file.
 
     Args:
-        path: Specifies the path to the JSON file.
+        path: The path to the JSON file.
 
     Returns:
         The data from the JSON file.
@@ -87,6 +89,7 @@ def load_json(path: Path) -> Any:
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_json, load_json
@@ -107,8 +110,8 @@ def save_json(to_save: Any, path: Path, *, exist_ok: bool = False) -> None:
     r"""Save the given data in a JSON file.
 
     Args:
-        to_save: Specifies the data to write in a JSON file.
-        path: Specifies the path where to write the JSON file.
+        to_save: The data to write in a JSON file.
+        path: The path where to write the JSON file.
         exist_ok: If ``exist_ok`` is ``False`` (the default),
             ``FileExistsError`` is raised if the target file
             already exists. If ``exist_ok`` is ``True``,
@@ -122,6 +125,7 @@ def save_json(to_save: Any, path: Path, *, exist_ok: bool = False) -> None:
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_json, load_json
@@ -147,6 +151,7 @@ def get_loader_mapping() -> dict[str, BaseLoader]:
     Example usage:
 
     ```pycon
+
     >>> from iden.io.json import get_loader_mapping
     >>> get_loader_mapping()
     {'json': JsonLoader()}

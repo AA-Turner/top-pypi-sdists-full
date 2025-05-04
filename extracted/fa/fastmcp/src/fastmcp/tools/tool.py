@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import inspect
-import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Annotated, Any
 
 import pydantic_core
-from mcp.types import EmbeddedResource, ImageContent, TextContent
+from mcp.types import EmbeddedResource, ImageContent, TextContent, ToolAnnotations
 from mcp.types import Tool as MCPTool
 from pydantic import BaseModel, BeforeValidator, Field
 
 from fastmcp.exceptions import ToolError
 from fastmcp.utilities.func_metadata import FuncMetadata, func_metadata
-from fastmcp.utilities.types import Image, _convert_set_defaults
+from fastmcp.utilities.types import (
+    Image,
+    _convert_set_defaults,
+    is_class_member_of_type,
+)
 
 if TYPE_CHECKING:
     from mcp.server.session import ServerSessionT
@@ -39,6 +42,12 @@ class Tool(BaseModel):
     tags: Annotated[set[str], BeforeValidator(_convert_set_defaults)] = Field(
         default_factory=set, description="Tags for the tool"
     )
+    annotations: ToolAnnotations | None = Field(
+        None, description="Additional annotations about the tool"
+    )
+    serializer: Callable[[Any], str] | None = Field(
+        None, description="Optional custom serializer for tool results"
+    )
 
     @classmethod
     def from_function(
@@ -48,6 +57,8 @@ class Tool(BaseModel):
         description: str | None = None,
         context_kwarg: str | None = None,
         tags: set[str] | None = None,
+        annotations: ToolAnnotations | None = None,
+        serializer: Callable[[Any], str] | None = None,
     ) -> Tool:
         """Create a Tool from a function."""
         from fastmcp import Context
@@ -66,7 +77,7 @@ class Tool(BaseModel):
             else:
                 sig = inspect.signature(fn)
             for param_name, param in sig.parameters.items():
-                if param.annotation is Context:
+                if is_class_member_of_type(param.annotation, Context):
                     context_kwarg = param_name
                     break
 
@@ -92,6 +103,8 @@ class Tool(BaseModel):
             is_async=is_async,
             context_kwarg=context_kwarg,
             tags=tags or set(),
+            annotations=annotations,
+            serializer=serializer,
         )
 
     async def run(
@@ -112,7 +125,7 @@ class Tool(BaseModel):
                 arguments_to_validate=arguments,
                 arguments_to_pass_directly=pass_args,
             )
-            return _convert_to_content(result)
+            return _convert_to_content(result, serializer=self.serializer)
         except Exception as e:
             raise ToolError(f"Error executing tool {self.name}: {e}") from e
 
@@ -121,6 +134,7 @@ class Tool(BaseModel):
             "name": self.name,
             "description": self.description,
             "inputSchema": self.parameters,
+            "annotations": self.annotations,
         }
         return MCPTool(**kwargs | overrides)
 
@@ -132,6 +146,7 @@ class Tool(BaseModel):
 
 def _convert_to_content(
     result: Any,
+    serializer: Callable[[Any], str] | None = None,
     _process_as_single_item: bool = False,
 ) -> list[TextContent | ImageContent | EmbeddedResource]:
     """Convert a result to a sequence of content objects."""
@@ -166,23 +181,10 @@ def _convert_to_content(
 
         return other_content + mcp_types
 
-    # if the result is a bytes object, convert it to a text content object
     if not isinstance(result, str):
-        try:
-            jsonable_result = pydantic_core.to_jsonable_python(result)
-            if jsonable_result is None:
-                return [TextContent(type="text", text="null")]
-            elif isinstance(jsonable_result, bool):
-                return [
-                    TextContent(
-                        type="text", text="true" if jsonable_result else "false"
-                    )
-                ]
-            elif isinstance(jsonable_result, str | int | float):
-                return [TextContent(type="text", text=str(jsonable_result))]
-            else:
-                return [TextContent(type="text", text=json.dumps(jsonable_result))]
-        except Exception:
-            result = str(result)
+        if serializer is not None:
+            result = serializer(result)
+        else:
+            result = pydantic_core.to_json(result, fallback=str, indent=2).decode()
 
     return [TextContent(type="text", text=result)]

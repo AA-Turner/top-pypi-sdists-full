@@ -4,6 +4,8 @@ from __future__ import annotations
 
 __all__ = [
     "BaseShardGenerator",
+    "CloudpickleShardGenerator",
+    "JoblibShardGenerator",
     "JsonShardGenerator",
     "NumpySafetensorsShardGenerator",
     "PickleShardGenerator",
@@ -21,7 +23,9 @@ from iden.shard.generator.base import (
     is_shard_generator_config,
     setup_shard_generator,
 )
+from iden.shard.generator.cloudpickle import CloudpickleShardGenerator
 from iden.shard.generator.dict import ShardDictGenerator
+from iden.shard.generator.joblib import JoblibShardGenerator
 from iden.shard.generator.json import JsonShardGenerator
 from iden.shard.generator.pickle import PickleShardGenerator
 from iden.shard.generator.safetensors import (

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cppcheck-codequality
-Version: 1.4.1
+Version: 1.4.2
 Summary: Convert a CppCheck XML report to a GitLab-compatible Code Quality JSON report.
 Home-page: https://gitlab.com/ahogen/cppcheck-codequality
 License: MIT

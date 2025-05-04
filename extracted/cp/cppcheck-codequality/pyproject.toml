@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cppcheck-codequality"
-version = "1.4.1"
+version = "1.4.2"
 license = "MIT"
 authors = ["Alex Hogen <code.ahogen@outlook.com>"]
 description = "Convert a CppCheck XML report to a GitLab-compatible Code Quality JSON report."
@@ -32,7 +32,7 @@ xmltodict = "^0.13.0"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.0"
-black = "^22.0"
+black = "^23.0"
 pylint = "^2.0"
 
 [tool.poetry.group.test.dependencies]

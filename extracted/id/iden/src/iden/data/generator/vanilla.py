@@ -23,6 +23,7 @@ class DataGenerator(BaseDataGenerator[T]):
     Example usage:
 
     ```pycon
+
     >>> from iden.data.generator import DataGenerator
     >>> generator = DataGenerator([1, 2, 3])
     >>> generator

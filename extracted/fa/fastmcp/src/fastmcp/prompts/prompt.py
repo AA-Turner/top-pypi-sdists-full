@@ -3,7 +3,6 @@
 from __future__ import annotations as _annotations
 
 import inspect
-import json
 from collections.abc import Awaitable, Callable, Sequence
 from typing import TYPE_CHECKING, Annotated, Any, Literal
 
@@ -13,7 +12,10 @@ from mcp.types import Prompt as MCPPrompt
 from mcp.types import PromptArgument as MCPPromptArgument
 from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, validate_call
 
-from fastmcp.utilities.types import _convert_set_defaults
+from fastmcp.utilities.types import (
+    _convert_set_defaults,
+    is_class_member_of_type,
+)
 
 if TYPE_CHECKING:
     from mcp.server.session import ServerSessionT
@@ -115,7 +117,7 @@ class Prompt(BaseModel):
             else:
                 sig = inspect.signature(fn)
             for param_name, param in sig.parameters.items():
-                if param.annotation is Context:
+                if is_class_member_of_type(param.annotation, Context):
                     context_kwarg = param_name
                     break
 
@@ -192,7 +194,9 @@ class Prompt(BaseModel):
                         content = TextContent(type="text", text=msg)
                         messages.append(Message(role="user", content=content))
                     else:
-                        content = json.dumps(pydantic_core.to_jsonable_python(msg))
+                        content = pydantic_core.to_json(
+                            msg, fallback=str, indent=2
+                        ).decode()
                         messages.append(Message(role="user", content=content))
                 except Exception:
                     raise ValueError(

@@ -14,13 +14,13 @@ from typing import TYPE_CHECKING
 from unittest.mock import Mock
 
 from coola.utils import is_numpy_available, is_torch_available
+from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
 
 from iden.constants import KWARGS, LOADER
 from iden.io import JsonSaver
 from iden.io.safetensors import NumpyLoader, NumpySaver, TorchLoader, TorchSaver
 from iden.shard.file import FileShard
-from iden.utils.path import sanitize_path
 
 if is_numpy_available():
     import numpy as np
@@ -45,7 +45,7 @@ class NumpySafetensorsShard(FileShard[dict[str, np.ndarray]]):
 
     Args:
         uri: The shard's URI.
-        path: Specifies the path to the safetensors file.
+        path: The path to the safetensors file.
 
     Raises:
         RuntimeError: if ``safetensors`` or ``numpy`` is not installed.
@@ -53,6 +53,7 @@ class NumpySafetensorsShard(FileShard[dict[str, np.ndarray]]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> import numpy as np
     >>> from pathlib import Path
@@ -114,7 +115,7 @@ class TorchSafetensorsShard(FileShard[dict[str, torch.Tensor]]):
 
     Args:
         uri: The shard's URI.
-        path: Specifies the path to the safetensors file.
+        path: The path to the safetensors file.
 
     Raises:
         RuntimeError: if ``safetensors`` or ``torch`` is not installed.
@@ -122,6 +123,7 @@ class TorchSafetensorsShard(FileShard[dict[str, torch.Tensor]]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> import torch
     >>> from pathlib import Path
@@ -201,6 +203,7 @@ def create_numpy_safetensors_shard(
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> import torch
     >>> from pathlib import Path
@@ -250,6 +253,7 @@ def create_torch_safetensors_shard(
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> import torch
     >>> from pathlib import Path

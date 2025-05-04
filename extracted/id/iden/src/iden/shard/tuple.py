@@ -16,13 +16,13 @@ from coola.utils import (
     str_mapping,
     str_sequence,
 )
+from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
 
 from iden.constants import LOADER, SHARDS
 from iden.io import JsonSaver, load_json
 from iden.shard.base import BaseShard
 from iden.shard.utils import get_list_uris
-from iden.utils.path import sanitize_path
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -42,6 +42,7 @@ class ShardTuple(BaseShard[tuple[BaseShard[T], ...]]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import create_json_shard
@@ -253,6 +254,7 @@ def create_shard_tuple(shards: Iterable[BaseShard[T]], uri: str) -> ShardTuple[T
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import ShardTuple, create_json_shard, create_shard_tuple

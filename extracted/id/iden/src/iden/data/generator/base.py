@@ -22,6 +22,7 @@ class BaseDataGenerator(Generic[T], ABC, metaclass=AbstractFactory):
     Example usage:
 
     ```pycon
+
     >>> from iden.data.generator import DataGenerator
     >>> generator = DataGenerator([1, 2, 3])
     >>> generator
@@ -61,7 +62,7 @@ def is_data_generator_config(config: dict) -> bool:
     the class.
 
     Args:
-        config: Specifies the configuration to check.
+        config: The configuration to check.
 
     Returns:
         ``True`` if the input configuration is a configuration for a
@@ -70,6 +71,7 @@ def is_data_generator_config(config: dict) -> bool:
     Example usage:
 
     ```pycon
+
     >>> from iden.data.generator import is_data_generator_config
     >>> is_data_generator_config({"_target_": "iden.data.generator.DataGenerator"})
     True
@@ -86,7 +88,7 @@ def setup_data_generator(data_generator: BaseDataGenerator | dict) -> BaseDataGe
     ``BaseDataGenerator`` factory function.
 
     Args:
-        data_generator: Specifies the data generator or its configuration.
+        data_generator: The data generator or its configuration.
 
     Returns:
         The instantiated data generator.
@@ -94,6 +96,7 @@ def setup_data_generator(data_generator: BaseDataGenerator | dict) -> BaseDataGe
     Example usage:
 
     ```pycon
+
     >>> from iden.data.generator import is_data_generator_config
     >>> generator = setup_data_generator(
     ...     {"_target_": "iden.data.generator.DataGenerator", "data": [1, 2, 3]}

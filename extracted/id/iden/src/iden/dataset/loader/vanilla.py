@@ -19,6 +19,7 @@ class VanillaDatasetLoader(BaseDatasetLoader[T]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.dataset import create_vanilla_dataset

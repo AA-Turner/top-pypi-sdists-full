@@ -1,26 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: latex2mathml
-Version: 3.77.0
+Version: 3.78.0
 Summary: Pure Python library for LaTeX to MathML conversion
-Home-page: https://github.com/roniemartinez/latex2mathml
 License: MIT
 Keywords: latex,mathml
 Author: Ronie Martinez
 Author-email: ronmarti18@gmail.com
-Requires-Python: >=3.8.1,<4.0.0
+Requires-Python: >=3.9
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: Markup :: HTML
+Classifier: Topic :: Text Processing :: Markup :: LaTeX
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Classifier: Topic :: Scientific/Engineering :: Mathematics
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Topic :: Text Processing :: Markup :: HTML
-Classifier: Topic :: Text Processing :: Markup :: LaTeX
 Project-URL: Donate, https://www.buymeacoffee.com/roniemartinez
 Project-URL: Repository, https://github.com/roniemartinez/latex2mathml
 Description-Content-Type: text/markdown

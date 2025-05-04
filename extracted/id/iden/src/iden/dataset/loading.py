@@ -7,10 +7,11 @@ __all__ = ["load_from_uri"]
 
 from typing import TYPE_CHECKING
 
+from coola.utils.path import sanitize_path
+
 from iden.constants import LOADER
 from iden.dataset.loader.base import setup_dataset_loader
 from iden.io import load_json
-from iden.utils.path import sanitize_path
 
 if TYPE_CHECKING:
     from iden.dataset import BaseDataset
@@ -31,6 +32,7 @@ def load_from_uri(uri: str) -> BaseDataset:
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.dataset import create_vanilla_dataset, load_from_uri

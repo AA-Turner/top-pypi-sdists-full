@@ -34,6 +34,7 @@ cdef class BleakCallback:
     cdef public object callback
     cdef public dict filters
 
+
 cdef class BluetoothManager:
 
     cdef public object _cancel_unavailable_tracking

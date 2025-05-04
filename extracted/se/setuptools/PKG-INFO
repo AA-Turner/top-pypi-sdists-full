@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: setuptools
-Version: 80.2.0
+Version: 80.3.0
 Summary: Easily download, build, install, upgrade, and uninstall Python packages
 Author-email: Python Packaging Authority <distutils-sig@python.org>
+License-Expression: MIT
 Project-URL: Source, https://github.com/pypa/setuptools
 Project-URL: Documentation, https://setuptools.pypa.io/
 Project-URL: Changelog, https://setuptools.pypa.io/en/stable/history.html
@@ -17,7 +18,6 @@ Classifier: Topic :: System :: Systems Administration
 Classifier: Topic :: Utilities
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
-License-File: LICENSE
 Provides-Extra: test
 Requires-Dist: pytest!=8.1.*,>=6; extra == "test"
 Requires-Dist: virtualenv>=13.0.0; extra == "test"
@@ -78,7 +78,6 @@ Requires-Dist: pytest-mypy; extra == "type"
 Requires-Dist: mypy==1.14.*; extra == "type"
 Requires-Dist: importlib_metadata>=7.0.2; python_version < "3.10" and extra == "type"
 Requires-Dist: jaraco.develop>=7.21; sys_platform != "cygwin" and extra == "type"
-Dynamic: license-file
 
 .. |pypi-version| image:: https://img.shields.io/pypi/v/setuptools.svg
    :target: https://pypi.org/project/setuptools

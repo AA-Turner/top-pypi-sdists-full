@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: urllib3-future
-Version: 2.12.919
+Version: 2.12.920
 Summary: urllib3.future is a powerful HTTP 1.1, 2, and 3 client with both sync and async interfaces
 Project-URL: Changelog, https://github.com/jawah/urllib3.future/blob/main/CHANGES.rst
 Project-URL: Documentation, https://urllib3future.readthedocs.io

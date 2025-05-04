@@ -16,6 +16,7 @@ class ShardTupleLoader(BaseShardLoader[tuple[BaseShard, ...]]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import create_json_shard, create_shard_tuple

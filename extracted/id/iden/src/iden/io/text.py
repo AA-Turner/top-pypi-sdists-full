@@ -2,7 +2,7 @@ r"""Contain text-based data loaders and savers."""
 
 from __future__ import annotations
 
-__all__ = ["TextLoader", "TextSaver", "load_text", "save_text", "get_loader_mapping"]
+__all__ = ["TextLoader", "TextSaver", "get_loader_mapping", "load_text", "save_text"]
 
 from pathlib import Path
 from typing import Any, TypeVar
@@ -18,6 +18,7 @@ class TextLoader(BaseLoader[Any]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_text, TextLoader
@@ -32,11 +33,11 @@ class TextLoader(BaseLoader[Any]):
     ```
     """
 
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__)
-
     def __repr__(self) -> str:
         return f"{self.__class__.__qualname__}()"
+
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
+        return isinstance(other, self.__class__)
 
     def load(self, path: Path) -> Any:
         with Path.open(path) as file:
@@ -53,6 +54,7 @@ class TextSaver(BaseFileSaver[Any]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import TextSaver, TextLoader
@@ -67,11 +69,11 @@ class TextSaver(BaseFileSaver[Any]):
     ```
     """
 
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, self.__class__)
-
     def __repr__(self) -> str:
         return f"{self.__class__.__qualname__}()"
+
+    def equal(self, other: Any, equal_nan: bool = False) -> bool:  # noqa: ARG002
+        return isinstance(other, self.__class__)
 
     def _save_file(self, to_save: Any, path: Path) -> None:
         with Path.open(path, mode="w") as file:
@@ -82,7 +84,7 @@ def load_text(path: Path) -> str:
     r"""Load the data from a given text file.
 
     Args:
-        path: Specifies the path where to the text file.
+        path: The path where to the text file.
 
     Returns:
         The data from the text file.
@@ -90,6 +92,7 @@ def load_text(path: Path) -> str:
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_text, load_text
@@ -110,8 +113,8 @@ def save_text(to_save: Any, path: Path, *, exist_ok: bool = False) -> None:
     r"""Save the given data in a text file.
 
     Args:
-        to_save: Specifies the data to write in a text file.
-        path: Specifies the path where to write the text file.
+        to_save: The data to write in a text file.
+        path: The path where to write the text file.
         exist_ok: If ``exist_ok`` is ``False`` (the default),
             ``FileExistsError`` is raised if the target file
             already exists. If ``exist_ok`` is ``True``,
@@ -129,6 +132,7 @@ def save_text(to_save: Any, path: Path, *, exist_ok: bool = False) -> None:
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.io import save_text, load_text
@@ -154,6 +158,7 @@ def get_loader_mapping() -> dict[str, BaseLoader]:
     Example usage:
 
     ```pycon
+
     >>> from iden.io.text import get_loader_mapping
     >>> get_loader_mapping()
     {'txt': TextLoader()}

@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 setuptools.setup(
     name='abstract_ocr',
-    version='0.0.0.223',
+    version='0.0.1.1',
     author='putkoff',
     author_email='partners@abstractendeavors.com',
     description='abstract_ocr',

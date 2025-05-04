@@ -32,6 +32,7 @@ class NumpySafetensorsShardLoader(BaseShardLoader[dict[str, np.ndarray]]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> import numpy as np
     >>> from pathlib import Path
@@ -71,6 +72,7 @@ class TorchSafetensorsShardLoader(BaseShardLoader[dict[str, torch.Tensor]]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> import torch
     >>> from pathlib import Path

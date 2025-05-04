@@ -1,7 +1,10 @@
 import json
 import logging
+from typing import Annotated, Any
 
 import pytest
+from mcp.server.session import ServerSessionT
+from mcp.shared.context import LifespanContextT
 from mcp.types import ImageContent, TextContent
 from pydantic import BaseModel
 
@@ -387,18 +390,30 @@ class TestCallTools:
         assert isinstance(result, list)
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
-        assert result[0].text == '["rex", "gertrude"]'
-        assert json.loads(result[0].text) == ["rex", "gertrude"]
+        assert result[0].text == '[\n  "rex",\n  "gertrude"\n]'
 
-        result = await manager.call_tool(
-            "name_shrimp",
-            {"tank": '{"x": null, "shrimp": [{"name": "rex"}, {"name": "gertrude"}]}'},
-        )
+    async def test_call_tool_with_custom_serializer(self):
+        """Test that a custom serializer provided to FastMCP is used by tools."""
+
+        def custom_serializer(data: Any) -> str:
+            if isinstance(data, dict):
+                return f"CUSTOM:{json.dumps(data)}"
+            return json.dumps(data)
+
+        # Instantiate FastMCP with the custom serializer
+        mcp = FastMCP(tool_serializer=custom_serializer)
+        manager = mcp._tool_manager
+
+        def get_data() -> dict:
+            return {"key": "value", "number": 123}
+
+        manager.add_tool_from_fn(get_data)
+
+        result = await manager.call_tool("get_data", {})
         assert isinstance(result, list)
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
-        assert result[0].text == '["rex", "gertrude"]'
-        assert json.loads(result[0].text) == ["rex", "gertrude"]
+        assert result[0].text == 'CUSTOM:{"key": "value", "number": 123}'
 
 
 class TestToolSchema:
@@ -441,7 +456,8 @@ class TestContextHandling:
             return str(x)
 
         manager = ToolManager()
-        manager.add_tool_from_fn(tool_with_context)
+        tool = manager.add_tool_from_fn(tool_with_context)
+        assert tool.context_kwarg == "ctx"
 
         mcp = FastMCP()
         ctx = mcp.get_context()
@@ -459,7 +475,8 @@ class TestContextHandling:
             return str(x)
 
         manager = ToolManager()
-        manager.add_tool_from_fn(async_tool)
+        tool = manager.add_tool_from_fn(async_tool)
+        assert tool.context_kwarg == "ctx"
 
         mcp = FastMCP()
         ctx = mcp.get_context()
@@ -473,17 +490,52 @@ class TestContextHandling:
         """Test that context is optional when calling tools."""
         from mcp.types import TextContent
 
-        def tool_with_context(x: int, ctx: Context | None = None) -> str:
-            return str(x)
+        def tool_with_context(x: int, ctx: Context | None) -> int:
+            return x
 
         manager = ToolManager()
-        manager.add_tool_from_fn(tool_with_context)
+        tool = manager.add_tool_from_fn(tool_with_context)
+        assert tool.context_kwarg == "ctx"
         # Should not raise an error when context is not provided
         result = await manager.call_tool("tool_with_context", {"x": 42})
         assert isinstance(result, list)
         assert len(result) == 1
         assert isinstance(result[0], TextContent)
         assert result[0].text == "42"
+
+    def test_parameterized_context_parameter_detection(self):
+        """Test that context parameters are properly detected in
+        Tool.from_function()."""
+
+        def tool_with_context(
+            x: int, ctx: Context[ServerSessionT, LifespanContextT]
+        ) -> str:
+            return str(x)
+
+        manager = ToolManager()
+        tool = manager.add_tool_from_fn(tool_with_context)
+        assert tool.context_kwarg == "ctx"
+
+    def test_annotated_context_parameter_detection(self):
+        def tool_with_context(x: int, ctx: Annotated[Context, "ctx"]) -> str:
+            return str(x)
+
+        manager = ToolManager()
+        tool = manager.add_tool_from_fn(tool_with_context)
+        assert tool.context_kwarg == "ctx"
+
+    def test_parameterized_union_context_parameter_detection(self):
+        """Test that context parameters are properly detected in
+        Tool.from_function()."""
+
+        def tool_with_context(
+            x: int, ctx: Context[ServerSessionT, LifespanContextT] | None
+        ) -> str:
+            return str(x)
+
+        manager = ToolManager()
+        tool = manager.add_tool_from_fn(tool_with_context)
+        assert tool.context_kwarg == "ctx"
 
     async def test_context_error_handling(self):
         """Test error handling when context injection fails."""

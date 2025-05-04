@@ -9,6 +9,7 @@ from typing import Any, TypeVar
 
 from coola import objects_are_equal
 from coola.utils import repr_indent, repr_mapping, str_indent, str_mapping
+from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
 
 from iden.constants import LOADER, SHARDS
@@ -16,7 +17,6 @@ from iden.io import JsonSaver, load_json
 from iden.shard.base import BaseShard
 from iden.shard.exceptions import ShardNotFoundError
 from iden.shard.utils import get_dict_uris
-from iden.utils.path import sanitize_path
 
 T = TypeVar("T")
 
@@ -33,6 +33,7 @@ class ShardDict(BaseShard[T]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.dataset import VanillaDataset
@@ -312,6 +313,7 @@ def create_shard_dict(shards: dict[str, BaseShard[T]], uri: str) -> ShardDict[T]
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import ShardDict, create_json_shard, create_shard_dict

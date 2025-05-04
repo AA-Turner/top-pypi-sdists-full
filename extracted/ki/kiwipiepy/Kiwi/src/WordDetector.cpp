@@ -151,7 +151,7 @@ struct WordDetector::Counter
 };
 
 WordDetector::WordDetector(const std::string& modelPath, size_t _numThreads)
-	: numThreads{ _numThreads ? _numThreads : std::thread::hardware_concurrency() }
+	: numThreads{ _numThreads != (size_t)-1 ? _numThreads : std::thread::hardware_concurrency()}
 {
 	{
 		ifstream ifs;
@@ -160,7 +160,7 @@ WordDetector::WordDetector(const std::string& modelPath, size_t _numThreads)
 }
 
 WordDetector::WordDetector(FromRawData, const std::string& modelPath, size_t _numThreads)
-	: numThreads{ _numThreads ? _numThreads : std::thread::hardware_concurrency() }
+	: numThreads{ _numThreads != (size_t)-1 ? _numThreads : std::thread::hardware_concurrency() }
 {
 	{
 		ifstream ifs;
@@ -461,7 +461,7 @@ void WordDetector::loadNounTailModelFromTxt(std::istream & is)
 		auto fields = split(utf8To16(line), u'\t');
 		if (fields.size() < 4) continue;
 		float p = stof(fields[1].begin(), fields[1].end());
-		nounTailScore[fields[0].to_string()] = p;
+		nounTailScore[u16string{ fields[0] }] = p;
 	}
 }
 

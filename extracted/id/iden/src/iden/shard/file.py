@@ -7,12 +7,12 @@ __all__ = ["FileShard"]
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from coola import objects_are_equal
+from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
 
 from iden.constants import KWARGS, LOADER
 from iden.io import AutoFileLoader, BaseLoader, load_json, setup_loader
 from iden.shard.base import BaseShard
-from iden.utils.path import sanitize_path
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -26,12 +26,13 @@ class FileShard(BaseShard[T]):
 
     Args:
         uri: The shard's URI.
-        path: Specifies the path to the pickle file.
+        path: The path to the pickle file.
         loader: The data loader or its configuration.
 
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.shard import FileShard

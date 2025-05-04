@@ -31,6 +31,7 @@ class BaseFileShardGenerator(BaseShardGenerator[T]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.data.generator import DataGenerator

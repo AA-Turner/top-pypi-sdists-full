@@ -52,6 +52,7 @@ class NumpySafetensorsShardGenerator(BaseFileShardGenerator[dict[str, np.ndarray
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> import numpy as np
     >>> from pathlib import Path
@@ -106,6 +107,7 @@ class TorchSafetensorsShardGenerator(BaseFileShardGenerator[dict[str, torch.Tens
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> import torch
     >>> from pathlib import Path

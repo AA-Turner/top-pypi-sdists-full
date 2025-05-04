@@ -28,6 +28,7 @@ class VanillaDatasetGenerator(BaseDatasetGenerator[tuple[BaseShard, ...]]):
         assets: The assets generator or its configuration.
 
     ```pycon
+
     >>> import tempfile
     >>> from pathlib import Path
     >>> from iden.dataset.generator import VanillaDatasetGenerator

@@ -11,15 +11,16 @@ from .exceptions import MqttCodeError, MqttError, MqttReentrantError
 from .message import Message
 from .topic import Topic, TopicLike, Wildcard, WildcardLike
 
-__version__ = "2.3.2"
-__version_tuple__ = (2, 3, 2)
+__version__ = "2.4.0"
+__version_tuple__ = (2, 4, 0)
 
 __all__ = [
-    "__version__",
-    "__version_tuple__",
-    "MessagesIterator",
     "Client",
     "Message",
+    "MessagesIterator",
+    "MqttCodeError",
+    "MqttError",
+    "MqttReentrantError",
     "ProtocolVersion",
     "ProxySettings",
     "TLSParameters",
@@ -28,7 +29,6 @@ __all__ = [
     "Wildcard",
     "WildcardLike",
     "Will",
-    "MqttCodeError",
-    "MqttReentrantError",
-    "MqttError",
+    "__version__",
+    "__version_tuple__",
 ]

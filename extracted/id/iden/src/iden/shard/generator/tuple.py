@@ -29,6 +29,7 @@ class ShardTupleGenerator(BaseShardGenerator[tuple[BaseShard[T], ...]]):
     Example usage:
 
     ```pycon
+
     >>> import tempfile
     >>> import torch
     >>> from pathlib import Path

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: asyncssh
-Version: 2.20.0
+Version: 2.21.0
 Summary: AsyncSSH: Asynchronous SSHv2 client and server library
 Author-email: Ron Frederick <ronf@timeheart.net>
 License: EPL-2.0 OR GPL-2.0-or-later
@@ -43,6 +43,7 @@ Provides-Extra: pyopenssl
 Requires-Dist: pyOpenSSL>=23.0.0; extra == "pyopenssl"
 Provides-Extra: pywin32
 Requires-Dist: pywin32>=227; extra == "pywin32"
+Dynamic: license-file
 
 .. image:: https://readthedocs.org/projects/asyncssh/badge/?version=latest
     :target: https://asyncssh.readthedocs.io/en/latest/?badge=latest
