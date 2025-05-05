@@ -5,15 +5,23 @@ of collections of geohashes, including mean position, cardinal extremes
 (northern, southern, eastern, western), variance, and standard deviation.
 """
 
+from __future__ import annotations
+
 import math
 import statistics
-from typing import Callable, Generator, Iterable, List
+from typing import Callable, Final, TypeVar
 
 from pygeohash.distances import geohash_haversine_distance
 from pygeohash.geohash import decode, encode
 from pygeohash.geohash_types import LatLong
+from pygeohash.types import GeohashCollection, GeohashPrecision
+from pygeohash.logging import get_logger
 
-__author__ = "Will McGinnis"
+logger = get_logger(__name__)
+
+__author__: Final[str] = "Will McGinnis"
+
+T = TypeVar("T")
 
 
 def __latitude(coordinate: LatLong) -> float:
@@ -40,28 +48,39 @@ def __longitude(coordinate: LatLong) -> float:
     return coordinate.longitude
 
 
-def _max_cardinal(geohashes: Iterable[str], key: Callable[[LatLong], float], reverse: bool) -> str:
+def _max_cardinal(geohashes: GeohashCollection, key_func: Callable[[LatLong], float], reverse: bool) -> str:
     """Find the extreme geohash in a collection based on a key function.
 
     Args:
-        geohashes (Iterable[str]): Collection of geohash strings.
-        key (Callable[[LatLong], float]): Function to extract the value to compare.
+        geohashes (GeohashCollection): Collection of geohash strings.
+        key_func (Callable[[LatLong], float]): Function to extract the value to compare.
         reverse (bool): Whether to find maximum (True) or minimum (False).
 
     Returns:
         str: The geohash at the extreme position.
     """
-    coordinates: Generator[LatLong] = (decode(x) for x in geohashes)
-    m = max if reverse else min
-    coordinate = m(coordinates, key=key)
-    return encode(coordinate.latitude, coordinate.longitude)
+    logger.debug("Finding %s for %d geohashes", "maximum" if reverse else "minimum", len(geohashes))
+
+    if not geohashes:
+        logger.warning("Empty geohash collection provided")
+        return ""
+
+    coordinates = (decode(x) for x in geohashes)
+    if reverse:
+        coordinate = max(coordinates, key=lambda x: key_func(x))
+    else:
+        coordinate = min(coordinates, key=lambda x: key_func(x))
+
+    result = encode(coordinate.latitude, coordinate.longitude)
+    logger.debug("Found %s geohash: %s", "maximum" if reverse else "minimum", result)
+    return result
 
 
-def northern(geohashes: Iterable[str]) -> str:
+def northern(geohashes: GeohashCollection) -> str:
     """Find the northernmost geohash in a collection.
 
     Args:
-        geohashes (Iterable[str]): Collection of geohash strings.
+        geohashes (GeohashCollection): Collection of geohash strings.
 
     Returns:
         str: The northernmost geohash.
@@ -70,46 +89,17 @@ def northern(geohashes: Iterable[str]) -> str:
         >>> northern(["u4pruyd", "u4pruyf", "u4pruyc"])
         'u4pruyf'
     """
-    return _max_cardinal(geohashes, __latitude, reverse=True)
+    logger.debug("Finding northernmost geohash in collection of %d geohashes", len(geohashes))
+    result = _max_cardinal(geohashes, __latitude, True)
+    logger.debug("Found northernmost geohash: %s", result)
+    return result
 
 
-def eastern(geohashes: Iterable[str]) -> str:
-    """Find the easternmost geohash in a collection.
-
-    Args:
-        geohashes (Iterable[str]): Collection of geohash strings.
-
-    Returns:
-        str: The easternmost geohash.
-
-    Example:
-        >>> eastern(["u4pruyd", "u4pruyf", "u4pruyc"])
-        'u4pruyf'
-    """
-    return _max_cardinal(geohashes, __longitude, reverse=True)
-
-
-def western(geohashes: Iterable[str]) -> str:
-    """Find the westernmost geohash in a collection.
-
-    Args:
-        geohashes (Iterable[str]): Collection of geohash strings.
-
-    Returns:
-        str: The westernmost geohash.
-
-    Example:
-        >>> western(["u4pruyd", "u4pruyf", "u4pruyc"])
-        'u4pruyc'
-    """
-    return _max_cardinal(geohashes, __longitude, reverse=False)
-
-
-def southern(geohashes: Iterable[str]) -> str:
+def southern(geohashes: GeohashCollection) -> str:
     """Find the southernmost geohash in a collection.
 
     Args:
-        geohashes (Iterable[str]): Collection of geohash strings.
+        geohashes (GeohashCollection): Collection of geohash strings.
 
     Returns:
         str: The southernmost geohash.
@@ -118,14 +108,56 @@ def southern(geohashes: Iterable[str]) -> str:
         >>> southern(["u4pruyd", "u4pruyf", "u4pruyc"])
         'u4pruyc'
     """
-    return _max_cardinal(geohashes, __latitude, reverse=False)
+    logger.debug("Finding southernmost geohash in collection of %d geohashes", len(geohashes))
+    result = _max_cardinal(geohashes, __latitude, False)
+    logger.debug("Found southernmost geohash: %s", result)
+    return result
 
 
-def mean(geohashes: Iterable[str]) -> str:
+def eastern(geohashes: GeohashCollection) -> str:
+    """Find the easternmost geohash in a collection.
+
+    Args:
+        geohashes (GeohashCollection): Collection of geohash strings.
+
+    Returns:
+        str: The easternmost geohash.
+
+    Example:
+        >>> eastern(["u4pruyd", "u4pruyf", "u4pruyc"])
+        'u4pruyf'
+    """
+    logger.debug("Finding easternmost geohash in collection of %d geohashes", len(geohashes))
+    result = _max_cardinal(geohashes, __longitude, True)
+    logger.debug("Found easternmost geohash: %s", result)
+    return result
+
+
+def western(geohashes: GeohashCollection) -> str:
+    """Find the westernmost geohash in a collection.
+
+    Args:
+        geohashes (GeohashCollection): Collection of geohash strings.
+
+    Returns:
+        str: The westernmost geohash.
+
+    Example:
+        >>> western(["u4pruyd", "u4pruyf", "u4pruyc"])
+        'u4pruyc'
+    """
+    logger.debug("Finding westernmost geohash in collection of %d geohashes", len(geohashes))
+    result = _max_cardinal(geohashes, __longitude, False)
+    logger.debug("Found westernmost geohash: %s", result)
+    return result
+
+
+def mean(geohashes: GeohashCollection, precision: GeohashPrecision = 12) -> str:
     """Calculate the mean position of a collection of geohashes.
 
     Args:
-        geohashes (Iterable[str]): Collection of geohash strings.
+        geohashes (GeohashCollection): Collection of geohash strings.
+        precision (GeohashPrecision, optional): The precision of the resulting geohash. Defaults to 12.
 
     Returns:
         str: A geohash representing the mean position.
@@ -134,48 +166,69 @@ def mean(geohashes: Iterable[str]) -> str:
         >>> mean(["u4pruyd", "u4pruyf", "u4pruyc"])
         'u4pruye'
     """
-    coordinates: List[LatLong] = [decode(x) for x in geohashes]
-    return encode(
-        statistics.mean(x.latitude for x in coordinates),
-        statistics.mean(x.longitude for x in coordinates),
-    )
+    logger.debug("Calculating mean position for %d geohashes with precision %d", len(geohashes), precision)
+
+    if not geohashes:
+        logger.warning("Empty geohash collection provided")
+        return ""
+
+    coordinates = [decode(x) for x in geohashes]
+    logger.debug("Decoded %d coordinates for mean calculation", len(coordinates))
+    mean_lat = statistics.mean(c.latitude for c in coordinates)
+    mean_lon = statistics.mean(c.longitude for c in coordinates)
+
+    result = encode(mean_lat, mean_lon, precision)
+    logger.debug("Mean position calculated: %s (lat=%f, lon=%f)", result, mean_lat, mean_lon)
+    return result
 
 
-def variance(geohashes: Iterable[str]) -> float:
-    """Calculate the spatial variance of a collection of geohashes.
+def variance(geohashes: GeohashCollection) -> float:
+    """Calculate the variance of a collection of geohashes.
 
-    The variance is calculated as the mean of squared distances from each
-    geohash to the mean position.
+    This function calculates the mean of squared distances from the mean position
+    to each geohash in the collection.
 
     Args:
-        geohashes (Iterable[str]): Collection of geohash strings.
+        geohashes (GeohashCollection): Collection of geohash strings.
 
     Returns:
-        float: The spatial variance in square meters.
+        float: The variance in meters squared.
 
     Example:
         >>> variance(["u4pruyd", "u4pruyf", "u4pruyc"])
-        12500.0
+        2500.0
     """
-    mean_v = mean(geohashes)
-    dists = [geohash_haversine_distance(x, mean_v) for x in geohashes]
-    var = sum([x**2 for x in dists]) / float(len(dists))
-    return var
+    logger.debug("Calculating variance for %d geohashes", len(geohashes))
+
+    if not geohashes:
+        logger.warning("Empty geohash collection provided")
+        return 0.0
+
+    mean_geohash = mean(geohashes)
+    squared_distances = [(geohash_haversine_distance(gh, mean_geohash)) ** 2 for gh in geohashes]
+    result = statistics.mean(squared_distances)
+
+    logger.debug("Calculated variance: %f square meters", result)
+    return result
 
 
-def std(geohashes: Iterable[str]) -> float:
-    """Calculate the spatial standard deviation of a collection of geohashes.
+def std(geohashes: GeohashCollection) -> float:
+    """Calculate the standard deviation of a collection of geohashes.
 
-    The standard deviation is the square root of the variance.
+    This function calculates the square root of the variance, which represents
+    the average distance from the mean position to each geohash in the collection.
 
     Args:
-        geohashes (Iterable[str]): Collection of geohash strings.
+        geohashes (GeohashCollection): Collection of geohash strings.
 
     Returns:
-        float: The spatial standard deviation in meters.
+        float: The standard deviation in meters.
 
     Example:
         >>> std(["u4pruyd", "u4pruyf", "u4pruyc"])
-        111.8
+        50.0
     """
-    return math.sqrt(variance(geohashes))
+    logger.debug("Calculating standard deviation for %d geohashes", len(geohashes))
+    result = math.sqrt(variance(geohashes))
+    logger.debug("Calculated standard deviation: %f meters", result)
+    return result

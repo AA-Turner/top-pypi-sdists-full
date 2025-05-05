@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylint
-Version: 3.3.6
+Version: 3.3.7
 Summary: python code static checker
 Author-email: Python Code Quality Authority <code-quality@python.org>
 License-Expression: GPL-2.0-or-later

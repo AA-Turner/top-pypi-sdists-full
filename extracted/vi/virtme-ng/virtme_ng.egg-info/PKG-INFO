@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: virtme-ng
-Version: 1.33
+Version: 1.35
 Summary: Build and run a kernel inside a virtualized snapshot of your live system
 Home-page: https://github.com/arighi/virtme-ng
 Author: Andrea Righi
@@ -11,11 +11,21 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: GNU General Public License v2 (GPLv2)
 Classifier: Operating System :: POSIX :: Linux
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: argcomplete
 Requires-Dist: requests
 Requires-Dist: setuptools
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary
 
 https://github.com/arighi/virtme-ng/assets/423281/485608ee-0c82-46d1-b311-e1b7af0a4e44
 
@@ -239,6 +249,27 @@ Examples
    $ vng --build --arch arm64 --root /opt/chroot/arm64/
 ```
 
+ - Build the kernel using a separate build directory, and run it, in verbose:
+```
+   $ export KBUILD_OUTPUT=.virtme/build
+   $ vng --build --verbose
+   $ vng --verbose
+```
+
+ - Same example, but using `O=`:
+```
+   $ vng --build --verbose -- O=.virtme/build
+   $ vng --verbose -- O=.virtme/build
+```
+
+ - Accelerate the kernel rebuilds using CCache (if installed):
+```
+   $ PATH="/usr/lib/ccache:${PATH}" \
+       KBUILD_BUILD_TIMESTAMP=0 \
+       vng --build
+   # or export the two variables before, see 'man ccache' for more details
+```
+
  - Execute `uname -r` inside a kernel recompiled in the current directory and
    send the output to cowsay on the host:
 ```
@@ -429,7 +460,15 @@ Examples
    arighi@virtme-ng~> ./run.sh > result.txt
 
    # In another terminal, copy result.txt from the guest to the host using scp:
-   arighi@gpd3~> scp -P 2222 localhost:~/result.txt .
+   arighi@host~> scp -F ~/.cache/virtme-ng/.ssh/virtme-ng-ssh.conf virtme-ng%2222:~/result.txt .
+
+   # The SSH command can be printed using this command, and easily adapted later:
+   arighi@host~> vng --ssh-client --dry-run
+   ssh -F /home/arighi/.cache/virtme-ng/.ssh/virtme-ng-ssh.conf virtme-ng%2222
+
+   # With systemd >= 256, it is possible to use the 'vsock/<CID>' hostname directly:
+   arighi@host~> ssh vsock/2222
+   arighi@virtme-ng~>
 ```
 
  - Run virtme-ng inside a docker container:
@@ -514,13 +553,15 @@ them in `~/.config/virtme-ng/virtme-ng.conf` under `default_opts` and then
 simply run `vng --build`.
 
 Example (always use an external build server called 'kathleen' and run make
-inside a build chroot called `chroot:lunar-amd64`). To do so, modify the
-`default_opts` sections in `~/.config/virtme-ng/virtme-ng.conf` as following:
+inside a build chroot called `chroot:lunar-amd64`). To do so, add the
+`default_opts` section in `~/.config/virtme-ng/virtme-ng.conf` as following:
 ```
-    "default_opts" : {
+{
+    "default_opts": {
         "build_host": "kathleen",
         "build_host_exec_prefix": "schroot -c chroot:lunar-amd64 --"
     },
+}
 ```
 
 Now you can simply run `vng --build` to build your kernel from the current

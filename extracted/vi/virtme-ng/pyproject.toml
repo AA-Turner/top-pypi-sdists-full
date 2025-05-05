@@ -1,3 +1,8 @@
+[project]
+name = "virtme-ng"
+dynamic = ["version", "license", "authors", "dependencies", "readme", "description", "classifiers", "scripts"]
+requires-python = ">=3.8"
+
 [build-system]
 requires = [
   "argparse-manpage[setuptools]",
@@ -19,4 +24,16 @@ manpages = [
   :manual_title=virtme-ng\
   :description=Quickly run kernels inside a virtualized snapshot of your live system\
   """,
+]
+
+[tool.ruff.lint]
+select = [
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # isort
+    "I",
 ]

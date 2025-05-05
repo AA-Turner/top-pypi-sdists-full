@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pygeohash
-Version: 3.0.1
+Version: 3.1.1
 Summary: Python module for interacting with geohashes
 Author-email: Will McGinnis <will@pedalwrencher.com>
 License: MIT
@@ -33,6 +33,14 @@ Requires-Dist: pytest-benchmark; extra == "dev"
 Requires-Dist: matplotlib>=3.5.0; extra == "dev"
 Requires-Dist: folium>=0.14.0; extra == "dev"
 Requires-Dist: requests>=2.28.0; extra == "dev"
+Requires-Dist: mypy>=1.8.0; extra == "dev"
+Requires-Dist: types-requests>=2.31.0; extra == "dev"
+Requires-Dist: types-setuptools>=69.0.0; extra == "dev"
+Requires-Dist: pandas; extra == "dev"
+Requires-Dist: pandas-stubs; extra == "dev"
+Requires-Dist: numpy; extra == "dev"
+Requires-Dist: mutmut>=2.4.4; extra == "dev"
+Dynamic: license-file
 
 # PyGeoHash
 

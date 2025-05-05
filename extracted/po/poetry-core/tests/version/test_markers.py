@@ -70,6 +70,9 @@ EMPTY = "<empty>"
         '"tegra" not in platform_release',
         '"tegra" in platform_release or "rpi-v8" in platform_release',
         '"tegra" not in platform_release and "rpi-v8" not in platform_release',
+        # extra starting with "in"
+        'extra == "in1" or extra == "in2"',
+        'extra == "in1" and extra == "in2"',
     ],
 )
 def test_parse_marker(marker: str) -> None:
@@ -95,6 +98,8 @@ def test_parse_marker_non_python_versions(marker: str, valid: bool) -> None:
     ("marker", "expected_name", "expected_constraint"),
     [
         ('sys_platform == "darwin"', "sys_platform", "darwin"),
+        ('sys_platform === "darwin"', "sys_platform", "darwin"),
+        ('python_version == "3.9"', "python_version", "3.9"),
         (
             'python_version in "2.7, 3.0, 3.1"',
             "python_version",
@@ -717,12 +722,17 @@ def test_single_marker_union_with_inverse() -> None:
         (
             'extra != "a" and extra != "b"',
             'extra == "a" or extra == "b"',
-            'extra != "a" and extra != "b" or extra == "a" or extra == "b"',
+            "",
         ),
         (
             'extra != "a" and extra != "b"',
             'extra == "a" or extra == "c"',
-            'extra != "a" and extra != "b" or extra == "a" or extra == "c"',
+            'extra == "a" or extra == "c" or extra != "b"',
+        ),
+        (
+            'extra != "a" and extra != "b"',
+            'extra == "c" or extra == "d"',
+            'extra != "a" and extra != "b" or extra == "c" or extra == "d"',
         ),
         (
             'extra == "a" or extra == "b"',
@@ -1507,6 +1517,17 @@ def test_multi_marker_removes_duplicates() -> None:
         ("extra != 'a' or extra == 'b'", {"extra": ("a", "b")}, True),
         ("extra != 'a' or extra == 'b'", {"extra": ("c", "d")}, True),
         ("extra != 'a' or extra == 'b'", {"extra": ("a", "c")}, False),
+        # extras starting with "in"
+        ("extra == 'in1'", {"extra": ("in1",)}, True),
+        ("extra == 'in1'", {"extra": ("other",)}, False),
+        ("extra == 'in1' or extra == 'in2'", {"extra": ("in1",)}, True),
+        ("extra == 'in1' or extra == 'in2'", {"extra": ("in2",)}, True),
+        ("extra == 'in1' or extra == 'in2'", {"extra": ("in1", "in2")}, True),
+        ("extra == 'in1' or extra == 'in2'", {"extra": ("other",)}, False),
+        ("extra == 'in1' and extra == 'in2'", {"extra": ("in1",)}, False),
+        ("extra == 'in1' and extra == 'in2'", {"extra": ("in2",)}, False),
+        ("extra == 'in1' and extra == 'in2'", {"extra": ("in1", "in2")}, True),
+        ("extra == 'in1' and extra == 'in2'", {"extra": ("other",)}, False),
     ],
 )
 def test_validate(
@@ -1867,6 +1888,26 @@ def test_union_should_drop_markers_if_their_complement_is_present(
     m = parse_marker(marker)
 
     assert parse_marker(expected) == m
+
+
+def test_inverse_atomic_markers() -> None:
+    m1 = parse_marker('sys_platform == "win32" or sys_platform == "linux"')
+    m2 = parse_marker('sys_platform != "win32" and sys_platform != "linux"')
+
+    assert m1.intersect(m2).is_empty()
+    assert m2.intersect(m1).is_empty()
+    assert m1.union(m2).is_any()
+    assert m2.union(m1).is_any()
+
+
+def test_partially_inverse_atomic_markers() -> None:
+    m1 = parse_marker('sys_platform == "win32" or sys_platform == "linux"')
+    m2 = parse_marker('sys_platform != "win32" and sys_platform != "darwin"')
+
+    assert str(m1.intersect(m2)) == 'sys_platform == "linux"'
+    assert str(m2.intersect(m1)) == 'sys_platform == "linux"'
+    assert str(m1.union(m2)) == 'sys_platform != "darwin"'
+    assert str(m2.union(m1)) == 'sys_platform != "darwin"'
 
 
 @pytest.mark.parametrize(

@@ -12,7 +12,7 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-boto3",
-    version="1.38.8",
+    version="1.38.8.post1",
     packages=["boto3-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
@@ -414,7 +414,6 @@ setup(
             "types-boto3-signer>=1.38.0, <1.39.0",
             "types-boto3-simspaceweaver>=1.38.0, <1.39.0",
             "types-boto3-sms>=1.38.0, <1.39.0",
-            "types-boto3-sms-voice>=1.38.0, <1.39.0",
             "types-boto3-snow-device-management>=1.38.0, <1.39.0",
             "types-boto3-snowball>=1.38.0, <1.39.0",
             "types-boto3-sns>=1.38.0, <1.39.0",
@@ -847,7 +846,6 @@ setup(
         "signer": ["types-boto3-signer>=1.38.0, <1.39.0"],
         "simspaceweaver": ["types-boto3-simspaceweaver>=1.38.0, <1.39.0"],
         "sms": ["types-boto3-sms>=1.38.0, <1.39.0"],
-        "sms-voice": ["types-boto3-sms-voice>=1.38.0, <1.39.0"],
         "snow-device-management": ["types-boto3-snow-device-management>=1.38.0, <1.39.0"],
         "snowball": ["types-boto3-snowball>=1.38.0, <1.39.0"],
         "sns": ["types-boto3-sns>=1.38.0, <1.39.0"],

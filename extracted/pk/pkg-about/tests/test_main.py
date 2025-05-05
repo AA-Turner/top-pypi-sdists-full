@@ -41,8 +41,7 @@ class MainTestCase(unittest.TestCase):
         self.assertEqual(__author_email__, "adam@karpierz.net")
         self.assertEqual(__maintainer__, "Adam Karpierz")
         self.assertEqual(__maintainer_email__, "adam@karpierz.net")
-        self.assertEqual(__license__,
-                         "zlib/libpng License ; https://opensource.org/license/zlib")
+        self.assertEqual(__license__, "Zlib")
         self.assertEqual(__copyright__, __author__)
 
     def test_about_from_setup(self):
@@ -61,6 +60,5 @@ class MainTestCase(unittest.TestCase):
         self.assertEqual(about.__author_email__, "adam@karpierz.net")
         self.assertEqual(about.__maintainer__, "Adam Karpierz")
         self.assertEqual(about.__maintainer_email__, "adam@karpierz.net")
-        self.assertEqual(about.__license__,
-                         "zlib/libpng License ; https://opensource.org/license/zlib")
+        self.assertEqual(about.__license__, "Zlib")
         self.assertEqual(about.__copyright__, about.__author__)

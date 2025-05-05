@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: pkg_about
-Version: 1.3.1
+Version: 1.3.3
 Summary: Shares Python package metadata at runtime.
 Author: Adam Karpierz
 Author-email: adam@karpierz.net
 Maintainer: Adam Karpierz
 Maintainer-email: adam@karpierz.net
-License: zlib/libpng License ; https://opensource.org/license/zlib
+License-Expression: Zlib
 Project-URL: Homepage, https://pypi.org/project/pkg-about/
 Project-URL: Documentation, https://pkg-about.readthedocs.io/
 Project-URL: Download, https://pypi.org/project/pkg-about/
@@ -16,7 +16,6 @@ Keywords: pkg_about,__about__,packaging
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: zlib/libpng License
 Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: Polish
 Classifier: Programming Language :: Python
@@ -33,7 +32,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0.0,>=3.10.0
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
-Requires-Dist: setuptools>=80.1.0
+Requires-Dist: setuptools>=80.3.1
 Requires-Dist: importlib-metadata>=8.7.0
 Requires-Dist: packaging>=25.0.0
 Requires-Dist: tomli>=2.2.1; python_version < "3.11"
@@ -145,6 +144,10 @@ Authors
 
 Changelog
 =========
+
+1.3.3 (2025-05-04)
+------------------
+- Setup (dependencies) update.
 
 1.3.1 (2025-05-01)
 ------------------

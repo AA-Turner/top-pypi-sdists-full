@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ss_pybind11
-Version: 0.8.39
+Version: 0.8.40
 Summary: A template of serious scaffold family based on pybind11.
 Author-Email: "l.feng" <msclock@126.com>
 License: MIT

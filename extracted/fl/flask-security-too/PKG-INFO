@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Flask-Security-Too
-Version: 5.6.1
+Version: 5.6.2
 Summary: Quickly add security features to your Flask application.
 Keywords: flask security
 Author: Matt Wright
@@ -32,11 +32,13 @@ Requires-Dist: Flask-Principal>=0.4.0
 Requires-Dist: Flask-WTF>=1.1.2
 Requires-Dist: email-validator>=2.0.0
 Requires-Dist: markupsafe>=2.1.0
-Requires-Dist: passlib>=1.7.4
+Requires-Dist: passlib>=1.7.4;python_version<'3.13'
+Requires-Dist: setuptools;python_version<'3.13'
+Requires-Dist: libpass>=1.9.0;python_version>='3.13'
 Requires-Dist: wtforms>=3.0.0
 Requires-Dist: importlib_resources>=5.10.0
 Requires-Dist: babel>=2.12.1 ; extra == "babel"
-Requires-Dist: flask_babel>=3.1.0 ; extra == "babel"
+Requires-Dist: flask_babel>=4.0.0 ; extra == "babel"
 Requires-Dist: argon2_cffi>=21.3.0 ; extra == "common"
 Requires-Dist: bcrypt>=4.0.1 ; extra == "common"
 Requires-Dist: flask_mailman>=0.3.0 ; extra == "common"
@@ -61,13 +63,12 @@ Requires-Dist: freezegun ; extra == "low"
 Requires-Dist: jinja2==3.1.2 ; extra == "low"
 Requires-Dist: itsdangerous==2.1.2 ; extra == "low"
 Requires-Dist: markupsafe==2.1.2 ; extra == "low"
-Requires-Dist: mongoengine==0.27.0 ; extra == "low"
+Requires-Dist: mongoengine==0.29.1 ; extra == "low"
 Requires-Dist: mongomock==4.1.2 ; extra == "low"
 Requires-Dist: pony==0.7.16 ; extra == "low" and (python_version<'3.11')
 Requires-Dist: phonenumberslite==8.13.11 ; extra == "low"
 Requires-Dist: qrcode==7.4.2 ; extra == "low"
 Requires-Dist: requests ; extra == "low"
-Requires-Dist: setuptools ; extra == "low"
 Requires-Dist: sqlalchemy==2.0.18 ; extra == "low"
 Requires-Dist: sqlalchemy-utils==0.41.1 ; extra == "low"
 Requires-Dist: webauthn==2.0.0 ; extra == "low"

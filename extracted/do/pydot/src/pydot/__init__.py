@@ -7,7 +7,7 @@
 import logging
 
 __author__ = "Ero Carrera"
-__version__ = "3.0.4"
+__version__ = "4.0.0"
 __license__ = "MIT"
 
 
@@ -16,5 +16,6 @@ _logger.debug("pydot initializing")
 _logger.debug("pydot %s", __version__)
 
 
+from pydot.classes import FrozenDict  # noqa: F401, E402
 from pydot.core import *  # noqa: F403, E402
 from pydot.exceptions import *  # noqa: E402, F403

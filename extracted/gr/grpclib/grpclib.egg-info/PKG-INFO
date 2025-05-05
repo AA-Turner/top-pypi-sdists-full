@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: grpclib
-Version: 0.4.7
+Version: 0.4.8
 Summary: Pure-Python gRPC implementation for asyncio
 Home-page: https://github.com/vmagamedov/grpclib
 Author: Vladimir Magamedov
@@ -14,7 +14,7 @@ Description: Pure-Python gRPC implementation for asyncio
         
         |project|_ |documentation|_ |version|_ |tag|_ |downloads|_ |license|_
         
-        This project is based on `hyper-h2`_ and **requires Python >= 3.7**.
+        This project is based on `hyper-h2`_ and **requires Python >= 3.8**.
         
         .. contents::
           :local:
@@ -174,14 +174,14 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Internet :: WWW/HTTP :: HTTP Servers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 Provides-Extra: protobuf

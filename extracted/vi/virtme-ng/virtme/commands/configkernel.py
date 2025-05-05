@@ -5,18 +5,24 @@
 # as a file called LICENSE with SHA-256 hash:
 # 8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643
 
-from typing import Optional
-
-import sys
 import argparse
+import multiprocessing
 import os
 import platform
 import shlex
 import shutil
 import subprocess
-import multiprocessing
+import sys
+from typing import Optional
+
 from .. import architectures
 from ..util import SilentError
+
+
+def check_file_arg(filepath):
+    if not os.path.isfile(filepath):
+        raise argparse.ArgumentTypeError(f"'{filepath}' is not a valid file.")
+    return filepath
 
 
 def make_parser():
@@ -42,6 +48,7 @@ def make_parser():
     parser.add_argument(
         "--custom",
         action="append",
+        type=check_file_arg,
         metavar="CUSTOM",
         help="Use a custom config snippet file to override specific config options",
     )
@@ -291,10 +298,38 @@ def do_it():
     arch = architectures.get(args.arch)
     is_native = args.arch == platform.machine()
 
+    # Determine if an initial config is present
+    config = ".config"
+    makef = "Makefile"
+
+    # 1st check if make O= arg or KBUILD_OUTPUT is defined and if
+    # it's a directory; it would have the .config and Makefile
+
+    # make "O=..." takes precedence over KBUILD_OUTPUT.
+    for var in args.envs:
+        if var.startswith("O="):
+            os.environ["KBUILD_OUTPUT"] = var[2:]
+
+    config_dir = os.environ.get("KBUILD_OUTPUT")
+    if config_dir is not None:
+        try:
+            os.makedirs(config_dir, exist_ok=True)
+        except Exception as exc:
+            print(f"Error: invalid directory for KBUILD_OUTPUT: {config_dir}")
+            raise SilentError() from exc
+        config = os.path.join(config_dir, config)
+        makef = os.path.join(config_dir, makef)
+
+    if os.path.exists(config):
+        if args.no_update:
+            print(f"{config} file exists: no modifications have been done")
+            return 0
+
+    # else we make a fresh config
     custom_conf = []
     if args.custom:
         for conf_chunk in args.custom:
-            with open(conf_chunk, "r", encoding="utf-8") as fd:
+            with open(conf_chunk, encoding="utf-8") as fd:
                 custom_conf += fd.readlines()
 
     if args.verbose:
@@ -334,6 +369,9 @@ def do_it():
         gccname = shlex.quote(f"{cross_compile_prefix}-gcc")
         archargs.append(f"CROSS_COMPILE={gccname}")
 
+    for var in args.envs:
+        archargs.append(shlex.quote(var))
+
     maketarget: Optional[str]
 
     updatetarget = ""
@@ -351,29 +389,7 @@ def do_it():
     else:
         arg_fail("No mode selected")
 
-    # Propagate additional Makefile variables
-    for var in args.envs:
-        if var.startswith("O="):
-            # Setting "O=..." takes precedence over KBUILD_OUTPUT.
-            os.environ["KBUILD_OUTPUT"] = var[2:]
-
-        archargs.append(shlex.quote(var))
-
-    # Determine if an initial config is present
-    config = ".config"
-    makef = "Makefile"
-
-    # Check if KBUILD_OUTPUT is defined and if it's a directory
-    config_dir = os.environ.get("KBUILD_OUTPUT")
-    if config_dir is not None and os.path.isdir(config_dir):
-        config = os.path.join(config_dir, config)
-        makef = os.path.join(config_dir, makef)
-
-    if os.path.exists(config):
-        if args.no_update:
-            print(f"{config} file exists: no modifications have been done")
-            return 0
-    else:
+    if not os.path.exists(config):
         if args.update:
             print(f"Error: {config} file is missing")
             return 1

@@ -4,16 +4,16 @@
 """virtme-ng version"""
 
 import os
-from subprocess import check_output, DEVNULL, CalledProcessError
-import pkg_resources
+from importlib.metadata import PackageNotFoundError, version
+from subprocess import DEVNULL, CalledProcessError, check_output
 
-PKG_VERSION = "1.33"
+PKG_VERSION = "1.35"
 
 
 def get_package_version():
     try:
-        return pkg_resources.get_distribution("virtme-ng").version
-    except pkg_resources.DistributionNotFound:
+        return version("virtme-ng")
+    except PackageNotFoundError:
         return PKG_VERSION
 
 
@@ -34,7 +34,7 @@ def get_version_string():
         # Otherwise fallback to the static version defined in PKG_VERSION.
         version = (
             check_output(
-                "cd %s && [ -e ../.git ] && git describe --long --dirty" % os.path.dirname(__file__),
+                f"cd {os.path.dirname(__file__)} && [ -e ../.git ] && git describe --long --dirty",
                 shell=True,
                 stderr=DEVNULL,
             )

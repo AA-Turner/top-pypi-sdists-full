@@ -1,92 +1,37 @@
 import os
-import unittest
-
-from PIL import ImageChops, Image
+import pytest
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
-
 from Screenshot import Screenshot
-from test.util.mock_server import run_server
 
-DATA_DIR = os.path.dirname(os.path.abspath(__file__))
-WEBSITE_DIR = os.path.join(DATA_DIR, 'data/website')
+TEST_URL = "https://en.wikipedia.org/wiki/Python_(programming_language)"
 
 
-class TestScreenshot(unittest.TestCase):
-    def setUp(self):
-        _, address = run_server(WEBSITE_DIR, 8000)
-        self.base_url = address
-        options = webdriver.ChromeOptions()
-        options.add_argument("window-position=0,0")
-        options.add_argument("window-size=1000,1000")
-        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
-        self.ob = Screenshot.Screenshot()
+@pytest.fixture(scope="module")
+def driver():
+    options = webdriver.ChromeOptions()
+    options.add_argument("--headless=new")
+    options.add_argument("--disable-gpu")
+    driver = webdriver.Chrome(options=options)
+    driver.get(TEST_URL)
+    yield driver
+    driver.quit()
 
-    def tearDown(self):
-        self.driver.quit()
 
-    def test_full_screenshot(self):
-        image_name = 'full_screenshot.png'
-        url = self.base_url + '/test.html'
-        image_ref_path = os.path.join(DATA_DIR, 'data', image_name)
+def test_full_page_screenshot(driver, tmp_path):
+    output_file = tmp_path / "full_page.png"
+    ss = Screenshot(driver)
+    ss.capture_full_page(str(output_file), hide_selectors=[".vector-sticky-header", "#mw-head"])
 
-        self.driver.get(url)
-        img_url = self.ob.full_screenshot(self.driver, save_path=r'.', image_name=image_name, is_load_at_runtime=True,
-                                          load_wait_time=3)
+    assert output_file.exists()
+    assert os.path.getsize(output_file) > 10_000  # ensure it's not empty
 
-        image_ref = Image.open(image_ref_path)
-        image_result = Image.open(img_url)
-        diff = ImageChops.difference(image_ref, image_result)
-        equal = not diff.getbbox()
-        # if not equal:
-        #     diff.show()
-        # assert equal
 
-        image_ref.close()
-        image_result.close()
-        os.remove(img_url)
+def test_element_screenshot(driver, tmp_path):
+    output_file = tmp_path / "element.png"
+    ss = Screenshot(driver)
 
-    def test_element_screenshot(self):
-        image_name = 'paypal.png'
-        image_ref_path = os.path.join(DATA_DIR, 'data', image_name)
-        url = self.base_url + '/test.html'
+    infobox = driver.find_element("css selector", ".infobox")
+    ss.capture_element(infobox, str(output_file), padding=5)
 
-        self.driver.get(url)
-        element = self.driver.find_element(By.XPATH, "//img[@title='Donate via PayPal']")
-        img_url = self.ob.get_element(self.driver, element, save_path=r'.', image_name=image_name)
-
-        image_ref = Image.open(image_ref_path)
-        image_result = Image.open(img_url)
-        diff = ImageChops.difference(image_ref, image_result)
-        equal = not diff.getbbox()
-        # if not equal:
-        #     diff.show()
-        # assert equal
-
-        image_ref.close()
-        image_result.close()
-        os.remove(img_url)
-
-    def test_hide_element(self):
-        image_name = 'hide_element.png'
-        image_ref_path = os.path.join(DATA_DIR, 'data', image_name)
-        url = self.base_url + '/test.html'
-
-        self.driver.get(url)
-        hide_elements = ['class=position-relative js-header-wrapper ']
-        img_url = self.ob.full_screenshot(self.driver, save_path=r'.', image_name=image_name,
-                                          hide_elements=hide_elements)
-
-        image_ref = Image.open(image_ref_path)
-        image_result = Image.open(img_url)
-        diff = ImageChops.difference(image_ref, image_result)
-        equal = not diff.getbbox()
-        # if not equal:
-        #     diff.show()
-        # assert equal
-
-        image_ref.close()
-        image_result.close()
-        os.remove(img_url)
+    assert output_file.exists()
+    assert os.path.getsize(output_file) > 5_000  # basic size check

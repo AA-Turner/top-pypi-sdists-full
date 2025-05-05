@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astropy-iers-data
-Version: 0.2025.4.28.0.37.27
+Version: 0.2025.5.5.0.38.14
 Summary: IERS Earth Rotation and Leap Second tables for the astropy core package
 Author-email: Astropy Developers <astropy.team@gmail.com>
 License: Copyright (c) 2023, Astropy Developers

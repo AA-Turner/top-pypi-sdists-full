@@ -45,7 +45,8 @@ def about(package=None):
         __author_email__ = metadata.get("Author-email"),
         __maintainer__       = metadata.get("Maintainer"),
         __maintainer_email__ = metadata.get("Maintainer-email"),
-        __license__      = metadata.get("License"),
+        __license__      = (metadata.get("License")
+                            or metadata.get("License-Expression")),
         __copyright__    = metadata.get("Author"),
     )
 

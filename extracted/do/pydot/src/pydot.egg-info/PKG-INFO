@@ -1,10 +1,10 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pydot
-Version: 3.0.4
+Version: 4.0.0
 Summary: Python interface to Graphviz's Dot
 Author-email: Ero Carrera <ero.carrera@gmail.com>, Peter Nowee <peter@peternowee.com>, Łukasz <lukaszlapinski7@gmail.com>, "FeRD (Frank Dana)" <ferdnyc@gmail.com>
 Maintainer-email: Peter Nowee <peter@peternowee.com>, Łukasz <lukaszlapinski7@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/pydot/pydot
 Project-URL: Changelog, https://github.com/pydot/pydot/blob/main/ChangeLog
 Project-URL: Bug Tracker, https://github.com/pydot/pydot/issues
@@ -12,7 +12,6 @@ Keywords: graphviz,dot,graphs,visualization
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
@@ -28,20 +27,24 @@ Description-Content-Type: text/markdown
 License-File: LICENSES/MIT.txt
 License-File: LICENSES/Python-2.0.txt
 Requires-Dist: pyparsing>=3.0.9
+Provides-Extra: lint
+Requires-Dist: ruff; extra == "lint"
+Provides-Extra: types
+Requires-Dist: mypy; extra == "types"
 Provides-Extra: dev
+Requires-Dist: pydot[lint]; extra == "dev"
+Requires-Dist: pydot[types]; extra == "dev"
 Requires-Dist: chardet; extra == "dev"
 Requires-Dist: parameterized; extra == "dev"
-Requires-Dist: ruff; extra == "dev"
 Provides-Extra: tests
-Requires-Dist: chardet; extra == "tests"
-Requires-Dist: parameterized; extra == "tests"
-Requires-Dist: ruff; extra == "tests"
+Requires-Dist: pydot[dev]; extra == "tests"
 Requires-Dist: tox; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-cov; extra == "tests"
 Requires-Dist: pytest-xdist[psutil]; extra == "tests"
 Provides-Extra: release
 Requires-Dist: zest.releaser[recommended]; extra == "release"
+Dynamic: license-file
 
 <!--
 SPDX-FileCopyrightText: 2024 pydot contributors

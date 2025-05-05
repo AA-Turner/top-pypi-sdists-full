@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sse-starlette
-Version: 2.3.3
+Version: 2.3.4
 Summary: SSE plugin for Starlette
 Author-email: sysid <sysid@gmx.de>
 License: BSD-3-Clause

@@ -32,8 +32,10 @@ original_print = print
 overwritten_to_random: bool = False
 
 valid_occ_types: list = ["geometric", "euclid", "signed_harmonic", "signed_minkowski", "weighted_euclid", "composite"]
+joined_valid_occ_types: str = ", ".join(valid_occ_types)
 
 SUPPORTED_MODELS: list = ["SOBOL", "FACTORIAL", "SAASBO", "BOTORCH_MODULAR", "UNIFORM", "BO_MIXED", "RANDOMFOREST", "EXTERNAL_GENERATOR", "PSEUDORANDOM"]
+joined_supported_models: str = ", ".join(SUPPORTED_MODELS)
 
 uncontinueable_models: list = ["PSEUDORANDOM", "EXTERNAL_GENERATOR"]
 
@@ -418,7 +420,7 @@ class ConfigLoader:
     show_sixel_general: bool
     show_sixel_scatter: bool
     gpus: int
-    model: str
+    model: Optional[str]
     live_share: bool
     experiment_name: str
     show_worker_percentage_table_at_end: bool
@@ -426,14 +428,14 @@ class ConfigLoader:
     verbose_tqdm: bool
     tests: bool
     max_eval: int
-    run_program: str
+    run_program: Optional[List[str]]
     orchestrator_file: Optional[str]
     run_dir: str
     ui_url: Optional[str]
     nodes_per_job: int
     seed: int
     cpus_per_task: int
-    parameter: str
+    parameter: Optional[List[str]]
     experiment_constraints: Optional[List[str]]
     main_process_gb: int
     worker_timeout: int
@@ -442,13 +444,36 @@ class ConfigLoader:
     auto_exclude_defective_hosts: bool
     debug: bool
     no_sleep: bool
+    username: Optional[str]
     max_nr_of_zero_results: int
-    mem_gb: int
+    mem_gb: float
     continue_previous_job: Optional[str]
+    revert_to_random_when_seemingly_exhausted: bool
     minkowski_p: float
     decimalrounding: int
+    partition: str
     signed_weighted_euclidean_weights: str
-    external_generator: str
+    external_generator: Optional[str]
+    generation_strategy: Optional[str]
+    root_venv_dir: str
+    pareto_front_confidence: float
+    follow: bool
+    n_estimators_randomforest: int
+    checkout_to_latest_tested_version: bool
+    load_data_from_existing_jobs: List[str]
+    time: str
+    generate_all_jobs_at_once: bool
+    result_names: Optional[List[str]]
+    verbose_break_run_search_table: bool
+    send_anonymized_usage_stats: bool
+    max_failed_jobs: Optional[int]
+    show_ram_every_n_seconds: int
+    config_toml: Optional[str]
+    config_json: Optional[str]
+    config_yaml: Optional[str]
+    workdir: str
+    occ: bool
+    run_mode: str
 
     @beartype
     def __init__(self) -> None:
@@ -460,47 +485,47 @@ class ConfigLoader:
         )
 
         # Add config arguments
-        self.parser.add_argument('--config_yaml', help='YAML configuration file', type=str)
-        self.parser.add_argument('--config_toml', help='TOML configuration file', type=str)
-        self.parser.add_argument('--config_json', help='JSON configuration file', type=str)
+        self.parser.add_argument('--config_yaml', help='YAML configuration file', type=str, default=None)
+        self.parser.add_argument('--config_toml', help='TOML configuration file', type=str, default=None)
+        self.parser.add_argument('--config_json', help='JSON configuration file', type=str, default=None)
 
         # Initialize the remaining arguments
         self.add_arguments()
 
     @beartype
     def add_arguments(self) -> None:
-        required = self.parser.add_argument_group('Required arguments', "These options have to be set")
-        required_but_choice = self.parser.add_argument_group('Required arguments that allow a choice', "Of these arguments, one has to be set to continue.")
-        optional = self.parser.add_argument_group('Optional', "These options are optional")
-        slurm = self.parser.add_argument_group('SLURM', "Parameters related to SLURM")
-        installing = self.parser.add_argument_group('Installing', "Parameters related to installing")
-        debug = self.parser.add_argument_group('Debug', "These options are mainly useful for debugging")
+        required = self.parser.add_argument_group('Required arguments', 'These options have to be set')
+        required_but_choice = self.parser.add_argument_group('Required arguments that allow a choice', 'Of these arguments, one has to be set to continue')
+        optional = self.parser.add_argument_group('Optional', 'These options are optional')
+        slurm = self.parser.add_argument_group('SLURM', 'Parameters related to SLURM')
+        installing = self.parser.add_argument_group('Installing', 'Parameters related to installing')
+        debug = self.parser.add_argument_group('Debug', 'These options are mainly useful for debugging')
 
         required.add_argument('--num_random_steps', help='Number of random steps to start with', type=int, default=20)
         required.add_argument('--max_eval', help='Maximum number of evaluations', type=int)
-        required.add_argument('--run_program', action='append', nargs='+', help='A program that should be run. Use, for example, $x for the parameter named x.', type=str)
-        required.add_argument('--experiment_name', help='Name of the experiment.', type=str)
+        required.add_argument('--run_program', action='append', nargs='+', help='A program that should be run. Use, for example, $x for the parameter named x', type=str)
+        required.add_argument('--experiment_name', help='Name of the experiment', type=str)
         required.add_argument('--mem_gb', help='Amount of RAM for each worker in GB (default: 1GB)', type=float, default=1)
 
-        required_but_choice.add_argument('--parameter', action='append', nargs='+', help="Experiment parameters in the formats (options in round brackets are optional): <NAME> range <LOWER BOUND> <UPPER BOUND> (<INT, FLOAT>, log_scale: True/False, default: false>) -- OR -- <NAME> fixed <VALUE> -- OR -- <NAME> choice <Comma-separated list of values>", default=None)
-        required_but_choice.add_argument('--continue_previous_job', help="Continue from a previous checkpoint, use run-dir as argument", type=str, default=None)
+        required_but_choice.add_argument('--parameter', action='append', nargs='+', help='Experiment parameters in the formats (options in round brackets are optional): <NAME> range <LOWER BOUND> <UPPER BOUND> (<INT, FLOAT>, log_scale: True/False, default: false>) -- OR -- <NAME> fixed <VALUE> -- OR -- <NAME> choice <Comma-separated list of values>', default=None)
+        required_but_choice.add_argument('--continue_previous_job', help='Continue from a previous checkpoint, use run-dir as argument', type=str, default=None)
 
-        optional.add_argument('--experiment_constraints', action="append", nargs="+", help='Constraints for parameters. Example: x + y <= 2.0', type=str)
-        optional.add_argument('--run_dir', help='Directory, in which runs should be saved. Default: runs', default="runs", type=str)
+        optional.add_argument('--experiment_constraints', action='append', nargs='+', help='Constraints for parameters. Example: x + y <= 2.0', type=str)
+        optional.add_argument('--run_dir', help='Directory, in which runs should be saved. Default: runs', default='runs', type=str)
         optional.add_argument('--seed', help='Seed for random number generator', type=int)
         optional.add_argument('--decimalrounding', help='Number of decimal places for rounding', type=int, default=4)
         optional.add_argument('--enforce_sequential_optimization', help='Enforce sequential optimization (default: false)', action='store_true', default=False)
-        optional.add_argument('--verbose_tqdm', help='Show verbose tqdm messages', action='store_true', default=False)
-        optional.add_argument('--model', help=f'Use special models for nonrandom steps. Valid models are: {", ".join(SUPPORTED_MODELS)}', type=str, default=None)
-        optional.add_argument('--gridsearch', help='Enable gridsearch.', action='store_true', default=False)
+        optional.add_argument('--verbose_tqdm', help='Show verbose TQDM messages', action='store_true', default=False)
+        optional.add_argument('--model', help=f'Use special models for nonrandom steps. Valid models are: {joined_supported_models}', type=str, default=None)
+        optional.add_argument('--gridsearch', help='Enable gridsearch', action='store_true', default=False)
         optional.add_argument('--occ', help='Use optimization with combined criteria (OCC)', action='store_true', default=False)
         optional.add_argument('--show_sixel_scatter', help='Show sixel graphics of scatter plots in the end', action='store_true', default=False)
         optional.add_argument('--show_sixel_general', help='Show sixel graphics of general plots in the end', action='store_true', default=False)
-        optional.add_argument('--show_sixel_trial_index_result', help='Show sixel graphics of scatter plots in the end', action='store_true', default=False)
+        optional.add_argument('--show_sixel_trial_index_result', help='Show sixel graphics of trial index in the end', action='store_true', default=False)
         optional.add_argument('--follow', help='Automatically follow log file of sbatch', action='store_true', default=False)
         optional.add_argument('--send_anonymized_usage_stats', help='Send anonymized usage stats', action='store_true', default=False)
         optional.add_argument('--ui_url', help='Site from which the OO-run was called', default=None, type=str)
-        optional.add_argument('--root_venv_dir', help=f'Where to install your modules to ($root_venv_dir/.omniax_..., default: {os.getenv("HOME")})', default=os.getenv("HOME"), type=str)
+        optional.add_argument('--root_venv_dir', help=f'Where to install your modules to ($root_venv_dir/.omniax_..., default: {Path.home()})', default=Path.home(), type=str)
         optional.add_argument('--exclude', help='A comma separated list of values of excluded nodes (taurusi8009,taurusi8010)', default=None, type=str)
         optional.add_argument('--main_process_gb', help='Amount of RAM for the main process in GB (default: 8GB)', type=int, default=8)
         optional.add_argument('--pareto_front_confidence', help='Confidence for pareto-front-plotting (between 0 and 1, default: 1)', type=float, default=1)
@@ -510,35 +535,35 @@ class ConfigLoader:
         optional.add_argument('--checkout_to_latest_tested_version', help='Automatically checkout to latest version that was tested in the CI pipeline', action='store_true', default=False)
         optional.add_argument('--live_share', help='Automatically live-share the current optimization run automatically', action='store_true', default=False)
         optional.add_argument('--disable_tqdm', help='Disables the TQDM progress bar', action='store_true', default=False)
-        optional.add_argument('--workdir', help='Work dir', action='store_true', default=False)
-        optional.add_argument('--occ_type', help=f'Optimization-with-combined-criteria-type (valid types are {", ".join(valid_occ_types)})', type=str, default="euclid")
-        optional.add_argument("--result_names", nargs='+', default=[], help="Name of hyperparameters. Example --result_names result1=max result2=min result3. Default: RESULT=min. Default is min.")
+        optional.add_argument('--workdir', help='Working directory', default='', type=str)
+        optional.add_argument('--occ_type', help=f'Optimization-with-combined-criteria-type (valid types are {joined_valid_occ_types})', type=str, default='euclid')
+        optional.add_argument('--result_names', nargs='+', default=[], help='Name of hyperparameters. Example --result_names result1=max result2=min result3. Default: RESULT=min')
         optional.add_argument('--minkowski_p', help='Minkowski order of distance (default: 2), needs to be larger than 0', type=float, default=2)
-        optional.add_argument('--signed_weighted_euclidean_weights', help='A comma-seperated list of values for the signed weighted euclidean distance. Needs to be equal to the number of results. Else, default will be 1.', default="", type=str)
-        optional.add_argument('--generation_strategy', help='A string containing the generation_strategy', type=str, default=None)
+        optional.add_argument('--signed_weighted_euclidean_weights', help='A comma-seperated list of values for the signed weighted euclidean distance. Needs to be equal to the number of results. Else, default will be 1', default='', type=str)
+        optional.add_argument('--generation_strategy', help='A string containing the generation_strategy. Example: SOBOL=10,BOTORCH_MODULAR=10,SOBOL=10. Cannot use --model EXTERNAL_GENERATOR or PSEUDORANDOM', type=str, default=None)
         optional.add_argument('--generate_all_jobs_at_once', help='Generate all jobs at once rather than to create them and start them as soon as possible', action='store_true', default=False)
         optional.add_argument('--revert_to_random_when_seemingly_exhausted', help='Generate random steps instead of systematic steps when the search space is (seemingly) exhausted', action='store_true', default=False)
-        optional.add_argument("--load_data_from_existing_jobs", type=str, nargs='*', default=[], help="List of job data to load from existing jobs")
+        optional.add_argument('--load_data_from_existing_jobs', type=str, nargs='*', default=[], help='List of job data to load from existing jobs')
         optional.add_argument('--n_estimators_randomforest', help='The number of trees in the forest for RANDOMFOREST (default: 100)', type=int, default=100)
         optional.add_argument('--external_generator', help='Programm call for an external generato4', type=str, default=None)
         optional.add_argument('--username', help='A username for live share', default=None, type=str)
-        optional.add_argument('--max_failed_jobs', help='Maximum number of failed jobs before the search is cancelled. Is defaulted to the value of --max_eval', default=None, type=str)
+        optional.add_argument('--max_failed_jobs', help='Maximum number of failed jobs before the search is cancelled. Is defaulted to the value of --max_eval', default=None, type=int)
 
         slurm.add_argument('--num_parallel_jobs', help='Number of parallel slurm jobs (default: 20)', type=int, default=20)
         slurm.add_argument('--worker_timeout', help='Timeout for slurm jobs (i.e. for each single point to be optimized)', type=int, default=30)
         slurm.add_argument('--slurm_use_srun', help='Using srun instead of sbatch', action='store_true', default=False)
-        slurm.add_argument('--time', help='Time for the main job', default="", type=str)
-        slurm.add_argument('--partition', help='Partition to be run on', default="", type=str)
+        slurm.add_argument('--time', help='Time for the main job', default='', type=str)
+        slurm.add_argument('--partition', help='Partition to be run on', default='', type=str)
         slurm.add_argument('--reservation', help='Reservation', default=None, type=str)
         slurm.add_argument('--force_local_execution', help='Forces local execution even when SLURM is available', action='store_true', default=False)
-        slurm.add_argument('--slurm_signal_delay_s', help='When the workers end, they get a signal so your program can react to it. Default is 0, but set it to any number of seconds you wish your program to be able to react to USR1.', type=int, default=0)
+        slurm.add_argument('--slurm_signal_delay_s', help='When the workers end, they get a signal so your program can react to it. Default is 0, but set it to any number of seconds you wish your program to be able to react to USR1', type=int, default=0)
         slurm.add_argument('--nodes_per_job', help='Number of nodes per job due to the new alpha restriction', type=int, default=1)
         slurm.add_argument('--cpus_per_task', help='CPUs per task', type=int, default=1)
         slurm.add_argument('--account', help='Account to be used', type=str, default=None)
         slurm.add_argument('--gpus', help='Number of GPUs', type=int, default=0)
         #slurm.add_ argument('--tasks_per_node', help='ntasks', type=int, default=1)
 
-        installing.add_argument('--run_mode', help='Either local or docker', default="local", type=str)
+        installing.add_argument('--run_mode', help='Either local or docker', default='local', type=str)
 
         debug.add_argument('--verbose', help='Verbose logging', action='store_true', default=False)
         debug.add_argument('--verbose_break_run_search_table', help='Verbose logging for break_run_search', action='store_true', default=False)
@@ -546,10 +571,10 @@ class ConfigLoader:
         debug.add_argument('--no_sleep', help='Disables sleeping for fast job generation (not to be used on HPC)', action='store_true', default=False)
         debug.add_argument('--tests', help='Run simple internal tests', action='store_true', default=False)
         debug.add_argument('--show_worker_percentage_table_at_end', help='Show a table of percentage of usage of max worker over time', action='store_true', default=False)
-        debug.add_argument('--auto_exclude_defective_hosts', help='Run a Test if you can allocate a GPU on each node and if not, exclude it since the GPU driver seems to be broken somehow.', action='store_true', default=False)
-        debug.add_argument('--run_tests_that_fail_on_taurus', help='Run tests on Taurus that usually fail.', action='store_true', default=False)
-        debug.add_argument('--raise_in_eval', help='Raise a signal in eval (only useful for debugging and testing).', action='store_true', default=False)
-        debug.add_argument('--show_ram_every_n_seconds', help='Raise a signal in eval (only useful for debugging and testing).', action='store_true', default=False)
+        debug.add_argument('--auto_exclude_defective_hosts', help='Run a Test if you can allocate a GPU on each node and if not, exclude it since the GPU driver seems to be broken somehow', action='store_true', default=False)
+        debug.add_argument('--run_tests_that_fail_on_taurus', help='Run tests on Taurus that usually fail', action='store_true', default=False)
+        debug.add_argument('--raise_in_eval', help='Raise a signal in eval (only useful for debugging and testing)', action='store_true', default=False)
+        debug.add_argument('--show_ram_every_n_seconds', help='Show RAM usage every n seconds', type=int, default=0)
 
     @beartype
     def load_config(self: Any, config_path: str, file_format: str) -> dict:
@@ -1101,11 +1126,13 @@ class ExternalProgramGenerationNode(ExternalGenerationNode):
 
             serialized_params = self._serialize_parameters(self.parameters)
 
+            current_trials = parse_csv(RESULT_CSV_FILE)
+
             inputs_json = {
                 "parameters": serialized_params,
                 "constraints": self._serialize_constraints(self.constraints),
                 "seed": self.seed,
-                "trials": parse_csv(f"{get_current_run_folder()}/results.csv")
+                "trials": current_trials
             }
 
             inputs_path = os.path.join(temp_dir, "input.json")
@@ -1320,7 +1347,7 @@ def add_to_phase_counter(phase: str, nr: int = 0, run_folder: str = "") -> int:
     return append_and_read(f'{run_folder}/state_files/phase_{phase}_steps', nr)
 
 if args.model and str(args.model).upper() not in SUPPORTED_MODELS:
-    print(f"Unsupported model {args.model}. Cannot continue. Valid models are {', '.join(SUPPORTED_MODELS)}")
+    print(f"Unsupported model {args.model}. Cannot continue. Valid models are {joined_supported_models}")
     my_exit(203)
 
 if isinstance(args.num_parallel_jobs, int) or helpers.looks_like_int(args.num_parallel_jobs):
@@ -1526,13 +1553,13 @@ def log_system_usage() -> None:
     if not get_current_run_folder():
         return
 
-    csv_file_path = os.path.join(get_current_run_folder(), "cpu_ram_usage.csv")
+    ram_cpu_csv_file_path = os.path.join(get_current_run_folder(), "cpu_ram_usage.csv")
 
-    makedirs(os.path.dirname(csv_file_path))
+    makedirs(os.path.dirname(ram_cpu_csv_file_path))
 
-    file_exists = os.path.isfile(csv_file_path)
+    file_exists = os.path.isfile(ram_cpu_csv_file_path)
 
-    with open(csv_file_path, mode='a', newline='', encoding="utf-8") as file:
+    with open(ram_cpu_csv_file_path, mode='a', newline='', encoding="utf-8") as file:
         writer = csv.writer(file)
 
         current_time = int(time.time())
@@ -2893,7 +2920,7 @@ def calculate_occ(_args: Optional[Union[dict, List[Union[int, float]]]]) -> Unio
     if args.occ_type == "weighted_euclidean":
         return calculate_signed_weighted_euclidean_distance(_args, args.signed_weighted_euclidean_weights)
 
-    raise invalidOccType(f"Invalid OCC (optimization with combined criteria) type {args.occ_type}. Valid types are: {', '.join(valid_occ_types)}")
+    raise invalidOccType(f"Invalid OCC (optimization with combined criteria) type {args.occ_type}. Valid types are: {joined_valid_occ_types}")
 
 @beartype
 def get_return_in_case_of_errors() -> dict:
@@ -3413,7 +3440,7 @@ def get_res_name_is_maximized(res_name: str) -> bool:
     return maximize
 
 @beartype
-def get_best_params_from_csv(csv_file_path: str, res_name: str = "RESULT") -> Optional[dict]:
+def get_best_params_from_csv(res_name: str = "RESULT") -> Optional[dict]:
     maximize = get_res_name_is_maximized(res_name)
 
     results: dict = {
@@ -3421,13 +3448,13 @@ def get_best_params_from_csv(csv_file_path: str, res_name: str = "RESULT") -> Op
         "parameters": {}
     }
 
-    if not os.path.exists(csv_file_path):
+    if not os.path.exists(RESULT_CSV_FILE):
         return results
 
     df = None
 
     try:
-        df = pd.read_csv(csv_file_path, index_col=0, float_precision='round_trip')
+        df = pd.read_csv(RESULT_CSV_FILE, index_col=0, float_precision='round_trip')
         df.dropna(subset=arg_result_names, inplace=True)
     except (pd.errors.EmptyDataError, pd.errors.ParserError, UnicodeDecodeError, KeyError):
         return results
@@ -3459,22 +3486,21 @@ def get_best_params_from_csv(csv_file_path: str, res_name: str = "RESULT") -> Op
 
 @beartype
 def get_best_params(res_name: str = "RESULT") -> Optional[dict]:
-    csv_file_path = f"{get_current_run_folder()}/results.csv"
-    if os.path.exists(csv_file_path):
-        return get_best_params_from_csv(csv_file_path, res_name)
+    if os.path.exists(RESULT_CSV_FILE):
+        return get_best_params_from_csv(res_name)
 
     return None
 
 @beartype
-def _count_sobol_or_completed(csv_file_path: str, _type: str) -> int:
+def _count_sobol_or_completed(this_csv_file_path: str, _type: str) -> int:
     if _type not in ["Sobol", "COMPLETED"]:
         print_red(f"_type is not in Sobol or COMPLETED, but is '{_type}'")
         return 0
 
     count = 0
 
-    if not os.path.exists(csv_file_path):
-        print_debug(f"_count_sobol_or_completed: path '{csv_file_path}' not found")
+    if not os.path.exists(this_csv_file_path):
+        print_debug(f"_count_sobol_or_completed: path '{this_csv_file_path}' not found")
         return count
 
     df = None
@@ -3482,7 +3508,7 @@ def _count_sobol_or_completed(csv_file_path: str, _type: str) -> int:
     _err = False
 
     try:
-        df = pd.read_csv(csv_file_path, index_col=0, float_precision='round_trip')
+        df = pd.read_csv(this_csv_file_path, index_col=0, float_precision='round_trip')
         df.dropna(subset=arg_result_names, inplace=True)
     except KeyError:
         _err = True
@@ -3512,18 +3538,17 @@ def _count_sobol_or_completed(csv_file_path: str, _type: str) -> int:
     return count
 
 @beartype
-def _count_sobol_steps(csv_file_path: str) -> int:
-    return _count_sobol_or_completed(csv_file_path, "Sobol")
+def _count_sobol_steps(this_csv_file_path: str) -> int:
+    return _count_sobol_or_completed(this_csv_file_path, "Sobol")
 
 @beartype
-def _count_done_jobs(csv_file_path: str) -> int:
-    return _count_sobol_or_completed(csv_file_path, "COMPLETED")
+def _count_done_jobs(this_csv_file_path: str) -> int:
+    return _count_sobol_or_completed(this_csv_file_path, "COMPLETED")
 
 @beartype
 def count_sobol_steps() -> int:
-    csv_file_path = f"{get_current_run_folder()}/results.csv"
-    if os.path.exists(csv_file_path):
-        return _count_sobol_steps(csv_file_path)
+    if os.path.exists(RESULT_CSV_FILE):
+        return _count_sobol_steps(RESULT_CSV_FILE)
 
     return 0
 
@@ -3549,9 +3574,8 @@ def failed_jobs(nr: int = 0) -> int:
 
 @beartype
 def count_done_jobs() -> int:
-    csv_file_path = f"{get_current_run_folder()}/results.csv"
-    if os.path.exists(csv_file_path):
-        return _count_done_jobs(csv_file_path)
+    if os.path.exists(RESULT_CSV_FILE):
+        return _count_done_jobs(RESULT_CSV_FILE)
 
     return 0
 
@@ -3701,12 +3725,16 @@ def get_plot_commands(_command: str, plot: dict, _tmp: str, plot_type: str, tmp_
     return plot_commands
 
 @beartype
-def plot_sixel_imgs(csv_file_path: str) -> None:
+def plot_sixel_imgs() -> None:
     if ci_env:
         print("Not printing sixel graphics in CI")
         return
 
-    sixel_graphic_commands = get_sixel_graphics_data(csv_file_path)
+    if not os.path.exists(RESULT_CSV_FILE):
+        print_debug(f"File '{RESULT_CSV_FILE}' not found")
+        return
+
+    sixel_graphic_commands = get_sixel_graphics_data(RESULT_CSV_FILE)
 
     for c in sixel_graphic_commands:
         commands = get_plot_commands(*c)
@@ -3760,15 +3788,15 @@ def print_and_write_table(table: Table, print_to_file: bool, file_path: str) -> 
         write_to_file(file_path, capture.get())
 
 @beartype
-def process_best_result(csv_file_path: str, res_name: str, print_to_file: bool) -> int:
-    best_params = get_best_params_from_csv(csv_file_path, res_name)
+def process_best_result(res_name: str, print_to_file: bool) -> int:
+    best_params = get_best_params_from_csv(res_name)
     best_result = best_params.get(res_name, NO_RESULT) if best_params else NO_RESULT
 
     if str(best_result) in [NO_RESULT, None, "None"]:
         print_red(f"Best {res_name} could not be determined")
         return 87
 
-    total_str = f"total: {_count_done_jobs(csv_file_path) - NR_INSERTED_JOBS}"
+    total_str = f"total: {_count_done_jobs(RESULT_CSV_FILE) - NR_INSERTED_JOBS}"
     if NR_INSERTED_JOBS:
         total_str += f" + inserted jobs: {NR_INSERTED_JOBS}"
 
@@ -3780,12 +3808,12 @@ def process_best_result(csv_file_path: str, res_name: str, print_to_file: bool) 
             console.print(table)
 
         print_and_write_table(table, print_to_file, f"{get_crf()}/best_result.txt")
-        plot_sixel_imgs(csv_file_path)
+        plot_sixel_imgs()
 
     return 0
 
 @beartype
-def _print_best_result(csv_file_path: str, print_to_file: bool = True) -> int:
+def _print_best_result(print_to_file: bool = True) -> int:
     global SHOWN_END_TABLE
 
     crf = get_crf()
@@ -3794,7 +3822,7 @@ def _print_best_result(csv_file_path: str, print_to_file: bool = True) -> int:
 
     try:
         for res_name in arg_result_names:
-            result_code = process_best_result(csv_file_path, res_name, print_to_file)
+            result_code = process_best_result(res_name, print_to_file)
             if result_code != 0:
                 return result_code
         SHOWN_END_TABLE = True
@@ -3806,15 +3834,14 @@ def _print_best_result(csv_file_path: str, print_to_file: bool = True) -> int:
 
 @beartype
 def print_best_result() -> int:
-    csv_file_path = f"{get_current_run_folder()}/results.csv"
-    if os.path.exists(csv_file_path):
-        return _print_best_result(csv_file_path, True)
+    if os.path.exists(RESULT_CSV_FILE):
+        return _print_best_result(True)
 
     return 0
 
 @beartype
-def show_end_table_and_save_end_files(csv_file_path: str) -> int:
-    print_debug(f"show_end_table_and_save_end_files({csv_file_path})")
+def show_end_table_and_save_end_files() -> int:
+    print_debug("show_end_table_and_save_end_files()")
 
     ignore_signals()
 
@@ -3887,7 +3914,7 @@ def show_pareto_or_error_msg() -> None:
         print_debug(f"show_pareto_frontier_data will NOT be executed because len(arg_result_names) is {len(arg_result_names)}")
 
 @beartype
-def end_program(csv_file_path: str, _force: Optional[bool] = False, exit_code: Optional[int] = None) -> None:
+def end_program(_force: Optional[bool] = False, exit_code: Optional[int] = None) -> None:
     global END_PROGRAM_RAN
 
     wait_for_jobs_to_complete()
@@ -3918,13 +3945,13 @@ def end_program(csv_file_path: str, _force: Optional[bool] = False, exit_code: O
                 print_debug(message)
                 return
 
-        new_exit = show_end_table_and_save_end_files(csv_file_path)
+        new_exit = show_end_table_and_save_end_files()
         if new_exit > 0:
             _exit = new_exit
     except (SignalUSR, SignalINT, SignalCONT, KeyboardInterrupt):
         print_red("\n⚠ You pressed CTRL+C or a signal was sent. Program execution halted while ending program.")
         print("\n⚠ KeyboardInterrupt signal was sent. Ending program will still run.")
-        new_exit = show_end_table_and_save_end_files(csv_file_path)
+        new_exit = show_end_table_and_save_end_files()
         if new_exit > 0:
             _exit = new_exit
     except TypeError as e:
@@ -4960,30 +4987,31 @@ def parse_csv(csv_path: str) -> Tuple[List, List]:
     arm_params_list = []
     results_list = []
 
-    with open(csv_path, newline='', encoding='utf-8') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            arm_params = {}
-            results = {}
+    if os.path.exists(csv_path):
+        with open(csv_path, newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                arm_params = {}
+                results = {}
 
-            for col, value in row.items():
-                if col in special_col_names:
-                    continue
+                for col, value in row.items():
+                    if col in special_col_names:
+                        continue
 
-                if col in arg_result_names:
-                    results[col] = try_convert(value)
-                else:
-                    arm_params[col] = try_convert(value)
+                    if col in arg_result_names:
+                        results[col] = try_convert(value)
+                    else:
+                        arm_params[col] = try_convert(value)
 
-            arm_params_list.append(arm_params)
-            results_list.append(results)
+                arm_params_list.append(arm_params)
+                results_list.append(results)
 
     return arm_params_list, results_list
 
 @beartype
-def insert_jobs_from_csv(csv_file_path: str, experiment_parameters: Optional[Union[List[Any], dict]]) -> None:
-    if not os.path.exists(csv_file_path):
-        print_red(f"--load_data_from_existing_jobs: Cannot find {csv_file_path}")
+def insert_jobs_from_csv(this_csv_file_path: str, experiment_parameters: Optional[Union[List[Any], dict]]) -> None:
+    if not os.path.exists(this_csv_file_path):
+        print_red(f"--load_data_from_existing_jobs: Cannot find {this_csv_file_path}")
 
         return
 
@@ -5013,7 +5041,7 @@ def insert_jobs_from_csv(csv_file_path: str, experiment_parameters: Optional[Uni
 
         return corrected_params
 
-    arm_params_list, results_list = parse_csv(csv_file_path)
+    arm_params_list, results_list = parse_csv(this_csv_file_path)
 
     cnt = 0
 
@@ -5021,27 +5049,27 @@ def insert_jobs_from_csv(csv_file_path: str, experiment_parameters: Optional[Uni
 
     with console.status("[bold green]Loading existing jobs into ax_client...") as __status:
         for arm_params, result in zip(arm_params_list, results_list):
-            __status.update(f"[bold green]Loading existing jobs from {csv_file_path} into ax_client")
+            __status.update(f"[bold green]Loading existing jobs from {this_csv_file_path} into ax_client")
             arm_params = validate_and_convert_params(experiment_parameters, arm_params)
 
             try:
                 if insert_job_into_ax_client(arm_params, result):
                     cnt += 1
 
-                    print_debug(f"Inserted one job from {csv_file_path}, arm_params: {arm_params}, results: {result}")
+                    print_debug(f"Inserted one job from {this_csv_file_path}, arm_params: {arm_params}, results: {result}")
                 else:
-                    print_red(f"Failed to insert one job from {csv_file_path}, arm_params: {arm_params}, results: {result}")
+                    print_red(f"Failed to insert one job from {this_csv_file_path}, arm_params: {arm_params}, results: {result}")
             except ValueError as e:
-                err_msg = f"Failed to insert job(s) from {csv_file_path} into ax_client. This can happen when the csv file has different parameters or results as the main job one's or other imported jobs. Error: {e}"
+                err_msg = f"Failed to insert job(s) from {this_csv_file_path} into ax_client. This can happen when the csv file has different parameters or results as the main job one's or other imported jobs. Error: {e}"
                 if err_msg not in err_msgs:
                     print_red(err_msg)
                     err_msgs.append(err_msg)
 
     if cnt:
         if cnt == 1:
-            print_yellow(f"Inserted one job from {csv_file_path}")
+            print_yellow(f"Inserted one job from {this_csv_file_path}")
         else:
-            print_yellow(f"Inserted {cnt} jobs from {csv_file_path}")
+            print_yellow(f"Inserted {cnt} jobs from {this_csv_file_path}")
 
     set_max_eval(max_eval + cnt)
     set_nr_inserted_jobs(NR_INSERTED_JOBS + cnt)
@@ -5264,12 +5292,12 @@ def get_python_errors() -> List[List[str]]:
     ]
 
 @beartype
-def get_first_line_of_file_that_contains_string(i: str, s: str) -> str:
-    if not os.path.exists(i):
-        print_debug(f"File {i} not found")
+def get_first_line_of_file_that_contains_string(stdout_path: str, s: str) -> str:
+    if not os.path.exists(stdout_path):
+        print_debug(f"File {stdout_path} not found")
         return ""
 
-    f: str = get_file_as_string(i)
+    f: str = get_file_as_string(stdout_path)
 
     lines: str = ""
     get_lines_until_end: bool = False
@@ -5291,7 +5319,7 @@ def get_first_line_of_file_that_contains_string(i: str, s: str) -> str:
     return ""
 
 @beartype
-def check_for_python_errors(i: str, file_as_string: str) -> List[str]:
+def check_for_python_errors(stdout_path: str, file_as_string: str) -> List[str]:
     errors: List[str] = []
 
     for search_array in get_python_errors():
@@ -5299,7 +5327,7 @@ def check_for_python_errors(i: str, file_as_string: str) -> List[str]:
         search_for_error = search_array[1]
 
         if search_for_string in file_as_string:
-            error_line = get_first_line_of_file_that_contains_string(i, search_for_string)
+            error_line = get_first_line_of_file_that_contains_string(stdout_path, search_for_string)
             if error_line:
                 errors.append(error_line)
             else:
@@ -5308,10 +5336,10 @@ def check_for_python_errors(i: str, file_as_string: str) -> List[str]:
     return errors
 
 @beartype
-def get_errors_from_outfile(i: str) -> List[str]:
-    file_as_string = get_file_as_string(i)
+def get_errors_from_outfile(stdout_path: str) -> List[str]:
+    file_as_string = get_file_as_string(stdout_path)
 
-    program_code = get_program_code_from_out_file(i)
+    program_code = get_program_code_from_out_file(stdout_path)
     file_paths = find_file_paths(program_code)
 
     first_line: str = get_first_line_of_file(file_paths)
@@ -5334,7 +5362,7 @@ def get_errors_from_outfile(i: str) -> List[str]:
             for n in new_errors:
                 errors.append(n)
 
-            new_errors = check_for_python_errors(i, file_as_string)
+            new_errors = check_for_python_errors(stdout_path, file_as_string)
             for n in new_errors:
                 errors.append(n)
 
@@ -5934,7 +5962,7 @@ def update_progress() -> None:
 @beartype
 def handle_exit_signal() -> None:
     print_red("\n⚠ Detected signal. Will exit.")
-    end_program(RESULT_CSV_FILE, False, 1)
+    end_program(False, 1)
 
 @beartype
 def handle_generic_error(e: Union[Exception, str]) -> None:
@@ -6636,10 +6664,10 @@ def handle_exceptions_create_and_execute_next_runs(e: Exception) -> int:
         print_red(f"\n⚠ Error 5: {e}")
     elif isinstance(e, botorch.exceptions.errors.ModelFittingError):
         print_red(f"\n⚠ Error 6: {e}")
-        end_program(RESULT_CSV_FILE, False, 1)
+        end_program(False, 1)
     elif isinstance(e, (ax.exceptions.core.SearchSpaceExhausted, ax.exceptions.generation_strategy.GenerationStrategyRepeatedPoints)):
         print_red(f"\n⚠ Error 7 {e}")
-        end_program(RESULT_CSV_FILE, False, 87)
+        end_program(False, 87)
     return 0
 
 @beartype
@@ -6675,7 +6703,7 @@ def create_and_execute_next_runs(next_nr_steps: int, phase: Optional[str], _max_
         finish_previous_jobs(["finishing jobs"])
 
         if done_optimizing:
-            end_program(RESULT_CSV_FILE, False, 0)
+            end_program(False, 0)
     except Exception as e:
         stacktrace = traceback.format_exc()
         print_debug(f"Warning: create_and_execute_next_runs encountered an exception: {e}\n{stacktrace}")
@@ -7108,10 +7136,12 @@ def create_table(param_dicts: List, means: dict, metrics: List, metric_i: str, m
     return table
 
 @beartype
-def pareto_front_as_rich_table(param_dicts: list, metrics: list, metric_i: str, metric_j: str) -> Table:
-    csv_path = f"{get_current_run_folder()}/results.csv"
+def pareto_front_as_rich_table(param_dicts: list, metrics: list, metric_i: str, metric_j: str) -> Optional[Table]:
+    if not os.path.exists(RESULT_CSV_FILE):
+        print_debug(f"pareto_front_as_rich_table: File '{RESULT_CSV_FILE}' not found")
+        return None
 
-    all_columns, rows = get_csv_data(csv_path)
+    all_columns, rows = get_csv_data(RESULT_CSV_FILE)
     param_dicts, means, metrics = extract_parameters_and_metrics(rows, all_columns, metrics)
     return create_table(param_dicts, means, metrics, metric_i, metric_j)
 
@@ -7241,12 +7271,13 @@ def show_pareto_frontier_data() -> None:
             metric_i.name
         )
 
-        console.print(rich_table)
+        if rich_table is not None:
+            console.print(rich_table)
 
-        with open(f"{get_current_run_folder()}/pareto_front_table.txt", mode="a", encoding="utf-8") as text_file:
-            with console.capture() as capture:
-                console.print(rich_table)
-            text_file.write(capture.get())
+            with open(f"{get_current_run_folder()}/pareto_front_table.txt", mode="a", encoding="utf-8") as text_file:
+                with console.capture() as capture:
+                    console.print(rich_table)
+                text_file.write(capture.get())
 
     with open(f"{get_current_run_folder()}/pareto_front_data.json", mode="w", encoding="utf-8") as pareto_front_json_handle:
         json.dump(pareto_front_data, pareto_front_json_handle, default=convert_to_serializable)
@@ -7378,6 +7409,18 @@ def write_revert_to_random_when_seemingly_exhausted_file(_path: str) -> None:
         print_red(f"Error writing to file: {e}")
 
 @beartype
+def debug_vars_unused_by_python_for_linter() -> None:
+    print_debug(
+        f"partition: {args.partition}, "
+        f"root_venv_dir: {args.root_venv_dir}, "
+        f"checkout_to_latest_tested_version: {args.checkout_to_latest_tested_version}, "
+        f"send_anonymized_usage_stats: {args.send_anonymized_usage_stats}, "
+        f"show_ram_every_n_seconds: {args.show_ram_every_n_seconds}, "
+        f"workdir: {args.workdir}, "
+        f"run_mode: {args.run_mode}"
+    )
+
+@beartype
 def main() -> None:
     global RESULT_CSV_FILE, ax_client, LOGFILE_DEBUG_GET_NEXT_TRIALS, random_steps
 
@@ -7387,6 +7430,8 @@ def main() -> None:
 
     original_print(oo_call + " " + " ".join(sys.argv[1:]))
     check_slurm_job_id()
+
+    debug_vars_unused_by_python_for_linter()
 
     if args.continue_previous_job and not args.num_random_steps:
         num_random_steps_file = f"{args.continue_previous_job}/state_files/num_random_steps"
@@ -7489,8 +7534,7 @@ def main() -> None:
     write_files_and_show_overviews()
 
     for existing_run in args.load_data_from_existing_jobs:
-        csv_path = f"{existing_run}/results.csv"
-        insert_jobs_from_csv(csv_path, experiment_parameters)
+        insert_jobs_from_csv(f"{existing_run}/results.csv", experiment_parameters)
 
     try:
         run_search_with_progress_bar()
@@ -7501,7 +7545,7 @@ def main() -> None:
     except ax.exceptions.core.UnsupportedError:
         pass
 
-    end_program(RESULT_CSV_FILE)
+    end_program()
 
 @beartype
 def log_worker_creation() -> None:
@@ -7920,19 +7964,7 @@ Exit-Code: 159
     else:
         nr_errors += is_equal(".tests/example_orchestrator_config.yaml exists", True, False)
 
-    _example_csv_file: str = ".gui/_share_test_case/test_user/ClusteredStatisticalTestDriftDetectionMethod_NOAAWeather/0/results.csv"
-
-    #_expected_best_result_minimize: str = json.dumps(json.loads('{"RESULT": "0.6951756801409847", "parameters": {"arm_name": "392_0", "trial_status": "COMPLETED", "generation_method": "BoTorch", "n_samples":  "905", "confidence": "0.1", "feature_proportion": "0.049534662817342145",  "n_clusters": "3"}}'))
-    #_best_results_from_example_file_minimize: str = json.dumps(get_best_params_from_csv(_example_csv_file, False))
-
-    #nr_errors += is_equal(f"Testing get_best_params_from_csv('{_example_csv_file}', False)", _best_results_from_example_file_minimize, _expected_best_result_minimize)
-
-    #_expected_best_result_maximize: str = json.dumps(json.loads('{"RESULT": "0.7404449829276352", "parameters": {"arm_name": "132_0", "trial_status": "COMPLETED", "generation_method": "BoTorch", "n_samples": "391", "confidence": "0.001", "feature_proportion": "0.022059224931466673", "n_clusters": "4"}}'))
-    #_best_results_from_example_file_maximize: str = json.dumps(get_best_params_from_csv(_example_csv_file, True))
-
-    #nr_errors += is_equal(f"Testing get_best_params_from_csv('{_example_csv_file}', True)", _best_results_from_example_file_maximize, _expected_best_result_maximize)
-
-    _print_best_result(_example_csv_file, False)
+    _print_best_result(False)
 
     nr_errors += is_equal("get_workers_string()", get_workers_string(), "")
 
@@ -8024,7 +8056,7 @@ def main_outside() -> None:
 
                 print_red("\n⚠ You pressed CTRL+C or got a signal. Optimization stopped.")
 
-                end_program(RESULT_CSV_FILE, False, 1)
+                end_program(False, 1)
             except SearchSpaceExhausted:
                 _get_perc: int = abs(int(((count_done_jobs() - NR_INSERTED_JOBS) / max_eval) * 100))
 
@@ -8037,13 +8069,13 @@ def main_outside() -> None:
                     )
 
                 if _get_perc != 100:
-                    end_program(RESULT_CSV_FILE, True, 87)
+                    end_program(True, 87)
                 else:
-                    end_program(RESULT_CSV_FILE, True)
+                    end_program(True)
 
 if __name__ == "__main__":
     try:
         main_outside()
     except (SignalUSR, SignalINT, SignalCONT) as e:
         print_red(f"main_outside failed with exception {e}")
-        end_program(RESULT_CSV_FILE, True)
+        end_program(True)

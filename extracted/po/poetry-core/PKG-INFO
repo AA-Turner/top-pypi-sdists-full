@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: poetry-core
-Version: 2.1.2
+Version: 2.1.3
 Summary: Poetry PEP 517 Build Backend
 License: MIT
 Keywords: packaging,dependency,poetry

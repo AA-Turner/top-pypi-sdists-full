@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-kusto-data
-Version: 5.0.2
+Version: 5.0.3
 Summary: Kusto Data Client
 Home-page: https://github.com/Azure/azure-kusto-python
 Author: Microsoft Corporation

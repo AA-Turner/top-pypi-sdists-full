@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ultralytics
-Version: 8.3.126
+Version: 8.3.127
 Summary: Ultralytics YOLO 🚀 for SOTA object detection, multi-object tracking, instance segmentation, pose estimation and image classification.
 Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
 Maintainer-email: Ultralytics <hello@ultralytics.com>
@@ -70,6 +70,7 @@ Requires-Dist: h5py!=3.11.0; platform_machine == "aarch64" and extra == "export"
 Provides-Extra: solutions
 Requires-Dist: shapely>=2.0.0; extra == "solutions"
 Requires-Dist: streamlit>=1.29.0; extra == "solutions"
+Requires-Dist: flask; extra == "solutions"
 Provides-Extra: logging
 Requires-Dist: wandb; extra == "logging"
 Requires-Dist: tensorboard; extra == "logging"

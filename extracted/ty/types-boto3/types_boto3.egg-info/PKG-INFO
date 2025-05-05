@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-boto3
-Version: 1.38.8
+Version: 1.38.8.post1
 Summary: Type annotations for boto3 1.38.8 generated with mypy-boto3-builder 8.10.1
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
@@ -395,7 +395,6 @@ Requires-Dist: types-boto3-shield<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-signer<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-simspaceweaver<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-sms<1.39.0,>=1.38.0; extra == "all"
-Requires-Dist: types-boto3-sms-voice<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-snow-device-management<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-snowball<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: types-boto3-sns<1.39.0,>=1.38.0; extra == "all"
@@ -1165,8 +1164,6 @@ Provides-Extra: simspaceweaver
 Requires-Dist: types-boto3-simspaceweaver<1.39.0,>=1.38.0; extra == "simspaceweaver"
 Provides-Extra: sms
 Requires-Dist: types-boto3-sms<1.39.0,>=1.38.0; extra == "sms"
-Provides-Extra: sms-voice
-Requires-Dist: types-boto3-sms-voice<1.39.0,>=1.38.0; extra == "sms-voice"
 Provides-Extra: snow-device-management
 Requires-Dist: types-boto3-snow-device-management<1.39.0,>=1.38.0; extra == "snow-device-management"
 Provides-Extra: snowball
@@ -1673,9 +1670,9 @@ repository.
 
 ## Submodules
 
-- `types-boto3[full]` - Type annotations for all 405 services in one package
+- `types-boto3[full]` - Type annotations for all 404 services in one package
   (recommended).
-- `types-boto3[all]` - Type annotations for all 405 services in separate
+- `types-boto3[all]` - Type annotations for all 404 services in separate
   packages.
 - `types-boto3[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/),
@@ -2727,9 +2724,6 @@ repository.
   service.
 - `types-boto3[sms]` - Type annotations for
   [SMS](https://youtype.github.io/types_boto3_docs/types_boto3_sms/) service.
-- `types-boto3[sms-voice]` - Type annotations for
-  [SMSVoice](https://youtype.github.io/types_boto3_docs/types_boto3_sms_voice/)
-  service.
 - `types-boto3[snow-device-management]` - Type annotations for
   [SnowDeviceManagement](https://youtype.github.io/types_boto3_docs/types_boto3_snow_device_management/)
   service.

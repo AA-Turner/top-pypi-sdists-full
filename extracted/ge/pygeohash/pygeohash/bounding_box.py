@@ -5,9 +5,14 @@ including calculating the bounding box for a geohash and operations
 related to geospatial regions.
 """
 
-from typing import List, NamedTuple
+from __future__ import annotations
+
+from typing import List, NamedTuple, Set, Iterator
 
 from pygeohash.geohash import decode_exactly, encode
+from pygeohash.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class BoundingBox(NamedTuple):
@@ -45,16 +50,20 @@ def get_bounding_box(geohash: str) -> BoundingBox:
         of the geohash. Longer geohashes result in smaller bounding boxes with more
         precise coordinates.
     """
+    logger.debug("Calculating bounding box for geohash: %s", geohash)
     # Get the center point and error margins
     lat, lon, lat_err, lon_err = decode_exactly(geohash)
+    logger.debug("Center point: (lat=%f, lon=%f) with errors: (lat_err=%f, lon_err=%f)", lat, lon, lat_err, lon_err)
 
     # Calculate the bounding box coordinates
-    min_lat = lat - lat_err
-    min_lon = lon - lon_err
-    max_lat = lat + lat_err
-    max_lon = lon + lon_err
+    min_lat: float = lat - lat_err
+    min_lon: float = lon - lon_err
+    max_lat: float = lat + lat_err
+    max_lon: float = lon + lon_err
 
-    return BoundingBox(min_lat, min_lon, max_lat, max_lon)
+    result = BoundingBox(min_lat, min_lon, max_lat, max_lon)
+    logger.debug("Calculated bounding box: %s", result)
+    return result
 
 
 def is_point_in_box(lat: float, lon: float, bbox: BoundingBox) -> bool:
@@ -75,7 +84,10 @@ def is_point_in_box(lat: float, lon: float, bbox: BoundingBox) -> bool:
         >>> is_point_in_box(40.0, 10.0, bbox)
         False
     """
-    return bbox.min_lat <= lat <= bbox.max_lat and bbox.min_lon <= lon <= bbox.max_lon
+    logger.debug("Checking if point (lat=%f, lon=%f) is in box: %s", lat, lon, bbox)
+    result = bbox.min_lat <= lat <= bbox.max_lat and bbox.min_lon <= lon <= bbox.max_lon
+    logger.debug("Point is %s the box", "inside" if result else "outside")
+    return result
 
 
 def is_point_in_geohash(lat: float, lon: float, geohash: str) -> bool:
@@ -95,7 +107,8 @@ def is_point_in_geohash(lat: float, lon: float, geohash: str) -> bool:
         >>> is_point_in_geohash(40.0, 10.0, "u4pruyd")
         False
     """
-    bbox = get_bounding_box(geohash)
+    logger.debug("Checking if point (lat=%f, lon=%f) is in geohash: %s", lat, lon, geohash)
+    bbox: BoundingBox = get_bounding_box(geohash)
     return is_point_in_box(lat, lon, bbox)
 
 
@@ -115,12 +128,15 @@ def do_boxes_intersect(bbox1: BoundingBox, bbox2: BoundingBox) -> bool:
         >>> do_boxes_intersect(box1, box2)
         True
     """
-    return not (
+    logger.debug("Checking intersection between boxes: %s and %s", bbox1, bbox2)
+    result = not (
         bbox1.max_lat < bbox2.min_lat
         or bbox1.min_lat > bbox2.max_lat
         or bbox1.max_lon < bbox2.min_lon
         or bbox1.min_lon > bbox2.max_lon
     )
+    logger.debug("Boxes %s intersect", "do" if result else "do not")
+    return result
 
 
 def geohashes_in_box(bbox: BoundingBox, precision: int = 6) -> List[str]:
@@ -143,41 +159,47 @@ def geohashes_in_box(bbox: BoundingBox, precision: int = 6) -> List[str]:
         and the precision requested. Higher precision values will result in more
         geohashes for the same bounding box.
     """
+    logger.debug("Finding geohashes in box %s with precision %d", bbox, precision)
+
     # Find a geohash at the center of the bounding box
-    center_lat = (bbox.min_lat + bbox.max_lat) / 2
-    center_lon = (bbox.min_lon + bbox.max_lon) / 2
-    center_geohash = encode(center_lat, center_lon, precision)
+    center_lat: float = (bbox.min_lat + bbox.max_lat) / 2
+    center_lon: float = (bbox.min_lon + bbox.max_lon) / 2
+    center_geohash: str = encode(center_lat, center_lon, precision)
+    logger.debug("Center geohash: %s at (lat=%f, lon=%f)", center_geohash, center_lat, center_lon)
 
     # Get the size of a geohash at this precision
-    center_bbox = get_bounding_box(center_geohash)
-    lat_step = center_bbox.max_lat - center_bbox.min_lat
-    lon_step = center_bbox.max_lon - center_bbox.min_lon
+    center_bbox: BoundingBox = get_bounding_box(center_geohash)
+    lat_step: float = center_bbox.max_lat - center_bbox.min_lat
+    lon_step: float = center_bbox.max_lon - center_bbox.min_lon
+    logger.debug("Geohash size at precision %d: lat_step=%f, lon_step=%f", precision, lat_step, lon_step)
 
     # Create a set to store unique geohashes
-    result = set()
+    result: Set[str] = set()
 
     # Calculate the starting points slightly outside the bounding box
     # to ensure we cover the entire area
-    start_lat = bbox.min_lat - lat_step
-    end_lat = bbox.max_lat + lat_step
-    start_lon = bbox.min_lon - lon_step
-    end_lon = bbox.max_lon + lon_step
+    start_lat: float = bbox.min_lat - lat_step
+    end_lat: float = bbox.max_lat + lat_step
+    start_lon: float = bbox.min_lon - lon_step
+    end_lon: float = bbox.max_lon + lon_step
+    logger.debug("Search area: lat=[%f, %f], lon=[%f, %f]", start_lat, end_lat, start_lon, end_lon)
 
     # Sample points in a grid pattern with spacing based on geohash size
     # This ensures we get all geohashes that intersect with the bounding box
     for lat in _float_range(start_lat, end_lat, lat_step / 2):
         for lon in _float_range(start_lon, end_lon, lon_step / 2):
             if bbox.min_lat <= lat <= bbox.max_lat or bbox.min_lon <= lon <= bbox.max_lon:
-                gh = encode(lat, lon, precision)
-                gh_bbox = get_bounding_box(gh)
+                gh: str = encode(lat, lon, precision)
+                gh_bbox: BoundingBox = get_bounding_box(gh)
                 # Only add geohashes that actually intersect with our bounding box
                 if do_boxes_intersect(bbox, gh_bbox):
                     result.add(gh)
 
+    logger.debug("Found %d intersecting geohashes", len(result))
     return list(result)
 
 
-def _float_range(start: float, stop: float, step: float) -> List[float]:
+def _float_range(start: float, stop: float, step: float) -> Iterator[float]:
     """Helper function to create a range of float values.
 
     Args:
@@ -186,11 +208,9 @@ def _float_range(start: float, stop: float, step: float) -> List[float]:
         step (float): The step size.
 
     Returns:
-        List[float]: A list of float values from start to stop with the given step size.
+        Iterator[float]: An iterator of float values from start to stop with the given step size.
     """
-    result = []
-    current = start
+    current: float = start
     while current <= stop:
-        result.append(current)
+        yield current
         current += step
-    return result

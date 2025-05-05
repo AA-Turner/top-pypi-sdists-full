@@ -23,6 +23,10 @@ class Arch:
         return False
 
     @staticmethod
+    def numa_support() -> bool:
+        return True
+
+    @staticmethod
     def qemuargs(is_native, use_kvm, use_gpu) -> List[str]:
         _ = is_native
         _ = use_kvm
@@ -33,11 +37,11 @@ class Arch:
     def virtio_dev_type(virtiotype) -> str:
         # Return a full name for a virtio device.  It would be
         # nice if QEMU abstracted this away, but it doesn't.
-        return "virtio-%s-pci" % virtiotype
+        return f"virtio-{virtiotype}-pci"
 
     @staticmethod
-    def vhost_dev_type() -> str:
-        return "vhost-user-fs-pci"
+    def vhost_dev_type(vhosttype) -> str:
+        return f"vhost-{vhosttype}-pci"
 
     @staticmethod
     def earlyconsole_args() -> List[str]:
@@ -64,6 +68,10 @@ class Arch:
         return []
 
     @staticmethod
+    def qemu_vmcoreinfo_args() -> List[str]:
+        return ["-device", "vmcoreinfo"]
+
+    @staticmethod
     def qemu_serial_console_args() -> List[str]:
         # We should be using the new-style -device serialdev,chardev=xyz,
         # but many architecture-specific serial devices don't support that.
@@ -74,10 +82,10 @@ class Arch:
         return []
 
     def kimg_path(self) -> str:
-        return "arch/%s/boot/bzImage" % self.linuxname
+        return f"arch/{self.linuxname}/boot/bzImage"
 
-    def img_name(self) -> str:
-        return "vmlinuz"
+    def img_name(self) -> List[str]:
+        return ["vmlinuz"]
 
     @staticmethod
     def dtb_path() -> Optional[str]:
@@ -95,7 +103,7 @@ class Arch_x86(Arch):
         Arch.__init__(self, name)
 
         self.linuxname = "x86"
-        self.defconfig_target = "%s_defconfig" % name
+        self.defconfig_target = f"{name}_defconfig"
 
     @staticmethod
     def virtiofs_support() -> bool:
@@ -170,11 +178,11 @@ class Arch_x86(Arch):
 class Arch_microvm(Arch_x86):
     @staticmethod
     def virtio_dev_type(virtiotype):
-        return "virtio-%s-device" % virtiotype
+        return f"virtio-{virtiotype}-device"
 
     @staticmethod
-    def vhost_dev_type() -> str:
-        return "vhost-user-fs-device"
+    def vhost_dev_type(vhosttype) -> str:
+        return f"vhost-{vhosttype}-device"
 
     @staticmethod
     def qemu_display_args() -> List[str]:
@@ -230,7 +238,7 @@ class Arch_arm(Arch):
 
     @staticmethod
     def virtio_dev_type(virtiotype):
-        return "virtio-%s-device" % virtiotype
+        return f"virtio-{virtiotype}-device"
 
     @staticmethod
     def earlyconsole_args():
@@ -283,7 +291,7 @@ class Arch_aarch64(Arch):
 
     @staticmethod
     def virtio_dev_type(virtiotype):
-        return "virtio-%s-device" % virtiotype
+        return f"virtio-{virtiotype}-device"
 
     @staticmethod
     def earlyconsole_args():
@@ -327,8 +335,8 @@ class Arch_ppc(Arch):
         # Apparently SLOF (QEMU's bundled firmware?) can't boot a zImage.
         return "vmlinux"
 
-    def img_name(self) -> str:
-        return "vmlinux"
+    def img_name(self) -> List[str]:
+        return ["vmlinux"]
 
 
 class Arch_riscv64(Arch):
@@ -385,8 +393,20 @@ class Arch_s390x(Arch):
         self.linuxname = "s390"
 
     @staticmethod
+    def virtiofs_support() -> bool:
+        return True
+
+    @staticmethod
+    def numa_support() -> bool:
+        return False
+
+    @staticmethod
     def virtio_dev_type(virtiotype):
-        return "virtio-%s-ccw" % virtiotype
+        return f"virtio-{virtiotype}-ccw"
+
+    @staticmethod
+    def vhost_dev_type(vhosttype) -> str:
+        return f"vhost-{vhosttype}-ccw"
 
     @staticmethod
     def qemuargs(is_native, use_kvm, use_gpu):
@@ -394,6 +414,12 @@ class Arch_s390x(Arch):
 
         # Ask for the latest version of s390-ccw
         ret.extend(["-M", "s390-ccw-virtio"])
+
+        if is_native and use_kvm:
+            ret.extend(["-cpu", "host"])
+
+        # Add a watchdog. This is useful for testing.
+        ret.extend(["-device", "diag288,id=watchdog0"])
 
         # To be able to configure a console, we need to get rid of the
         # default console
@@ -407,14 +433,26 @@ class Arch_s390x(Arch):
 
     @staticmethod
     def config_base():
-        return ["CONFIG_MARCH_Z900=y"]
+        return ["CONFIG_MARCH_Z900=y", "CONFIG_DIAG288_WATCHDOG=y"]
+
+    @staticmethod
+    def serial_console_args() -> List[str]:
+        return ["ttysclp0"]
 
     @staticmethod
     def qemu_serial_console_args():
         return ["-device", "sclpconsole,chardev=console"]
 
-    def img_name(self) -> str:
-        return "image"
+    @staticmethod
+    def earlyconsole_args() -> List[str]:
+        return ["earlyprintk=sclp"]
+
+    @staticmethod
+    def qemu_vmcoreinfo_args() -> List[str]:
+        return []
+
+    def img_name(self) -> List[str]:
+        return ["vmlinuz", "image"]
 
 
 ARCHES = {

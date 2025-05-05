@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dycw-utilities
-Version: 0.112.14
+Version: 0.113.1
 Author-email: Derek Wan <d.wan@icloud.com>
 License-File: LICENSE
 Requires-Python: >=3.12
@@ -137,7 +137,6 @@ Provides-Extra: zzz-test-pickle
 Requires-Dist: atomicwrites<1.5,>=1.4.1; extra == 'zzz-test-pickle'
 Provides-Extra: zzz-test-platform
 Provides-Extra: zzz-test-polars
-Requires-Dist: dacite<1.10,>=1.9.2; extra == 'zzz-test-polars'
 Requires-Dist: polars-lts-cpu<1.30,>=1.29.0; extra == 'zzz-test-polars'
 Requires-Dist: whenever<0.8,>=0.7.3; extra == 'zzz-test-polars'
 Provides-Extra: zzz-test-pqdm

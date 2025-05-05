@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: liger_kernel_nightly
-Version: 0.5.8.dev20250503025537
+Version: 0.5.9.dev20250504194613
 Summary: Efficient Triton kernels for LLM Training
 License: BSD 2-CLAUSE LICENSE
         Copyright 2024 LinkedIn Corporation 

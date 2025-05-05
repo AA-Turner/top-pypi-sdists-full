@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tcod
-Version: 18.0.0
+Version: 18.1.0
 Summary: The official Python port of libtcod.
 Author-email: Kyle Benesch <4b796c65+tcod@gmail.com>
 License: Simplified BSD License

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omniopt2
-Version: 5975
+Version: 6027
 Summary: Automatic highly parallelized hyperparameter optimizer based on Ax/Botorch
 Home-page: https://scads.ai/transfer-2/verfuegbare-software-dienste-en/omniopt/
 Author: Norman Koch
@@ -13,7 +13,7 @@ Requires-Dist: wheel
 Requires-Dist: multidict
 Requires-Dist: numpy
 Requires-Dist: python-dateutil
-Requires-Dist: ax-platform
+Requires-Dist: ax-platform[mysql]
 Requires-Dist: art
 Requires-Dist: tzlocal
 Requires-Dist: Rich
