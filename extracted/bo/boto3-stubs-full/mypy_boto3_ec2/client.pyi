@@ -360,6 +360,10 @@ from .type_defs import (
     CreateLocalGatewayRouteTableVirtualInterfaceGroupAssociationResultTypeDef,
     CreateLocalGatewayRouteTableVpcAssociationRequestTypeDef,
     CreateLocalGatewayRouteTableVpcAssociationResultTypeDef,
+    CreateLocalGatewayVirtualInterfaceGroupRequestTypeDef,
+    CreateLocalGatewayVirtualInterfaceGroupResultTypeDef,
+    CreateLocalGatewayVirtualInterfaceRequestTypeDef,
+    CreateLocalGatewayVirtualInterfaceResultTypeDef,
     CreateManagedPrefixListRequestTypeDef,
     CreateManagedPrefixListResultTypeDef,
     CreateNatGatewayRequestTypeDef,
@@ -513,6 +517,10 @@ from .type_defs import (
     DeleteLocalGatewayRouteTableVirtualInterfaceGroupAssociationResultTypeDef,
     DeleteLocalGatewayRouteTableVpcAssociationRequestTypeDef,
     DeleteLocalGatewayRouteTableVpcAssociationResultTypeDef,
+    DeleteLocalGatewayVirtualInterfaceGroupRequestTypeDef,
+    DeleteLocalGatewayVirtualInterfaceGroupResultTypeDef,
+    DeleteLocalGatewayVirtualInterfaceRequestTypeDef,
+    DeleteLocalGatewayVirtualInterfaceResultTypeDef,
     DeleteManagedPrefixListRequestTypeDef,
     DeleteManagedPrefixListResultTypeDef,
     DeleteNatGatewayRequestTypeDef,
@@ -798,6 +806,8 @@ from .type_defs import (
     DescribeNetworkInterfacePermissionsResultTypeDef,
     DescribeNetworkInterfacesRequestTypeDef,
     DescribeNetworkInterfacesResultTypeDef,
+    DescribeOutpostLagsRequestTypeDef,
+    DescribeOutpostLagsResultTypeDef,
     DescribePlacementGroupsRequestTypeDef,
     DescribePlacementGroupsResultTypeDef,
     DescribePrefixListsRequestTypeDef,
@@ -838,6 +848,8 @@ from .type_defs import (
     DescribeSecurityGroupsResultTypeDef,
     DescribeSecurityGroupVpcAssociationsRequestTypeDef,
     DescribeSecurityGroupVpcAssociationsResultTypeDef,
+    DescribeServiceLinkVirtualInterfacesRequestTypeDef,
+    DescribeServiceLinkVirtualInterfacesResultTypeDef,
     DescribeSnapshotAttributeRequestTypeDef,
     DescribeSnapshotAttributeResultTypeDef,
     DescribeSnapshotsRequestTypeDef,
@@ -2518,6 +2530,26 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_local_gateway_route_table_vpc_association)
         """
 
+    def create_local_gateway_virtual_interface(
+        self, **kwargs: Unpack[CreateLocalGatewayVirtualInterfaceRequestTypeDef]
+    ) -> CreateLocalGatewayVirtualInterfaceResultTypeDef:
+        """
+        Create a virtual interface for a local gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_local_gateway_virtual_interface.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_local_gateway_virtual_interface)
+        """
+
+    def create_local_gateway_virtual_interface_group(
+        self, **kwargs: Unpack[CreateLocalGatewayVirtualInterfaceGroupRequestTypeDef]
+    ) -> CreateLocalGatewayVirtualInterfaceGroupResultTypeDef:
+        """
+        Create a local gateway virtual interface group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_local_gateway_virtual_interface_group.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_local_gateway_virtual_interface_group)
+        """
+
     def create_managed_prefix_list(
         self, **kwargs: Unpack[CreateManagedPrefixListRequestTypeDef]
     ) -> CreateManagedPrefixListResultTypeDef:
@@ -3344,6 +3376,26 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_local_gateway_route_table_vpc_association.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_local_gateway_route_table_vpc_association)
+        """
+
+    def delete_local_gateway_virtual_interface(
+        self, **kwargs: Unpack[DeleteLocalGatewayVirtualInterfaceRequestTypeDef]
+    ) -> DeleteLocalGatewayVirtualInterfaceResultTypeDef:
+        """
+        Deletes the specified local gateway virtual interface.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_local_gateway_virtual_interface.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_local_gateway_virtual_interface)
+        """
+
+    def delete_local_gateway_virtual_interface_group(
+        self, **kwargs: Unpack[DeleteLocalGatewayVirtualInterfaceGroupRequestTypeDef]
+    ) -> DeleteLocalGatewayVirtualInterfaceGroupResultTypeDef:
+        """
+        Delete the specified local gateway interface group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_local_gateway_virtual_interface_group.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_local_gateway_virtual_interface_group)
         """
 
     def delete_managed_prefix_list(
@@ -4899,6 +4951,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_network_interfaces)
         """
 
+    def describe_outpost_lags(
+        self, **kwargs: Unpack[DescribeOutpostLagsRequestTypeDef]
+    ) -> DescribeOutpostLagsResultTypeDef:
+        """
+        Describes the Outposts link aggregation groups (LAGs).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_outpost_lags.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_outpost_lags)
+        """
+
     def describe_placement_groups(
         self, **kwargs: Unpack[DescribePlacementGroupsRequestTypeDef]
     ) -> DescribePlacementGroupsResultTypeDef:
@@ -5104,6 +5166,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_security_groups.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_security_groups)
+        """
+
+    def describe_service_link_virtual_interfaces(
+        self, **kwargs: Unpack[DescribeServiceLinkVirtualInterfacesRequestTypeDef]
+    ) -> DescribeServiceLinkVirtualInterfacesResultTypeDef:
+        """
+        Describes the Outpost service link virtual interfaces.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_service_link_virtual_interfaces.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_service_link_virtual_interfaces)
         """
 
     def describe_snapshot_attribute(

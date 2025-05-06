@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from abc import ABC
+from argparse import SUPPRESS
 from pathlib import Path
+from warnings import warn
 
 from virtualenv.seed.seeder import Seeder
 from virtualenv.seed.wheels import Version
@@ -18,11 +20,21 @@ class BaseEmbed(Seeder, ABC):
 
         self.pip_version = options.pip
         self.setuptools_version = options.setuptools
-        self.wheel_version = options.wheel
+        if hasattr(options, "wheel"):
+            # Python 3.8
+            self.wheel_version = options.wheel
+            self.no_wheel = options.no_wheel
+        elif options.no_wheel:
+            warn(
+                "The --no-wheel option is deprecated. "
+                "It has no effect for Python >= 3.8 as wheel is no longer "
+                "bundled in virtualenv.",
+                DeprecationWarning,
+                stacklevel=1,
+            )
 
         self.no_pip = options.no_pip
         self.no_setuptools = options.no_setuptools
-        self.no_wheel = options.no_wheel
         self.app_data = options.app_data
         self.periodic_update = not options.no_periodic_update
 
@@ -41,7 +53,7 @@ class BaseEmbed(Seeder, ABC):
         return {
             distribution: getattr(self, f"{distribution}_version")
             for distribution in self.distributions()
-            if getattr(self, f"no_{distribution}") is False and getattr(self, f"{distribution}_version") != "none"
+            if getattr(self, f"no_{distribution}", None) is False and getattr(self, f"{distribution}_version") != "none"
         }
 
     @classmethod
@@ -71,8 +83,10 @@ class BaseEmbed(Seeder, ABC):
             default=[],
         )
         for distribution, default in cls.distributions().items():
-            if interpreter.version_info[:2] >= (3, 12) and distribution in {"wheel", "setuptools"}:
+            if interpreter.version_info[:2] >= (3, 12) and distribution == "setuptools":
                 default = "none"  # noqa: PLW2901
+            if interpreter.version_info[:2] >= (3, 9) and distribution == "wheel":
+                continue
             parser.add_argument(
                 f"--{distribution}",
                 dest=distribution,
@@ -81,11 +95,14 @@ class BaseEmbed(Seeder, ABC):
                 default=default,
             )
         for distribution in cls.distributions():
+            help_ = f"do not install {distribution}"
+            if interpreter.version_info[:2] >= (3, 9) and distribution == "wheel":
+                help_ = SUPPRESS
             parser.add_argument(
                 f"--no-{distribution}",
                 dest=f"no_{distribution}",
                 action="store_true",
-                help=f"do not install {distribution}",
+                help=help_,
                 default=False,
             )
         parser.add_argument(
@@ -103,7 +120,7 @@ class BaseEmbed(Seeder, ABC):
             result += f"extra_search_dir={', '.join(str(i) for i in self.extra_search_dir)},"
         result += f"download={self.download},"
         for distribution in self.distributions():
-            if getattr(self, f"no_{distribution}"):
+            if getattr(self, f"no_{distribution}", None):
                 continue
             version = getattr(self, f"{distribution}_version", None)
             if version == "none":

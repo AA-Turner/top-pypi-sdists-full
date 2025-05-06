@@ -396,6 +396,7 @@ def _start_notebook(
                 host_setup_script=host_setup_script,
                 shutdown_on_close=False,
                 unset_single_threading_variables=True,
+                pause_on_exit=resumable,
             )
             info["cluster_id"] = cluster.cluster_id
 

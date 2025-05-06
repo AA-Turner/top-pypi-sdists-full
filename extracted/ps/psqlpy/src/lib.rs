@@ -1,4 +1,3 @@
-pub mod additional_types;
 pub mod common;
 pub mod driver;
 pub mod exceptions;
@@ -7,6 +6,7 @@ pub mod format_helpers;
 pub mod query_result;
 pub mod row_factories;
 pub mod runtime;
+pub mod statement;
 pub mod value_converter;
 
 use common::add_module;

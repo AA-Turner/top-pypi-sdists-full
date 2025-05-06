@@ -29,7 +29,7 @@ except ImportError:
 
 from adafruit_platformdetect.constants import chips
 
-__version__ = "3.77.0"
+__version__ = "3.78.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_PlatformDetect.git"
 
 
@@ -83,6 +83,18 @@ class Chip:
                         + "set, but no FT2232H device found"
                     )
                 self._chip_id = chips.FT2232H
+                return self._chip_id
+            if os.environ.get("BLINKA_FT4232H"):
+                from pyftdi.usbtools import UsbTools
+
+                # look for it based on PID/VID
+                count = len(UsbTools.find_all([(0x0403, 0x6011)]))
+                if count == 0:
+                    raise RuntimeError(
+                        "BLINKA_FT4232H environment variable "
+                        + "set, but no FT4232H device found"
+                    )
+                self._chip_id = chips.FT4232H
                 return self._chip_id
             if os.environ.get("BLINKA_MCP2221"):
                 import hid
@@ -296,6 +308,9 @@ class Chip:
 
         if self.detector.check_dt_compatible_value("sun50i-h6"):
             return chips.H6
+
+        if self.detector.check_dt_compatible_value("sun55iw3"):
+            return chips.T527
 
         if self.detector.check_dt_compatible_value("spacemit,k1-x"):
             return chips.K1

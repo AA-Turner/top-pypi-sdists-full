@@ -18,8 +18,6 @@ from typing import Any, NamedTuple
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from locust_cloud.args import add_locust_cloud_argparse
-
 if sys.version_info >= (3, 11):
     import tomllib
 else:
@@ -37,6 +35,13 @@ version = locust.__version__
 
 
 DEFAULT_CONFIG_FILES = ("~/.locust.conf", "locust.conf", "pyproject.toml")
+
+try:
+    from locust_cloud.args import add_locust_cloud_argparse
+except ModuleNotFoundError as e:
+    add_locust_cloud_argparse = lambda _: None
+    if e.msg != "No module named 'locust_cloud'":
+        raise
 
 
 # Clean up downloaded locustfile on exit
@@ -767,6 +772,12 @@ Typically ONLY these options (and --locustfile) need to be specified on workers,
         default=False,
         action="store_true",
         help="Prints the final stats in JSON format to stdout. Useful for parsing the results in other programs/scripts. Use together with --headless and --skip-log for an output only with the json data.",
+    )
+    stats_group.add_argument(
+        "--json-file",
+        metavar="<filename>",
+        dest="json_file",
+        help="Prints the final stats in JSON format to file path specified.",
     )
 
     log_group = parser.add_argument_group("Logging options")

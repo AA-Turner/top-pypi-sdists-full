@@ -30,7 +30,7 @@ except ImportError:
 
 from adafruit_platformdetect.constants import boards, chips
 
-__version__ = "3.77.0"
+__version__ = "3.78.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_PlatformDetect.git"
 
 
@@ -118,6 +118,8 @@ class Board:
             board_id = boards.FTDI_FT232H
         elif chip_id == chips.FT2232H:
             board_id = boards.FTDI_FT2232H
+        elif chip_id == chips.FT4232H:
+            board_id = boards.FTDI_FT4232H
         elif chip_id == chips.APQ8016:
             board_id = boards.DRAGONBOARD_410C
         elif chip_id in (chips.T210, chips.T186, chips.T194, chips.T234):
@@ -156,6 +158,8 @@ class Board:
                 or self._allwinner_variants_id()
                 or self._repka_variants_id()
             )
+        elif chip_id == chips.T527:
+            board_id = self._armbian_id() or self._allwinner_variants_id()
         elif chip_id == chips.H618:
             board_id = self._armbian_id() or self._allwinner_variants_id()
         elif chip_id == chips.H616:
@@ -173,6 +177,7 @@ class Board:
                 or self._diet_pi_id()
                 or self._asus_tinker_board_id()
                 or self._vivid_unit_id()
+                or self._vicharak_id()
             )
         elif chip_id == chips.RK3399PRO:
             board_id = self._asus_tinker_board_id()
@@ -197,6 +202,7 @@ class Board:
                 or self._armbian_id()
                 or self._rk3588_id()
                 or self._ameridroid_id()
+                or self._vicharak_id()
             )
         elif chip_id == chips.RYZEN_V1605B:
             board_id = self._udoo_id()
@@ -446,6 +452,8 @@ class Board:
             board = boards.BANANA_PI_M5
         elif board_value == "bananapif3":
             board = boards.BANANA_PI_F3
+        elif board_value == "bananapif5":
+            board = boards.BANANA_PI_F5
         elif board_value == "orangepizeroplus2-h5":
             board = boards.ORANGE_PI_ZERO_PLUS_2H5
         elif board_value == "orangepizeroplus":
@@ -494,6 +502,10 @@ class Board:
 
     def _orange_pi_id(self) -> Optional[str]:
         board_value = self.detector.get_device_model()
+        if "OPi 5 Max" in board_value:
+            return boards.ORANGE_PI_5_MAX
+        if "Orange Pi 5 Max" in board_value:
+            return boards.ORANGE_PI_5_MAX
         if "Orange Pi 5 Plus" in board_value:
             return boards.ORANGE_PI_5_PLUS
         if "Orange Pi 5" in board_value:
@@ -645,6 +657,8 @@ class Board:
             board = boards.LUBANCAT2
         if board_value and "ROCK3 Model A" in board_value:
             board = boards.ROCK_PI_3A
+        if board_value and "ROCK 3 Model B" in board_value:
+            board = boards.ROCK_3B
         if board_value and "Hardkernel ODROID-M1" in board_value:
             board = boards.ODROID_M1
         return board
@@ -681,6 +695,16 @@ class Board:
             board = boards.ROCK_PI_4_SE
         if board_value and "ROCK3 Model A" in board_value:
             board = boards.ROCK_PI_3A
+        return board
+
+    def _vicharak_id(self) -> Optional[str]:
+        """Check what type of Vicharak Board."""
+        board_value = self.detector.get_device_model()
+        board = None
+        if board_value and "VAAMAN" in board_value.upper():
+            board = boards.VAAMAN
+        if board_value and "AXON" in board_value.upper():
+            board = boards.AXON
         return board
 
     def _libre_id(self) -> Optional[str]:
@@ -781,6 +805,8 @@ class Board:
                 board = boards.BANANA_PI_M4_BERRY
             elif "m4zero" in board_value or "m4 zero" in board_value:
                 board = boards.BANANA_PI_M4_ZERO
+            elif "f5" in board_value or "bpi-f5" in board_value:
+                board = boards.BANANA_PI_F5
 
         if "nanopi" in board_value:
             if "neo" in board_value and "SUN8I" in chip_id:
@@ -1037,6 +1063,11 @@ class Board:
         return self.id in boards._ROCK_PI_IDS
 
     @property
+    def any_vicharak_board(self) -> bool:
+        """Check whether the current board is any vicharak device."""
+        return self.id in boards._VICHARAK_BOARD_IDS
+
+    @property
     def any_clockwork_pi_board(self) -> bool:
         """Check whether the current board is any Clockwork Pi device."""
         return self.CLOCKWORK_CPI3
@@ -1133,6 +1164,7 @@ class Board:
         def lazily_generate_conditions():
             yield self.board.FTDI_FT232H
             yield self.board.FTDI_FT2232H
+            yield self.board.FTDI_FT4232H
             yield self.board.MICROCHIP_MCP2221
             yield self.board.BINHO_NOVA
             yield self.board.GREATFET_ONE
@@ -1215,6 +1247,11 @@ class Board:
     def ftdi_ft2232h(self) -> bool:
         """Check whether the current board is an FTDI FT2232H."""
         return self.id == boards.FTDI_FT2232H
+
+    @property
+    def ftdi_ft4232h(self) -> bool:
+        """Check whether the current board is an FTDI FT4232H."""
+        return self.id == boards.FTDI_FT4232H
 
     @property
     def microchip_mcp2221(self) -> bool:

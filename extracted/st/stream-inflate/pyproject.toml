@@ -7,13 +7,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stream-inflate"
-version = "v0.0.41"
+version = "v0.0.42"
 authors = [
   { name="Michal Charemza", email="michal@charemza.name" },
 ]
 description = "Uncompress DEFLATE streams in pure Python (albeit compiled with Cython)"
 readme = "README.md"
-requires-python = ">=3.6.7, !=3.7.0"
+requires-python = ">=3.7.7"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",

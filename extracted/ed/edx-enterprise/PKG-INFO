@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: edx-enterprise
-Version: 5.13.0
+Version: 5.13.2
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -108,6 +108,14 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[5.13.2]
+--------
+* fix: create migration for unmanage django model that points at DB view.
+
+[5.13.1]
+--------
+* fix: enterprise-customer-support sorting/pagination using view
 
 [5.13.0]
 --------

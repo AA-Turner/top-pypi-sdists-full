@@ -8,14 +8,13 @@ from pywinauto import Application
 import pyautogui
 import warnings
 from pywinauto.keyboard import send_keys
-from worker_automate_hub.utils.util import type_text_into_field, wait_window_close, worker_sleep
+from worker_automate_hub.utils.util import kill_all_emsys, type_text_into_field, wait_window_close, worker_sleep
 from worker_automate_hub.utils.utils_nfe_entrada import EMSys
 from rich.console import Console
 
 from worker_automate_hub.utils.logger import logger
 from worker_automate_hub.utils.util import (
     login_emsys,
-    kill_process,
     set_variable
 )
 from pytesseract import image_to_string
@@ -60,8 +59,8 @@ async def geracao_aprovacao_pedidos_processo(task: RpaProcessoEntradaDTO, filial
         
         filialEmpresaOrigem = filial_origem
         periodo = periodo
-        # Abre um novo emsys
-        await kill_process("EMSys")
+        # Fecha a instancia do emsys - caso esteja aberta
+        await kill_all_emsys()
         
         app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3.exe")
         warnings.filterwarnings(

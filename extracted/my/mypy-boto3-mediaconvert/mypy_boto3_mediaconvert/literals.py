@@ -196,6 +196,7 @@ __all__ = (
     "FileSourceTimeDeltaUnitsType",
     "FontScriptType",
     "FormatType",
+    "FrameMetricTypeType",
     "GifFramerateControlType",
     "GifFramerateConversionAlgorithmType",
     "H264AdaptiveQuantizationType",
@@ -573,7 +574,7 @@ AudioNormalizationAlgorithmType = Literal[
 ]
 AudioNormalizationLoudnessLoggingType = Literal["DONT_LOG", "LOG"]
 AudioNormalizationPeakCalculationType = Literal["NONE", "TRUE_PEAK"]
-AudioSelectorTypeType = Literal["HLS_RENDITION_GROUP", "LANGUAGE_CODE", "PID", "TRACK"]
+AudioSelectorTypeType = Literal["ALL_PCM", "HLS_RENDITION_GROUP", "LANGUAGE_CODE", "PID", "TRACK"]
 AudioTypeControlType = Literal["FOLLOW_INPUT", "USE_CONFIGURED"]
 Av1AdaptiveQuantizationType = Literal["HIGH", "HIGHER", "LOW", "MAX", "MEDIUM", "OFF"]
 Av1BitDepthType = Literal["BIT_10", "BIT_8"]
@@ -852,6 +853,7 @@ FileSourceConvert608To708Type = Literal["DISABLED", "UPCONVERT"]
 FileSourceTimeDeltaUnitsType = Literal["MILLISECONDS", "SECONDS"]
 FontScriptType = Literal["AUTOMATIC", "HANS", "HANT"]
 FormatType = Literal["matroska", "mp4", "quicktime", "webm"]
+FrameMetricTypeType = Literal["MS_SSIM", "PSNR", "PSNR_HVS", "QVBR", "SSIM", "VMAF"]
 GifFramerateControlType = Literal["INITIALIZE_FROM_SOURCE", "SPECIFIED"]
 GifFramerateConversionAlgorithmType = Literal["DUPLICATE_DROP", "INTERPOLATE"]
 H264AdaptiveQuantizationType = Literal["AUTO", "HIGH", "HIGHER", "LOW", "MAX", "MEDIUM", "OFF"]
@@ -1905,7 +1907,6 @@ ServiceName = Literal[
     "signer",
     "simspaceweaver",
     "sms",
-    "sms-voice",
     "snow-device-management",
     "snowball",
     "sns",
@@ -1913,6 +1914,7 @@ ServiceName = Literal[
     "sqs",
     "ssm",
     "ssm-contacts",
+    "ssm-guiconnect",
     "ssm-incidents",
     "ssm-quicksetup",
     "ssm-sap",

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: files_com
-Version: 1.5.3
+Version: 1.5.4
 Summary: Python bindings for the Files.com API
 License: MIT
 Requires-Python: >=3.5

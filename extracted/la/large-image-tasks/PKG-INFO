@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: large-image-tasks
-Version: 1.32.2
+Version: 1.32.3
 Summary: Girder Worker tasks for Large Image.
 Author: Kitware Inc
 Author-email: kitware@kitware.com
@@ -21,10 +21,10 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: girder-worker-utils>=0.8.5
 Provides-Extra: girder
-Requires-Dist: large-image-converter>=1.32.2; extra == "girder"
+Requires-Dist: large-image-converter>=1.32.3; extra == "girder"
 Requires-Dist: girder-worker[girder]>=0.6.0; extra == "girder"
 Provides-Extra: worker
-Requires-Dist: large-image-converter[sources]>=1.32.2; extra == "worker"
+Requires-Dist: large-image-converter[sources]>=1.32.3; extra == "worker"
 Requires-Dist: girder-worker[worker]>=0.6.0; extra == "worker"
 Dynamic: author
 Dynamic: author-email

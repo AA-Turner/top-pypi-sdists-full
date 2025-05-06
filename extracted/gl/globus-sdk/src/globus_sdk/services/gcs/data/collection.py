@@ -115,6 +115,7 @@ class CollectionDocument(utils.PayloadWrapper, abc.ABC):
         "enable_https": (1, 1, 0),
         "user_message": (1, 1, 0),
         "user_message_link": (1, 1, 0),
+        "activity_notification_policy": (1, 14, 0),
     }
     DATATYPE_VERSION_CALLBACKS: tuple[DatatypeCallback, ...] = (
         _user_message_length_callback,
@@ -343,6 +344,9 @@ class GuestCollectionDocument(CollectionDocument):
     :param user_credential_id: The ID of the User Credential which is used to access
         data on this collection. This credential must be owned by the collection’s
         ``identity_id``.
+    :param activity_notification_policy: Specification for when a notification email
+        should be sent to a guest collection ``administrator``, ``activity_manager``,
+        and ``activity_monitor`` roles when a transfer task reaches completion.
     """
 
     @property
@@ -380,6 +384,7 @@ class GuestCollectionDocument(CollectionDocument):
         # > specific args start <
         mapped_collection_id: UUIDLike | None = None,
         user_credential_id: UUIDLike | None = None,
+        activity_notification_policy: dict[str, list[str]] | None = None,
         # > specific args end <
         # additional fields
         additional_fields: dict[str, t.Any] | None = None,
@@ -415,6 +420,8 @@ class GuestCollectionDocument(CollectionDocument):
             mapped_collection_id=mapped_collection_id,
             user_credential_id=user_credential_id,
         )
+        self._set_value("activity_notification_policy", activity_notification_policy)
+
         ensure_datatype(self)
 
 

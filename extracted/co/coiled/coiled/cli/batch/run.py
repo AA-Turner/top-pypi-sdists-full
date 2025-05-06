@@ -161,6 +161,15 @@ def get_kwargs_from_header(f: dict, click_params: list):
     ),
 )
 @click.option(
+    "--ignore-container-entrypoint",
+    default=None,
+    help=(
+        "Ignore entrypoint for specified Docker container "
+        "(like ``docker run --entrypoint``); "
+        "default is to use the entrypoint (if any) set on the image."
+    ),
+)
+@click.option(
     "--env",
     "-e",
     default=[],
@@ -499,6 +508,8 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
                 f"You can specify single value like '16GB', or a range like '16GB-32GB'."
             ) from e
 
+    batch_job_container = f"{kwargs['container']}!" if kwargs["ignore_container_entrypoint"] else kwargs["container"]
+
     cluster_kwargs = {
         "name": kwargs["name"],
         "workspace": kwargs["workspace"],
@@ -507,7 +518,7 @@ def _batch_run(default_kwargs, logger=None, from_cli=False, **kwargs) -> dict:
         "show_widget": True,
         # batch job can either run in normal Coiled software env (which defaults to package sync)
         # or can run in an extra container (which doesn't need to include dask)
-        "batch_job_container": kwargs["container"],
+        "batch_job_container": batch_job_container,
         # if batch job is running in extra container, then we just need a pretty minimal dask container
         # so for now switch the default in that case to basic dask container
         # TODO would it be better to use a pre-built senv with our `cloud-env-run` container instead?

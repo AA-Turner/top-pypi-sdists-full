@@ -54,6 +54,8 @@ elif chip_id == ap_chip.H616:
         from adafruit_blinka.board.repkapi.repka_pi_4 import *
     else:
         from adafruit_blinka.microcontroller.allwinner.h616.pin import *
+elif chip_id == ap_chip.T527:
+    from adafruit_blinka.microcontroller.allwinner.t527.pin import *
 elif chip_id == ap_chip.SAMA5:
     from adafruit_blinka.microcontroller.sama5.pin import *
 elif chip_id == ap_chip.T210:
@@ -90,6 +92,8 @@ elif chip_id == ap_chip.FT232H:
     from adafruit_blinka.microcontroller.ftdi_mpsse.ft232h.pin import *
 elif chip_id == ap_chip.FT2232H:
     from adafruit_blinka.microcontroller.ftdi_mpsse.ft2232h.pin import *
+elif chip_id == ap_chip.FT4232H:
+    from adafruit_blinka.microcontroller.ftdi_mpsse.ft4232h.pin import *
 elif chip_id == ap_chip.BINHO:
     from adafruit_blinka.microcontroller.nova.pin import *
 elif chip_id == ap_chip.LPC4330:
@@ -149,6 +153,8 @@ elif chip_id == ap_chip.RV1103:
     from adafruit_blinka.microcontroller.rockchip.rv1103.pin import *
 elif chip_id == ap_chip.RV1106:
     from adafruit_blinka.microcontroller.rockchip.rv1106.pin import *
+elif chip_id == ap_chip.SUNRISE_X3:
+    from adafruit_blinka.microcontroller.horizon.sunrise_x3.pin import *
 elif "sphinx" in sys.modules:
     # pylint: disable=unused-import
     from adafruit_blinka.microcontroller.generic_micropython import Pin

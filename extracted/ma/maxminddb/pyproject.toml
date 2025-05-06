@@ -1,26 +1,20 @@
-[build-system]
-requires = ["setuptools>=68.2.2", "setuptools-scm", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "maxminddb"
-version = "2.6.3"
+version = "2.7.0"
 description = "Reader for the MaxMind DB format"
 authors = [
     {name = "Gregory Oschwald", email = "goschwald@maxmind.com"},
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 readme = "README.rst"
-license = {text = "Apache License, Version 2.0"}
+license = "Apache-2.0"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -36,6 +30,25 @@ Documentation = "https://maxminddb.readthedocs.org/"
 "Source Code" = "https://github.com/maxmind/MaxMind-DB-Reader-python"
 "Issue Tracker" = "https://github.com/maxmind/MaxMind-DB-Reader-python/issues"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]
+lint = [
+    "black>=25.1.0",
+    "mypy>=1.15.0",
+    "pylint>=3.3.6",
+    "ruff>=0.11.6",
+]
+
+[build-system]
+requires = [
+    "setuptools>=77.0.3",
+    "setuptools-scm",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
 [tool.setuptools.package-data]
 maxminddb = ["py.typed"]
 
@@ -43,3 +56,29 @@ maxminddb = ["py.typed"]
 # src is showing up in our GitHub linting builds. It seems to
 # contain deps.
 extend-exclude = '^/src/'
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # Skip type annotation on **_
+    "ANN003",
+
+    # documenting magic methods
+    "D105",
+
+    # Line length. We let black handle this for now.
+    "E501",
+
+    # Don't bother with future imports for type annotations
+    "FA100",
+
+    # Magic numbers for HTTP status codes seem ok most of the time.
+    "PLR2004",
+
+    # pytest rules
+    "PT009",
+    "PT027",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN201", "D"]

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
 from anyscale._private.models import ModelBase, ModelEnum
@@ -488,6 +489,7 @@ primary_version:
   id: 601bd56c4b
   state: RUNNING
   weight: 100
+  created_at: 2025-04-18 17:21:28.323174+00:00
 """
 
     id: str = field(
@@ -524,6 +526,14 @@ primary_version:
     def _validate_weight(self, weight: int):
         if not isinstance(weight, int):
             raise TypeError("'weight' must be an int.")
+
+    created_at: datetime = field(
+        metadata={"docstring": "Creation time of the service version."},
+    )
+
+    def _validate_created_at(self, created_at: datetime):
+        if not isinstance(created_at, datetime):
+            raise TypeError("created_at must be a datetime.")
 
     config: Union[ServiceConfig, Dict] = field(
         repr=False, metadata={"docstring": "Configuration of this service version."}
@@ -598,6 +608,15 @@ primary_version:
         if not isinstance(query_url, str):
             raise TypeError("'query_url' must be a string.")
 
+    creator: Optional[str] = field(
+        default=None,
+        metadata={"docstring": "Email of the user or entity that created the service."},
+    )
+
+    def _validate_creator(self, creator: Optional[str]):
+        if creator is not None and not isinstance(creator, str):
+            raise TypeError("'creator' must be a string.")
+
     query_auth_token: Optional[str] = field(
         default=None,
         repr=False,
@@ -658,6 +677,31 @@ primary_version:
 
         return canary_version
 
+    project: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "Name of the project that this service version belongs to."
+        },
+    )
+
+    def _validate_project(self, project: Optional[str]):
+        if project is not None and not isinstance(project, str):
+            raise TypeError("project must be a string.")
+
+
+class ServiceSortField(ModelEnum):
+    """Fields available for sorting services."""
+
+    STATUS = "STATUS"
+    NAME = "NAME"
+    CREATED_AT = "CREATED_AT"
+
+    __docstrings__ = {
+        STATUS: "Sort by service status (active first by default).",
+        NAME: "Sort by service name.",
+        CREATED_AT: "Sort by creation timestamp.",
+    }
+
 
 class ServiceLogMode(ModelEnum):
     """Mode to use for getting job logs."""
@@ -668,4 +712,25 @@ class ServiceLogMode(ModelEnum):
     __docstrings__ = {
         HEAD: "Fetch logs from the start.",
         TAIL: "Fetch logs from the end.",
+    }
+
+
+@dataclass(frozen=True)
+class ServiceModel(ModelBase):
+    """A model for a service."""
+
+    id: str = field(metadata={"docstring": "Unique ID of the service."})
+    name: str = field(metadata={"docstring": "Name of the service."})
+    state: ServiceState = field(metadata={"docstring": "Current state of the service."})
+
+
+class SortOrder(ModelEnum):
+    """Enum for sort order directions."""
+
+    ASC = "ASC"
+    DESC = "DESC"
+
+    __docstrings__ = {
+        ASC: "Sort in ascending order.",
+        DESC: "Sort in descending order.",
     }

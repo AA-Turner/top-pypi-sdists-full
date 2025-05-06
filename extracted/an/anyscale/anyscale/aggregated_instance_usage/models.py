@@ -15,9 +15,9 @@ import anyscale
 from anyscale.aggregated_instance_usage.models import DownloadCSVFilters
 
 download_csv_filters = DownloadCSVFilters(
-    # Start date (inclusive) for the usage CSV.
+    # Start date (UTC inclusive) for the usage CSV.
     start_date="2024-10-01",
-    # End date (inclusive) for the usage CSV.
+    # End date (UTC inclusive) for the usage CSV.
     end_date="2024-10-31",
     # Optional cloud name to filter by.
     cloud="cloud_name",
@@ -39,14 +39,14 @@ download_csv_filters = DownloadCSVFilters(
             raise ValueError("Incorrect date format, should be YYYY-MM-DD")
 
     start_date: str = field(
-        metadata={"docstring": "Start date (inclusive) for the usage CSV."}
+        metadata={"docstring": "Start date (UTC inclusive) for the usage CSV."}
     )
 
     def _validate_start_date(self, start_date: str):
         self._validate_date(start_date)
 
     end_date: str = field(
-        metadata={"docstring": "End date (inclusive) for the usage CSV."}
+        metadata={"docstring": "End date (UTC inclusive) for the usage CSV."}
     )
 
     def _validate_end_date(self, end_date: str):

@@ -10,7 +10,7 @@
    Copyright (c) 2003      Greg Stein <gstein@users.sourceforge.net>
    Copyright (c) 2005-2007 Steven Solie <steven@solie.ca>
    Copyright (c) 2005-2012 Karl Waclawek <karl@waclawek.net>
-   Copyright (c) 2016-2022 Sebastian Pipping <sebastian@pipping.org>
+   Copyright (c) 2016-2023 Sebastian Pipping <sebastian@pipping.org>
    Copyright (c) 2017-2022 Rhodri James <rhodri@wildebeest.org.uk>
    Copyright (c) 2017      Joe Orton <jorton@redhat.com>
    Copyright (c) 2017      José Gutiérrez de la Concha <jose@zeroc.com>
@@ -83,7 +83,7 @@ START_TEST(test_nsalloc_xmlns) {
   const unsigned int max_alloc_count = 30;
 
   for (i = 0; i < max_alloc_count; i++) {
-    g_allocation_count = i;
+    g_allocation_count = (int)i;
     /* Exercise more code paths with a default handler */
     XML_SetDefaultHandler(g_parser, dummy_default_handler);
     if (_XML_Parse_SINGLE_BYTES(g_parser, text, (int)strlen(text), XML_TRUE)
@@ -523,7 +523,7 @@ START_TEST(test_nsalloc_realloc_binding_uri) {
   /* Now repeat with a longer URI and a duff reallocator */
   for (i = 0; i < max_realloc_count; i++) {
     XML_ParserReset(g_parser, NULL);
-    g_reallocation_count = i;
+    g_reallocation_count = (int)i;
     if (_XML_Parse_SINGLE_BYTES(g_parser, second, (int)strlen(second), XML_TRUE)
         != XML_STATUS_ERROR)
       break;
@@ -1521,16 +1521,17 @@ make_nsalloc_test_case(Suite *s) {
   tcase_add_test(tc_nsalloc, test_nsalloc_long_namespace);
   tcase_add_test(tc_nsalloc, test_nsalloc_less_long_namespace);
   tcase_add_test(tc_nsalloc, test_nsalloc_long_context);
-  tcase_add_test(tc_nsalloc, test_nsalloc_realloc_long_context);
-  tcase_add_test(tc_nsalloc, test_nsalloc_realloc_long_context_2);
-  tcase_add_test(tc_nsalloc, test_nsalloc_realloc_long_context_3);
-  tcase_add_test(tc_nsalloc, test_nsalloc_realloc_long_context_4);
-  tcase_add_test(tc_nsalloc, test_nsalloc_realloc_long_context_5);
-  tcase_add_test(tc_nsalloc, test_nsalloc_realloc_long_context_6);
-  tcase_add_test(tc_nsalloc, test_nsalloc_realloc_long_context_7);
+  tcase_add_test__if_xml_ge(tc_nsalloc, test_nsalloc_realloc_long_context);
+  tcase_add_test__if_xml_ge(tc_nsalloc, test_nsalloc_realloc_long_context_2);
+  tcase_add_test__if_xml_ge(tc_nsalloc, test_nsalloc_realloc_long_context_3);
+  tcase_add_test__if_xml_ge(tc_nsalloc, test_nsalloc_realloc_long_context_4);
+  tcase_add_test__if_xml_ge(tc_nsalloc, test_nsalloc_realloc_long_context_5);
+  tcase_add_test__if_xml_ge(tc_nsalloc, test_nsalloc_realloc_long_context_6);
+  tcase_add_test__if_xml_ge(tc_nsalloc, test_nsalloc_realloc_long_context_7);
   tcase_add_test(tc_nsalloc, test_nsalloc_realloc_long_ge_name);
-  tcase_add_test(tc_nsalloc, test_nsalloc_realloc_long_context_in_dtd);
-  tcase_add_test(tc_nsalloc, test_nsalloc_long_default_in_ext);
+  tcase_add_test__if_xml_ge(tc_nsalloc,
+                            test_nsalloc_realloc_long_context_in_dtd);
+  tcase_add_test__if_xml_ge(tc_nsalloc, test_nsalloc_long_default_in_ext);
   tcase_add_test(tc_nsalloc, test_nsalloc_long_systemid_in_ext);
   tcase_add_test(tc_nsalloc, test_nsalloc_prefixed_element);
 }

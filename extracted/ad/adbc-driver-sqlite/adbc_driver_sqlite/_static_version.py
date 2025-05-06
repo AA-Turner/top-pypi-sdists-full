@@ -20,9 +20,9 @@
 
 # This file is part of 'miniver': https://github.com/jbweston/miniver
 
-version = "1.5.0"
+version = "1.6.0"
 
 # These values are only set if the distribution was created with 'git archive'
 # NOTE: must add an export-subst to .gitattributes!
-refnames = "HEAD, tag: apache-arrow-adbc-17-rc0, origin/maint-17"
-git_hash = "8b4ba558d"
+refnames = "HEAD, tag: apache-arrow-adbc-18-rc0, origin/maint-18"
+git_hash = "b093c1534"

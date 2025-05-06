@@ -617,7 +617,9 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
         custom_subdomain: str | None = None,
         batch_job_ids: List[int] | None = None,
         extra_user_container: str | None = None,
+        extra_user_container_ignore_entrypoint: bool | None = None,
         host_setup_script_content: str | None = None,
+        pause_on_exit: bool | None = None,
     ) -> Tuple[int, bool]:
         # TODO (Declarative): support these args, or decide not to
         # https://gitlab.com/coiled/cloud/-/issues/4305
@@ -650,7 +652,9 @@ class CloudV2(OldCloud, Generic[IsAsynchronous]):
             "custom_subdomain": custom_subdomain,
             "batch_job_ids": batch_job_ids,
             "extra_user_container": extra_user_container,
+            "extra_user_container_ignore_entrypoint": extra_user_container_ignore_entrypoint,
             "host_setup_script": host_setup_script_content,
+            "pause_on_exit": pause_on_exit,
         }
 
         backend_options = backend_options if backend_options else {}
@@ -1808,9 +1812,21 @@ def list_clusters(account=None, workspace=None, max_pages: int | None = None, ju
 
 
 @delete_docstring
-def delete_cluster(name: str, account: str | None = None, workspace: str | None = None, pause: bool = False):
+def delete_cluster(
+    name: str | None = None,
+    cluster_id: int | None = None,
+    account: str | None = None,
+    workspace: str | None = None,
+    pause: bool = False,
+):
+    if name and cluster_id:
+        raise ValueError("You specified both name and cluster_id, only one can be specified")
+    if not name and not cluster_id:
+        raise ValueError("You must specify either name or cluster_id")
     with CloudV2() as cloud:
-        cluster_id = cloud.get_cluster_by_name(name=name, workspace=workspace or account)
+        if not cluster_id:
+            assert name  # too hard for pyright to figure out that name is str if cluster_id is falsy
+            cluster_id = cloud.get_cluster_by_name(name=name, workspace=workspace or account)
         if cluster_id is not None:
             return cloud.delete_cluster(cluster_id=cluster_id, workspace=workspace or account, pause=pause)
 

@@ -15,6 +15,8 @@ from anyscale.client.openapi_client.models import (
     CreateResourceQuota,
     CreateUserProjectCollaborator,
     DecoratedComputeTemplate,
+    DecoratedlistserviceapimodelListResponse,
+    DecoratedProductionServiceV2APIModel,
     DeletedPlatformFineTunedModel,
     FineTunedModel,
     InternalProductionJob,
@@ -31,13 +33,12 @@ from anyscale.client.openapi_client.models.decorated_session import DecoratedSes
 from anyscale.client.openapi_client.models.production_job import ProductionJob
 from anyscale.client.openapi_client.models.session_ssh_key import SessionSshKey
 from anyscale.sdk.anyscale_client.models import (
-    ApplyServiceModel,
+    ApplyProductionServiceV2Model,
     Cluster,
     ClusterCompute,
     ClusterEnvironment,
     Job as APIJobRun,
     ProductionServiceV2VersionModel,
-    ServiceModel,
 )
 from anyscale.sdk.anyscale_client.models.cluster_environment_build import (
     ClusterEnvironmentBuild,
@@ -303,11 +304,36 @@ class AnyscaleClientInterface(ABC):
         cloud: Optional[str],
         project: Optional[str],
         include_archived=False,
-    ) -> Optional[ServiceModel]:
+    ) -> Optional[DecoratedProductionServiceV2APIModel]:
         """Get a service by name. Filter by cloud and project.
 
         Returns None if not found.
         """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_service_by_id(
+        self, service_id: str
+    ) -> Optional[DecoratedProductionServiceV2APIModel]:
+        """Get a service by id."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_services(
+        self,
+        *,
+        name: Optional[str],
+        state_filter: Optional[List[str]],
+        creator_id: Optional[str],
+        cloud: Optional[str],
+        project: Optional[str],
+        include_archived: bool,
+        count: Optional[int],
+        paging_token: Optional[str],
+        sort_field: Optional[str],
+        sort_order: Optional[str],
+    ) -> DecoratedlistserviceapimodelListResponse:
+        """List services."""
         raise NotImplementedError
 
     @abstractmethod
@@ -349,7 +375,9 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def rollout_service(self, model: ApplyServiceModel) -> ServiceModel:
+    def rollout_service(
+        self, model: ApplyProductionServiceV2Model
+    ) -> DecoratedProductionServiceV2APIModel:
         """Deploy or update the service to use the provided config.
 
         Returns the service ID.
@@ -367,17 +395,19 @@ class AnyscaleClientInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def terminate_service(self, service_id: str):
+    def terminate_service(
+        self, service_id: str
+    ) -> DecoratedProductionServiceV2APIModel:
         """Mark the service to be terminated asynchronously."""
         raise NotImplementedError
 
     @abstractmethod
-    def archive_service(self, service_id: str):
+    def archive_service(self, service_id: str) -> DecoratedProductionServiceV2APIModel:
         """Mark the service to be archived asynchronously."""
         raise NotImplementedError
 
     @abstractmethod
-    def delete_service(self, service_id: str):
+    def delete_service(self, service_id: str) -> None:
         """Mark the service to be deleted asynchronously."""
         raise NotImplementedError
 

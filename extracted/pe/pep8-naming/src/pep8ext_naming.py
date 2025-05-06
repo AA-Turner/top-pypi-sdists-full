@@ -10,7 +10,7 @@ from itertools import chain
 
 from flake8 import style_guide
 
-__version__ = '0.15.0'
+__version__ = '0.15.1'
 
 CLASS_METHODS = frozenset((
     '__new__',
@@ -537,13 +537,14 @@ class TypeVarNameCheck(BaseASTCheck):
             if func_name != "TypeVar" or name in ignored:
                 continue
 
-            if len(args) == 0 or args[0] != name:
+            if not args or args[0] != name:
                 yield self.err(body, 'N808', name=name)
 
-            if not name[:1].isupper():
+            stripped_name = name.removeprefix('_')
+            if not stripped_name[:1].isupper():
                 yield self.err(body, 'N808', name=name)
 
-            parts = name.split('_')
+            parts = stripped_name.split('_')
             if len(parts) > 2:
                 yield self.err(body, 'N808', name=name)
 

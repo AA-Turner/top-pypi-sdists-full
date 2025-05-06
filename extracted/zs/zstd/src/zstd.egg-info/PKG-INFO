@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zstd
-Version: 1.5.6.8
+Version: 1.5.7.0
 Summary: ZSTD Bindings for Python
 Home-page: https://github.com/sergey-dryabzhinsky/python-zstd
 Author: Sergey Dryabzhinsky, Anton Stuk

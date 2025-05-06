@@ -5,6 +5,7 @@ import typing
 
 from ..core.datetime_utils import serialize_datetime
 from .job_names import JobNames
+from .job_record_parameters import JobRecordParameters
 from .status_enum import StatusEnum
 
 try:
@@ -25,7 +26,7 @@ class JobRecord(pydantic.BaseModel):
     partitions: typing.Dict[str, str] = pydantic.Field(
         description="The partitions for this execution. Used for determining where to save job output."
     )
-    parameters: typing.Optional[typing.Any]
+    parameters: typing.Optional[JobRecordParameters]
     session_id: typing.Optional[str]
     correlation_id: typing.Optional[str]
     parent_job_execution_id: typing.Optional[str]
@@ -40,7 +41,6 @@ class JobRecord(pydantic.BaseModel):
     started_at: typing.Optional[dt.datetime]
     ended_at: typing.Optional[dt.datetime]
     updated_at: typing.Optional[dt.datetime] = pydantic.Field(description="Update datetime")
-    data: typing.Optional[typing.Any]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

@@ -3,4 +3,4 @@
 # SPDX-License-Identifier: MIT
 """Return the current version"""
 
-__version__ = VERSION = "8.56.0"
+__version__ = VERSION = "8.57.0"

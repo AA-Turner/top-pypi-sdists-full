@@ -24,7 +24,6 @@ from worker_automate_hub.utils.util import (
     create_temp_folder,
     delete_folder,
     kill_all_emsys,
-    kill_process, 
     login_emsys,
     save_pdf_emsys, 
     type_text_into_field,

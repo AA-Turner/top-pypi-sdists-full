@@ -10,7 +10,7 @@
    Copyright (c) 2003      Greg Stein <gstein@users.sourceforge.net>
    Copyright (c) 2005-2007 Steven Solie <steven@solie.ca>
    Copyright (c) 2005-2012 Karl Waclawek <karl@waclawek.net>
-   Copyright (c) 2016-2022 Sebastian Pipping <sebastian@pipping.org>
+   Copyright (c) 2016-2024 Sebastian Pipping <sebastian@pipping.org>
    Copyright (c) 2017-2022 Rhodri James <rhodri@wildebeest.org.uk>
    Copyright (c) 2017      Joe Orton <jorton@redhat.com>
    Copyright (c) 2017      José Gutiérrez de la Concha <jose@zeroc.com>
@@ -18,7 +18,7 @@
    Copyright (c) 2019      David Loffredo <loffredo@steptools.com>
    Copyright (c) 2020      Tim Gates <tim.gates@iress.com>
    Copyright (c) 2021      Donghee Na <donghee.na@python.org>
-   Copyright (c) 2023      Sony Corporation / Snild Dolkow <snild@sony.com>
+   Copyright (c) 2023-2024 Sony Corporation / Snild Dolkow <snild@sony.com>
    Licensed under the MIT license:
 
    Permission is  hereby granted,  free of charge,  to any  person obtaining
@@ -89,21 +89,23 @@ start_element_event_handler2(void *userData, const XML_Char *name,
                              const XML_Char **attr) {
   StructData *storage = (StructData *)userData;
   UNUSED_P(attr);
-  StructData_AddItem(storage, name, XML_GetCurrentColumnNumber(g_parser),
-                     XML_GetCurrentLineNumber(g_parser), STRUCT_START_TAG);
+  StructData_AddItem(storage, name, (int)XML_GetCurrentColumnNumber(g_parser),
+                     (int)XML_GetCurrentLineNumber(g_parser), STRUCT_START_TAG);
 }
 
 void XMLCALL
 end_element_event_handler2(void *userData, const XML_Char *name) {
   StructData *storage = (StructData *)userData;
-  StructData_AddItem(storage, name, XML_GetCurrentColumnNumber(g_parser),
-                     XML_GetCurrentLineNumber(g_parser), STRUCT_END_TAG);
+  StructData_AddItem(storage, name, (int)XML_GetCurrentColumnNumber(g_parser),
+                     (int)XML_GetCurrentLineNumber(g_parser), STRUCT_END_TAG);
 }
 
 void XMLCALL
 counting_start_element_handler(void *userData, const XML_Char *name,
                                const XML_Char **atts) {
-  ElementInfo *info = (ElementInfo *)userData;
+  ParserAndElementInfo *const parserAndElementInfos
+      = (ParserAndElementInfo *)userData;
+  ElementInfo *info = parserAndElementInfos->info;
   AttrInfo *attr;
   int count, id, i;
 
@@ -120,17 +122,17 @@ counting_start_element_handler(void *userData, const XML_Char *name,
    * is possibly a little unexpected, but it is what the
    * documentation in expat.h tells us to expect.
    */
-  count = XML_GetSpecifiedAttributeCount(g_parser);
+  count = XML_GetSpecifiedAttributeCount(parserAndElementInfos->parser);
   if (info->attr_count * 2 != count) {
     fail("Not got expected attribute count");
     return;
   }
-  id = XML_GetIdAttributeIndex(g_parser);
+  id = XML_GetIdAttributeIndex(parserAndElementInfos->parser);
   if (id == -1 && info->id_name != NULL) {
     fail("ID not present");
     return;
   }
-  if (id != -1 && xcstrcmp(atts[id], info->id_name)) {
+  if (id != -1 && xcstrcmp(atts[id], info->id_name) != 0) {
     fail("ID does not have the correct name");
     return;
   }
@@ -145,7 +147,7 @@ counting_start_element_handler(void *userData, const XML_Char *name,
       fail("Attribute not recognised");
       return;
     }
-    if (xcstrcmp(atts[1], attr->value)) {
+    if (xcstrcmp(atts[1], attr->value) != 0) {
       fail("Attribute has wrong value");
       return;
     }
@@ -530,7 +532,7 @@ external_entity_resetter(XML_Parser parser, const XML_Char *context,
     return XML_STATUS_ERROR;
   }
   /* Check we can't parse here */
-  if (XML_Parse(ext_parser, text, (int)strlen(text), XML_TRUE)
+  if (_XML_Parse_SINGLE_BYTES(ext_parser, text, (int)strlen(text), XML_TRUE)
       != XML_STATUS_ERROR)
     fail("Parsing when finished not faulted");
   if (XML_GetErrorCode(ext_parser) != XML_ERROR_FINISHED)
@@ -667,6 +669,24 @@ external_entity_suspending_faulter(XML_Parser parser, const XML_Char *context,
 
   XML_ParserFree(ext_parser);
   return XML_STATUS_ERROR;
+}
+
+int XMLCALL
+external_entity_failer__if_not_xml_ge(XML_Parser parser,
+                                      const XML_Char *context,
+                                      const XML_Char *base,
+                                      const XML_Char *systemId,
+                                      const XML_Char *publicId) {
+  UNUSED_P(parser);
+  UNUSED_P(context);
+  UNUSED_P(base);
+  UNUSED_P(systemId);
+  UNUSED_P(publicId);
+#if XML_GE == 0
+  fail(
+      "Function external_entity_suspending_failer was called despite XML_GE==0.");
+#endif
+  return XML_STATUS_OK;
 }
 
 int XMLCALL
@@ -1090,7 +1110,7 @@ external_entity_devaluer(XML_Parser parser, const XML_Char *context,
   UNUSED_P(publicId);
   if (systemId == NULL || ! xcstrcmp(systemId, XCS("bar")))
     return XML_STATUS_OK;
-  if (xcstrcmp(systemId, XCS("foo")))
+  if (xcstrcmp(systemId, XCS("foo")) != 0)
     fail("Unexpected system ID");
   ext_parser = XML_ExternalEntityParserCreate(parser, context, NULL);
   if (ext_parser == NULL)
@@ -1147,15 +1167,9 @@ external_entity_loader2(XML_Parser parser, const XML_Char *context,
     if (! XML_SetEncoding(extparser, test_data->encoding))
       fail("XML_SetEncoding() ignored for external entity");
   }
-  if (test_data->flags & EE_PARSE_FULL_BUFFER) {
-    if (XML_Parse(extparser, test_data->parse_text, test_data->parse_len,
-                  XML_TRUE)
-        == XML_STATUS_ERROR) {
-      xml_failure(extparser);
-    }
-  } else if (_XML_Parse_SINGLE_BYTES(extparser, test_data->parse_text,
-                                     test_data->parse_len, XML_TRUE)
-             == XML_STATUS_ERROR) {
+  if (_XML_Parse_SINGLE_BYTES(extparser, test_data->parse_text,
+                              test_data->parse_len, XML_TRUE)
+      == XML_STATUS_ERROR) {
     xml_failure(extparser);
   }
 
@@ -1180,8 +1194,8 @@ external_entity_faulter2(XML_Parser parser, const XML_Char *context,
     if (! XML_SetEncoding(extparser, test_data->encoding))
       fail("XML_SetEncoding() ignored for external entity");
   }
-  if (XML_Parse(extparser, test_data->parse_text, test_data->parse_len,
-                XML_TRUE)
+  if (_XML_Parse_SINGLE_BYTES(extparser, test_data->parse_text,
+                              test_data->parse_len, XML_TRUE)
       != XML_STATUS_ERROR)
     fail(test_data->fail_text);
   if (XML_GetErrorCode(extparser) != test_data->error)
@@ -1262,7 +1276,7 @@ external_entity_duff_loader(XML_Parser parser, const XML_Char *context,
   UNUSED_P(publicId);
   /* Try a few different allocation levels */
   for (i = 0; i < max_alloc_count; i++) {
-    g_allocation_count = i;
+    g_allocation_count = (int)i;
     new_parser = XML_ExternalEntityParserCreate(parser, context, NULL);
     if (new_parser != NULL) {
       XML_ParserFree(new_parser);
@@ -1482,14 +1496,13 @@ external_entity_parser_create_alloc_fail_handler(XML_Parser parser,
   return XML_STATUS_ERROR;
 }
 
-#if defined(XML_DTD)
+#if XML_GE == 1
 int
 accounting_external_entity_ref_handler(XML_Parser parser,
                                        const XML_Char *context,
                                        const XML_Char *base,
                                        const XML_Char *systemId,
                                        const XML_Char *publicId) {
-  UNUSED_P(context);
   UNUSED_P(base);
   UNUSED_P(publicId);
 
@@ -1509,16 +1522,13 @@ accounting_external_entity_ref_handler(XML_Parser parser,
   XML_Parser entParser = XML_ExternalEntityParserCreate(parser, context, 0);
   assert(entParser);
 
-  const XmlParseFunction xmlParseFunction
-      = testCase->singleBytesWanted ? _XML_Parse_SINGLE_BYTES : XML_Parse;
-
-  const enum XML_Status status = xmlParseFunction(
+  const enum XML_Status status = _XML_Parse_SINGLE_BYTES(
       entParser, externalText, (int)strlen(externalText), XML_TRUE);
 
   XML_ParserFree(entParser);
   return status;
 }
-#endif /* XML_DTD */
+#endif /* XML_GE == 1 */
 
 /* NotStandalone handlers */
 
@@ -1542,15 +1552,16 @@ verify_attlist_decl_handler(void *userData, const XML_Char *element_name,
                             const XML_Char *default_value, int is_required) {
   AttTest *at = (AttTest *)userData;
 
-  if (xcstrcmp(element_name, at->element_name))
+  if (xcstrcmp(element_name, at->element_name) != 0)
     fail("Unexpected element name in attribute declaration");
-  if (xcstrcmp(attr_name, at->attr_name))
+  if (xcstrcmp(attr_name, at->attr_name) != 0)
     fail("Unexpected attribute name in attribute declaration");
-  if (xcstrcmp(attr_type, at->attr_type))
+  if (xcstrcmp(attr_type, at->attr_type) != 0)
     fail("Unexpected attribute type in attribute declaration");
   if ((default_value == NULL && at->default_value != NULL)
       || (default_value != NULL && at->default_value == NULL)
-      || (default_value != NULL && xcstrcmp(default_value, at->default_value)))
+      || (default_value != NULL
+          && xcstrcmp(default_value, at->default_value) != 0))
     fail("Unexpected default value in attribute declaration");
   if (is_required != at->is_required)
     fail("Requirement mismatch in attribute declaration");
@@ -1707,9 +1718,11 @@ record_element_end_handler(void *userData, const XML_Char *name) {
 }
 
 const struct handler_record_entry *
-_handler_record_get(const struct handler_record_list *storage, const int index,
-                    const char *file, const int line) {
-  _assert_true(storage->count > index, file, line, "too few handler calls");
+_handler_record_get(const struct handler_record_list *storage, int index,
+                    const char *file, int line) {
+  if (storage->count <= index) {
+    _fail(file, line, "too few handler calls");
+  }
   return &storage->entries[index];
 }
 
@@ -1739,7 +1752,7 @@ param_entity_match_handler(void *userData, const XML_Char *entityName,
      * going to overflow an int.
      */
     if (value_length != (int)xcstrlen(entity_value_to_match)
-        || xcstrncmp(value, entity_value_to_match, value_length)) {
+        || xcstrncmp(value, entity_value_to_match, value_length) != 0) {
       entity_match_flag = ENTITY_MATCH_FAIL;
     } else {
       entity_match_flag = ENTITY_MATCH_SUCCESS;
@@ -1831,6 +1844,15 @@ element_decl_suspender(void *userData, const XML_Char *name,
 }
 
 void XMLCALL
+suspend_after_element_declaration(void *userData, const XML_Char *name,
+                                  XML_Content *model) {
+  UNUSED_P(name);
+  XML_Parser parser = (XML_Parser)userData;
+  assert_true(XML_StopParser(parser, /*resumable*/ XML_TRUE) == XML_STATUS_OK);
+  XML_FreeContentModel(parser, model);
+}
+
+void XMLCALL
 accumulate_pi_characters(void *userData, const XML_Char *target,
                          const XML_Char *data) {
   CharData *storage = (CharData *)userData;
@@ -1863,8 +1885,77 @@ accumulate_entity_decl(void *userData, const XML_Char *entityName,
   UNUSED_P(notationName);
   CharData_AppendXMLChars(storage, entityName, -1);
   CharData_AppendXMLChars(storage, XCS("="), 1);
-  CharData_AppendXMLChars(storage, value, value_length);
+  if (value == NULL)
+    CharData_AppendXMLChars(storage, XCS("(null)"), -1);
+  else
+    CharData_AppendXMLChars(storage, value, value_length);
   CharData_AppendXMLChars(storage, XCS("\n"), 1);
+}
+
+void XMLCALL
+accumulate_char_data_and_suspend(void *userData, const XML_Char *s, int len) {
+  ParserPlusStorage *const parserPlusStorage = (ParserPlusStorage *)userData;
+
+  CharData_AppendXMLChars(parserPlusStorage->storage, s, len);
+
+  for (int i = 0; i < len; i++) {
+    if (s[i] == 'Z') {
+      XML_StopParser(parserPlusStorage->parser, /*resumable=*/XML_TRUE);
+      break;
+    }
+  }
+}
+
+void XMLCALL
+accumulate_start_element(void *userData, const XML_Char *name,
+                         const XML_Char **atts) {
+  CharData *const storage = (CharData *)userData;
+  CharData_AppendXMLChars(storage, XCS("("), 1);
+  CharData_AppendXMLChars(storage, name, -1);
+
+  if ((atts != NULL) && (atts[0] != NULL)) {
+    CharData_AppendXMLChars(storage, XCS("("), 1);
+    while (atts[0] != NULL) {
+      CharData_AppendXMLChars(storage, atts[0], -1);
+      CharData_AppendXMLChars(storage, XCS("="), 1);
+      CharData_AppendXMLChars(storage, atts[1], -1);
+      atts += 2;
+      if (atts[0] != NULL) {
+        CharData_AppendXMLChars(storage, XCS(","), 1);
+      }
+    }
+    CharData_AppendXMLChars(storage, XCS(")"), 1);
+  }
+
+  CharData_AppendXMLChars(storage, XCS(")\n"), 2);
+}
+
+void XMLCALL
+accumulate_characters(void *userData, const XML_Char *s, int len) {
+  CharData *const storage = (CharData *)userData;
+  CharData_AppendXMLChars(storage, s, len);
+}
+
+void XMLCALL
+accumulate_attribute(void *userData, const XML_Char *name,
+                     const XML_Char **atts) {
+  CharData *const storage = (CharData *)userData;
+  UNUSED_P(name);
+  /* Check there are attributes to deal with */
+  if (atts == NULL)
+    return;
+
+  while (storage->count < 0 && atts[0] != NULL) {
+    /* "accumulate" the value of the first attribute we see */
+    CharData_AppendXMLChars(storage, atts[1], -1);
+    atts += 2;
+  }
+}
+
+void XMLCALL
+ext_accumulate_characters(void *userData, const XML_Char *s, int len) {
+  ExtTest *const test_data = (ExtTest *)userData;
+  accumulate_characters(test_data->storage, s, len);
 }
 
 void XMLCALL

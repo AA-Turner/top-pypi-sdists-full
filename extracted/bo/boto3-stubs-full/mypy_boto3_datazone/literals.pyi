@@ -332,6 +332,7 @@ ManagedPolicyTypeType = Literal[
     "DELEGATE_CREATE_ENVIRONMENT_PROFILE",
     "OVERRIDE_DOMAIN_UNIT_OWNERS",
     "OVERRIDE_PROJECT_OWNERS",
+    "USE_ASSET_TYPE",
 ]
 MetadataGenerationRunStatusType = Literal[
     "CANCELED", "FAILED", "IN_PROGRESS", "SUBMITTED", "SUCCEEDED"
@@ -400,7 +401,7 @@ SubscriptionGrantStatusType = Literal[
 SubscriptionRequestStatusType = Literal["ACCEPTED", "PENDING", "REJECTED"]
 SubscriptionStatusType = Literal["APPROVED", "CANCELLED", "REVOKED"]
 TargetEntityTypeType = Literal[
-    "DOMAIN_UNIT", "ENVIRONMENT_BLUEPRINT_CONFIGURATION", "ENVIRONMENT_PROFILE"
+    "ASSET_TYPE", "DOMAIN_UNIT", "ENVIRONMENT_BLUEPRINT_CONFIGURATION", "ENVIRONMENT_PROFILE"
 ]
 TaskStatusType = Literal["ACTIVE", "INACTIVE"]
 TimeSeriesEntityTypeType = Literal["ASSET", "LISTING"]
@@ -842,7 +843,6 @@ ServiceName = Literal[
     "signer",
     "simspaceweaver",
     "sms",
-    "sms-voice",
     "snow-device-management",
     "snowball",
     "sns",

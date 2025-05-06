@@ -18,7 +18,6 @@ from pypika.dialects import SnowflakeQuery
 from pypika.enums import Comparator
 from pypika.functions import Cast
 from pypika.functions import DateAdd
-from pypika.functions import Floor
 from pypika.queries import Query
 from pypika.queries import Selectable
 from pypika.terms import AnalyticFunction
@@ -306,7 +305,7 @@ class CompatFunctions:
             return timestamp
         # Cast explicitly to an integer (which is the expectation), since otherwise SQL will often treat integer
         # division as outputting a double, which is incompatible with to_timestamp(epoch_seconds) functions
-        return Cast(timestamp / int(1e9), as_type="bigint")
+        return timestamp / int(1e9)
 
     @classmethod
     def convert_epoch_seconds_to_feature_store_format_version(
@@ -314,7 +313,7 @@ class CompatFunctions:
     ) -> Term:
         if feature_store_format_version == FeatureStoreFormatVersion.FEATURE_STORE_FORMAT_VERSION_DEFAULT:
             return timestamp
-        return timestamp * int(1e9)
+        return Cast(timestamp * int(1e9), as_type="bigint")
 
     @classmethod
     def over_window(cls, term: Term, window_spec: QueryWindowSpec) -> Term:
@@ -560,7 +559,9 @@ class _DuckDB(CompatFunctions):
 
     @classmethod
     def to_unixtime(cls, timestamp: Term) -> Term:
-        return Cast(Floor(Function("date_part", "epoch", cls.to_timestamp(timestamp))), as_type="int64")
+        # IMPORTANT: date_part function returns float type. We keep it as float to preserve higher granularity.
+        # The caller of this function must convert it to integer if required
+        return Function("date_part", "epoch", cls.to_timestamp(timestamp))
 
     @classmethod
     def to_utc(cls, timestamp: Term) -> Term:

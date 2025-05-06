@@ -65,6 +65,8 @@ elif chip_id == ap_chip.H618:
     from adafruit_blinka.microcontroller.allwinner.h618 import *
 elif chip_id == ap_chip.H616:
     from adafruit_blinka.microcontroller.allwinner.h616 import *
+elif chip_id == ap_chip.T527:
+    from adafruit_blinka.microcontroller.allwinner.t527 import *
 elif chip_id == ap_chip.SAMA5:
     from adafruit_blinka.microcontroller.sama5 import *
 elif chip_id == ap_chip.T210:
@@ -137,6 +139,8 @@ elif chip_id == ap_chip.FT232H:
     from adafruit_blinka.microcontroller.ftdi_mpsse.ft232h import *
 elif chip_id == ap_chip.FT2232H:
     from adafruit_blinka.microcontroller.ftdi_mpsse.ft2232h import *
+elif chip_id == ap_chip.FT4232H:
+    from adafruit_blinka.microcontroller.ftdi_mpsse.ft4232h import *
 elif chip_id == ap_chip.PENTIUM_N3710:
     from adafruit_blinka.microcontroller.pentium.n3710 import *
 elif chip_id == ap_chip.ATOM_J4105:
@@ -159,6 +163,8 @@ elif chip_id == ap_chip.TH1520:
     from adafruit_blinka.microcontroller.thead.th1520 import *
 elif chip_id == ap_chip.K1:
     from adafruit_blinka.microcontroller.spacemit.k1 import *
+elif chip_id == ap_chip.SUNRISE_X3:
+    from adafruit_blinka.microcontroller.horizon.sunrise_x3 import *
 elif chip_id == ap_chip.GENERIC_X86:
     print("WARNING: GENERIC_X86 is not fully supported. Some features may not work.")
 elif chip_id == ap_chip.OS_AGNOSTIC:

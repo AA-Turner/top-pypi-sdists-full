@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: aerospike
-Version: 16.0.2
+Version: 17.0.0
 Summary: Aerospike Client Library for Python
 Author-email: "Aerospike, Inc." <info@aerospike.com>
 License: Apache Software License
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Database
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 Aerospike Python Client
 =======================
@@ -35,7 +36,7 @@ Compatibility
 
 The Python client for Aerospike works with Python 3.9 - 3.13 and supports the following OS'es:
 
-* macOS 13 - 14
+* macOS 13 - 15
 * CentOS 7 Linux
 * RHEL 8 and 9
 * Amazon Linux 2023

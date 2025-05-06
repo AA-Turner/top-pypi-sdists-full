@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sahi
-Version: 0.11.22
+Version: 0.11.23
 Summary: A vision library for performing sliced inference on large images/small objects
 Project-URL: homepage, https://github.com/obss/sahi
 License-Expression: MIT

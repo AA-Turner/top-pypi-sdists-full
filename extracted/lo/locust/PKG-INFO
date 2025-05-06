@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: locust
-Version: 2.36.2
+Version: 2.37.0
 Summary: Developer-friendly load testing framework
 Project-URL: homepage, https://locust.io/
 Project-URL: repository, https://github.com/locustio/locust
@@ -30,7 +30,7 @@ Requires-Dist: flask-login>=0.6.3
 Requires-Dist: flask>=2.0.0
 Requires-Dist: gevent<25.0.0,>=24.10.1
 Requires-Dist: geventhttpclient>=2.3.1
-Requires-Dist: locust-cloud>=1.20.5
+Requires-Dist: locust-cloud>=1.21.1
 Requires-Dist: msgpack>=1.0.0
 Requires-Dist: psutil>=5.9.1
 Requires-Dist: pywin32; sys_platform == 'win32'

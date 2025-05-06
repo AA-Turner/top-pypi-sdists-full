@@ -137,6 +137,13 @@ class RequestsTransport:
         # register internal checks
         self.register_default_retry_checks()
 
+    def close(self) -> None:
+        """
+        Closes all resources owned by the transport, primarily the underlying
+        network session.
+        """
+        self.session.close()
+
     @property
     def user_agent(self) -> str:
         return self._user_agent

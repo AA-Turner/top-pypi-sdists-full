@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-snowpark-python
-Version: 1.31.0
+Version: 1.31.1
 Summary: Snowflake Snowpark for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -331,7 +331,15 @@ Please refer to [CONTRIBUTING.md][contributing].
 
 # Release History
 
-## 1.31.0 (2024-04-24)
+## 1.31.1 (2025-05-05)
+
+### Snowpark Python API Updates
+
+#### Bug Fixes
+
+- Updated conda build configuration to deprecate Python 3.8 support, preventing installation in incompatible environments.
+
+## 1.31.0 (2025-04-24)
 
 ### Snowpark Python API Updates
 

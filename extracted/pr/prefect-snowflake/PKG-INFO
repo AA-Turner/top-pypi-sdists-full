@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-snowflake
-Version: 0.28.3
+Version: 0.28.4
 Summary: Prefect integrations for interacting with Snowflake
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License: Apache License 2.0
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown

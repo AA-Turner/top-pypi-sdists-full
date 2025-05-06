@@ -49,7 +49,9 @@ def test_base_bootstrap_via_pip_invoke(tmp_path, coverage_env, mocker, current_f
 
     original = PipInvoke._execute  # noqa: SLF001
     run = mocker.patch.object(PipInvoke, "_execute", side_effect=_execute)
-    versions = {"pip": "embed", "setuptools": "bundle", "wheel": new["wheel"].split("-")[1]}
+    versions = {"pip": "embed", "setuptools": "bundle"}
+    if sys.version_info[:2] == (3, 8):
+        versions["wheel"] = new["wheel"].split("-")[1]
 
     create_cmd = [
         "--seeder",
@@ -85,5 +87,7 @@ def test_base_bootstrap_via_pip_invoke(tmp_path, coverage_env, mocker, current_f
 
     for key in ("pip", "setuptools", "wheel"):
         if key == no:
+            continue
+        if sys.version_info[:2] >= (3, 9) and key == "wheel":
             continue
         assert locals()[key] in files_post_first_create

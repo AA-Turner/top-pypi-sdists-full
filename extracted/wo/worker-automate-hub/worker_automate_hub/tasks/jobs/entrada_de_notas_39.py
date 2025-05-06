@@ -42,7 +42,7 @@ from worker_automate_hub.utils.util import (
     is_window_open,
     is_window_open_by_class,
     itens_not_found_supplier,
-    kill_process,
+    kill_all_emsys,
     login_emsys,
     rateio_despesa,
     select_documento_type,
@@ -79,8 +79,8 @@ async def entrada_de_notas_39(task: RpaProcessoEntradaDTO) -> RpaRetornoProcesso
         multiplicador_timeout = int(float(task.sistemas[0].timeout))
         set_variable("timeout_multiplicador", multiplicador_timeout)
 
-        # Abre um novo emsys
-        await kill_process("EMSys")
+        # Fecha a instancia do emsys - caso esteja aberta
+        await kill_all_emsys()
 
         #Verifica se a nota ja foi lançada
         console.print("\nVerifica se a nota ja foi lançada...")

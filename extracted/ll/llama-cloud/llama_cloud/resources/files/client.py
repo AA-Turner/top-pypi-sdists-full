@@ -213,7 +213,7 @@ class FilesClient:
 
             - organization_id: typing.Optional[str].
 
-            - name: str.
+            - name: str. Name that will be used for created file. If possible, always include the file extension in the name.
 
             - external_file_id: typing.Optional[str].
 
@@ -318,7 +318,14 @@ class FilesClient:
         resource_info: typing.Optional[typing.Dict[str, typing.Optional[FileCreateFromUrlResourceInfoValue]]] = OMIT,
     ) -> File:
         """
-        Upload a file to S3 from a URL.
+        Upload a file to the project from a URL.
+
+        If name is ommitted in the request payload, the file name will be
+        extracted from the response Content-Disposition header if available
+        or otherwise it will be derived from the URL path.
+
+        If providing the name in the request payload, always suffix the
+        file extension in the name if available.
 
         Parameters:
             - project_id: typing.Optional[str].
@@ -833,7 +840,7 @@ class AsyncFilesClient:
 
             - organization_id: typing.Optional[str].
 
-            - name: str.
+            - name: str. Name that will be used for created file. If possible, always include the file extension in the name.
 
             - external_file_id: typing.Optional[str].
 
@@ -938,7 +945,14 @@ class AsyncFilesClient:
         resource_info: typing.Optional[typing.Dict[str, typing.Optional[FileCreateFromUrlResourceInfoValue]]] = OMIT,
     ) -> File:
         """
-        Upload a file to S3 from a URL.
+        Upload a file to the project from a URL.
+
+        If name is ommitted in the request payload, the file name will be
+        extracted from the response Content-Disposition header if available
+        or otherwise it will be derived from the URL path.
+
+        If providing the name in the request payload, always suffix the
+        file extension in the name if available.
 
         Parameters:
             - project_id: typing.Optional[str].

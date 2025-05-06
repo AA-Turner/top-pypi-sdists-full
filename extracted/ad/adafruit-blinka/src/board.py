@@ -11,7 +11,7 @@ See `CircuitPython:board` in CircuitPython for more details.
 """
 
 
-__version__ = "8.56.0"
+__version__ = "8.57.0"
 __repo__ = "https://github.com/adafruit/Adafruit_Blinka.git"
 __blinka__ = True
 
@@ -131,6 +131,9 @@ elif board_id == ap_board.ORANGE_PI_ZERO_2:
 elif board_id == ap_board.ORANGE_PI_3:
     from adafruit_blinka.board.orangepi.orangepi3 import *
 
+elif board_id == ap_board.ORANGE_PI_3_LTS:
+    from adafruit_blinka.board.orangepi.orangepi3lts import *
+
 elif board_id == ap_board.ORANGE_PI_3B:
     from adafruit_blinka.board.orangepi.orangepi3b import *
 
@@ -140,7 +143,7 @@ elif board_id == ap_board.ORANGE_PI_4:
 elif board_id == ap_board.ORANGE_PI_4_LTS:
     from adafruit_blinka.board.orangepi.orangepi4 import *
 
-elif board_id == ap_board.ORANGE_PI_5:
+elif board_id in (ap_board.ORANGE_PI_5, ap_board.ORANGE_PI_5_MAX):
     from adafruit_blinka.board.orangepi.orangepi5 import *
 
 elif board_id == ap_board.ORANGE_PI_5_PLUS:
@@ -163,6 +166,9 @@ elif board_id == ap_board.BANANA_PI_M5:
 
 elif board_id == ap_board.BANANA_PI_F3:
     from adafruit_blinka.board.bananapi.bpif3 import *
+
+elif board_id == ap_board.BANANA_PI_F5:
+    from adafruit_blinka.board.bananapi.bpif5 import *
 
 elif board_id == ap_board.LEMAKER_BANANA_PRO:
     from adafruit_blinka.board.lemaker.bananapro import *
@@ -233,6 +239,9 @@ elif board_id == ap_board.FTDI_FT232H:
 elif board_id == ap_board.FTDI_FT2232H:
     from adafruit_blinka.board.ftdi_ft2232h import *
 
+elif board_id == ap_board.FTDI_FT4232H:
+    from adafruit_blinka.board.ftdi_ft4232h import *
+
 elif board_id == ap_board.BINHO_NOVA:
     from adafruit_blinka.board.binho_nova import *
 
@@ -275,6 +284,9 @@ elif board_id == ap_board.RADXA_CM3:
 elif board_id == ap_board.ROCK_PI_3A:
     from adafruit_blinka.board.radxa.rockpi3a import *
 
+elif board_id == ap_board.ROCK_3B:
+    from adafruit_blinka.board.radxa.rock3b import *
+
 elif board_id == ap_board.ROCK_PI_3C:
     from adafruit_blinka.board.radxa.rockpi3c import *
 
@@ -304,6 +316,12 @@ elif board_id == ap_board.ROCK_PI_5C:
 
 elif board_id == ap_board.ROCK_PI_E:
     from adafruit_blinka.board.radxa.rockpie import *
+
+elif board_id == ap_board.VAAMAN:
+    from adafruit_blinka.board.vicharak.vaaman import *
+
+elif board_id == ap_board.AXON:
+    from adafruit_blinka.board.vicharak.axon import *
 
 elif board_id == ap_board.UDOO_X86:
     from adafruit_blinka.board.udoo_x86ultra import *
@@ -436,6 +454,9 @@ elif board_id == ap_board.VIVID_UNIT:
 
 elif board_id == ap_board.INDIEDROID_NOVA:
     from adafruit_blinka.board.ameridroid.indiedroid_nova import *
+
+elif board_id == ap_board.RDK_X3:
+    from adafruit_blinka.board.horizon.rdkx3 import *
 
 elif "sphinx" in sys.modules:
     pass

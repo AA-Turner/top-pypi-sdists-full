@@ -1,9 +1,9 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: geoip2
-Version: 5.0.1
+Version: 5.1.0
 Summary: MaxMind GeoIP2 API
 Author-email: Gregory Oschwald <goschwald@maxmind.com>
-License: Apache License, Version 2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://www.maxmind.com/
 Project-URL: Documentation, https://geoip2.readthedocs.org/
 Project-URL: Source Code, https://github.com/maxmind/GeoIP2-python
@@ -12,7 +12,6 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -26,10 +25,9 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: aiohttp<4.0.0,>=3.6.2
-Requires-Dist: maxminddb<3.0.0,>=2.5.1
+Requires-Dist: maxminddb<3.0.0,>=2.7.0
 Requires-Dist: requests<3.0.0,>=2.24.0
-Provides-Extra: test
-Requires-Dist: pytest-httpserver>=1.0.10; extra == "test"
+Dynamic: license-file
 
 =========================
 MaxMind GeoIP2 Python API
@@ -51,12 +49,12 @@ To install the ``geoip2`` module, type:
 
     $ pip install geoip2
 
-If you are not able to use pip, you may also use easy_install from the
+If you are not able to install from PyPI, you may also use ``pip`` from the
 source directory:
 
 .. code-block:: bash
 
-    $ easy_install .
+    $ python -m pip install .
 
 Database Reader Extension
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -300,6 +298,42 @@ Anonymous IP Database
     '203.0.113.0'
     >>>     response.network
     IPv4Network('203.0.113.0/24')
+
+Anonymous Plus Database
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: pycon
+
+    >>> import geoip2.database
+    >>>
+    >>> # This creates a Reader object. You should use the same object
+    >>> # across multiple requests as creation of it is expensive.
+    >>> with geoip2.database.Reader('/path/to/GeoIP-Anonymous-Plus.mmdb') as reader:
+    >>>
+    >>>     response = reader.anonymous_plus('203.0.113.0')
+    >>>
+    >>>     response.anonymizer_confidence
+    30
+    >>>     response.is_anonymous
+    True
+    >>>     response.is_anonymous_vpn
+    True
+    >>>     response.is_hosting_provider
+    False
+    >>>     response.is_public_proxy
+    False
+    >>>     response.is_residential_proxy
+    False
+    >>>     response.is_tor_exit_node
+    False
+    >>>     response.ip_address
+    '203.0.113.0'
+    >>>     response.network
+    IPv4Network('203.0.113.0/24')
+    >>>     response.network_last_seen
+    datetime.date(2025, 4, 18)
+    >>>     response.provider_name
+    FooBar VPNs
 
 ASN Database
 ^^^^^^^^^^^^

@@ -6536,7 +6536,7 @@ l_creturn_answer = {
     'ar': "✖️ تمت إعادة تعيين <b>الإعدادات</b> لـ [<b>{0}</b>] بنجاح!",
 }
 l_cdelete_text = {
-    'ru': "🚫 <b>Убрать</b> привязку бота к [<b>{0}</b>]?",
+    'ru': "🚫 <b>Убрать</b> привязку @{0}-приложения к [<b>{1}</b>]?",
     'en': "🚫 <b>Remove</b> bot binding to [<b>{0}</b>]?",
     'es': "🚫 ¿<b>Eliminar</b> el enlace del bot a [<b>{0}</b>]?",
     'fr': "🚫 <b>Supprimer</b> la liaison du bot à [<b>{0}</b>] ?",
@@ -6544,7 +6544,7 @@ l_cdelete_text = {
     'ar': "🚫 <b>إزالة</b> ربط الروبوت بـ [<b>{0}</b>]؟",
 }
 l_cdelete_answer = {
-    'ru': "🚫 <b>Бот</b> успешно отсоединен от [<b>{0}</b>] и не числится его в участниках!",
+    'ru': "🚫 @{0}-приложение отсоединено от [<b>{1}</b>] и не числится его в участниках!",
     'en': "🚫 <b>Bot</b> has been successfully unlinked from [<b>{0}</b>] and is not listed as a participant!",
     'es': "🚫 <b>Bot</b> se ha desvinculado correctamente de [<b>{0}</b>] y no figura como participante.",
     'fr': "🚫 Le <b>Bot</b> a été dissocié avec succès de [<b>{0}</b>] et n'est pas répertorié comme participant !",

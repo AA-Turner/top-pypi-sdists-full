@@ -20980,6 +20980,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
+        :param bool skip_job_details: Skip decorating job details, which can be an expensive operation.
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -21004,6 +21005,7 @@ class DefaultApi(object):
 
         :param async_req bool: execute request asynchronously
         :param str cluster_id: (required)
+        :param bool skip_job_details: Skip decorating job details, which can be an expensive operation.
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -21021,7 +21023,8 @@ class DefaultApi(object):
         local_var_params = locals()
 
         all_params = [
-            'cluster_id'
+            'cluster_id',
+            'skip_job_details'
         ]
         all_params.extend(
             [
@@ -21052,6 +21055,8 @@ class DefaultApi(object):
         query_params = []
         if 'cluster_id' in local_var_params and local_var_params['cluster_id'] is not None:  # noqa: E501
             query_params.append(('cluster_id', local_var_params['cluster_id']))  # noqa: E501
+        if 'skip_job_details' in local_var_params and local_var_params['skip_job_details'] is not None:  # noqa: E501
+            query_params.append(('skip_job_details', local_var_params['skip_job_details']))  # noqa: E501
 
         header_params = {}
 
@@ -26313,6 +26318,122 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='ListraysessionsresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def list_recommended_workspace_templates_api_v2_experimental_workspaces_templates_recommended_get(self, **kwargs):  # noqa: E501
+        """List Recommended Workspace Templates  # noqa: E501
+
+        Lists all workspace templates ranked by user's organization marketing questions  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_recommended_workspace_templates_api_v2_experimental_workspaces_templates_recommended_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int count: Maximum number of templates to return
+        :param list[str] oa_group_names: Search for templates that belong to the provided group name
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: WorkspacetemplateListResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.list_recommended_workspace_templates_api_v2_experimental_workspaces_templates_recommended_get_with_http_info(**kwargs)  # noqa: E501
+
+    def list_recommended_workspace_templates_api_v2_experimental_workspaces_templates_recommended_get_with_http_info(self, **kwargs):  # noqa: E501
+        """List Recommended Workspace Templates  # noqa: E501
+
+        Lists all workspace templates ranked by user's organization marketing questions  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.list_recommended_workspace_templates_api_v2_experimental_workspaces_templates_recommended_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param int count: Maximum number of templates to return
+        :param list[str] oa_group_names: Search for templates that belong to the provided group name
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(WorkspacetemplateListResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'count',
+            'oa_group_names'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method list_recommended_workspace_templates_api_v2_experimental_workspaces_templates_recommended_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+        if 'count' in local_var_params and local_var_params['count'] is not None:  # noqa: E501
+            query_params.append(('count', local_var_params['count']))  # noqa: E501
+        if 'oa_group_names' in local_var_params and local_var_params['oa_group_names'] is not None:  # noqa: E501
+            query_params.append(('oa_group_names', local_var_params['oa_group_names']))  # noqa: E501
+            collection_formats['oa_group_names'] = 'multi'  # noqa: E501
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/experimental_workspaces/templates/recommended', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='WorkspacetemplateListResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

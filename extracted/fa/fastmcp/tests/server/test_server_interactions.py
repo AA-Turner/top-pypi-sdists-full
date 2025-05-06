@@ -18,7 +18,7 @@ from pydantic import AnyUrl, Field
 
 from fastmcp import Client, Context, FastMCP
 from fastmcp.exceptions import ClientError
-from fastmcp.prompts.prompt import EmbeddedResource, Message, UserMessage
+from fastmcp.prompts.prompt import EmbeddedResource, PromptMessage
 from fastmcp.resources import FileResource, FunctionResource
 from fastmcp.utilities.types import Image
 
@@ -460,7 +460,7 @@ class TestToolParameters:
             pass
 
         async with Client(mcp) as client:
-            with pytest.raises(ClientError, match="Field required"):
+            with pytest.raises(ClientError, match="Missing required argument"):
                 await client.call_tool("analyze", {})
 
     async def test_literal_type_validation_error(self):
@@ -537,7 +537,7 @@ class TestToolParameters:
             assert isinstance(result[0], TextContent)
             assert result[0].text == "1.0"
 
-            with pytest.raises(ClientError, match="2 validation errors for analyze"):
+            with pytest.raises(ClientError, match="2 validation errors"):
                 await client.call_tool("analyze", {"x": "not a number"})
 
     async def test_path_type(self):
@@ -930,7 +930,7 @@ class TestResourceTemplates:
 
         with pytest.raises(
             ValueError,
-            match="URI parameters .* must be a subset of the required function arguments",
+            match="Required function arguments .* must be a subset of the URI parameters",
         ):
 
             @mcp.resource("resource://{name}/data")
@@ -958,7 +958,7 @@ class TestResourceTemplates:
 
         with pytest.raises(
             ValueError,
-            match="URI parameters .* must be a subset of the required function arguments",
+            match="Required function arguments .* must be a subset of the URI parameters",
         ):
 
             @mcp.resource("resource://{org}/{repo}/data")
@@ -976,6 +976,19 @@ class TestResourceTemplates:
             result = await client.read_resource(AnyUrl("resource://static"))
             assert isinstance(result[0], TextResourceContents)
             assert result[0].text == "Static data"
+
+    async def test_template_with_varkwargs(self):
+        """Test that a template can have **kwargs."""
+        mcp = FastMCP()
+
+        @mcp.resource("test://{x}/{y}/{z}")
+        def func(**kwargs: int) -> int:
+            return sum(kwargs.values())
+
+        async with Client(mcp) as client:
+            result = await client.read_resource(AnyUrl("test://1/2/3"))
+            assert isinstance(result[0], TextResourceContents)
+            assert result[0].text == "6"
 
     async def test_template_with_default_params(self):
         """Test that a template can have default parameters."""
@@ -1254,8 +1267,8 @@ class TestPrompts:
 
         async with Client(mcp) as client:
             result = await client.get_prompt("fn", {"name": "World"})
-            assert len(result) == 1
-            message = result[0]
+            assert len(result.messages) == 1
+            message = result.messages[0]
             assert message.role == "user"
             content = message.content
             assert isinstance(content, TextContent)
@@ -1266,8 +1279,9 @@ class TestPrompts:
         mcp = FastMCP()
 
         @mcp.prompt()
-        def fn() -> Message:
-            return UserMessage(
+        def fn() -> PromptMessage:
+            return PromptMessage(
+                role="user",
                 content=EmbeddedResource(
                     type="resource",
                     resource=TextResourceContents(
@@ -1275,13 +1289,13 @@ class TestPrompts:
                         text="File contents",
                         mimeType="text/plain",
                     ),
-                )
+                ),
             )
 
         async with Client(mcp) as client:
             result = await client.get_prompt("fn")
-            assert result[0].role == "user"
-            content = result[0].content
+            assert result.messages[0].role == "user"
+            content = result.messages[0].content
             assert isinstance(content, EmbeddedResource)
             resource = content.resource
             assert isinstance(resource, TextResourceContents)
@@ -1357,6 +1371,6 @@ class TestPromptContext:
 
         async with Client(mcp) as client:
             result = await client.get_prompt("prompt_fn", {"name": "World"})
-            assert len(result) == 1
-            message = result[0]
+            assert len(result.messages) == 1
+            message = result.messages[0]
             assert message.role == "user"

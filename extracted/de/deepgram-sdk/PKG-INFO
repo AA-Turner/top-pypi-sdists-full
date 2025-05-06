@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepgram-sdk
-Version: 3.11.0
+Version: 4.0.0
 Summary: The official Python SDK for the Deepgram automated speech recognition platform.
 Home-page: https://github.com/deepgram/deepgram-python-sdk
 Author: Deepgram

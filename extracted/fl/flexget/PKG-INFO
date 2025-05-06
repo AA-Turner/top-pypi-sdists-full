@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flexget
-Version: 3.15.38
+Version: 3.15.39
 Summary: FlexGet is a program aimed to automate downloading or processing content (torrents, podcasts, etc.) from different sources like RSS-feeds, html-pages, various sites and more.
 Project-URL: Homepage, https://flexget.com
 Project-URL: Issue Tracker, https://github.com/Flexget/Flexget/issues
@@ -66,7 +66,7 @@ Requires-Dist: zxcvbn~=4.4
 Provides-Extra: all
 Requires-Dist: anyio==4.9.0; extra == 'all'
 Requires-Dist: certifi==2025.4.26; extra == 'all'
-Requires-Dist: charset-normalizer==3.4.1; extra == 'all'
+Requires-Dist: charset-normalizer==3.4.2; extra == 'all'
 Requires-Dist: deluge-client==1.10.2; extra == 'all'
 Requires-Dist: exceptiongroup==1.2.2; (python_full_version < '3.11') and extra == 'all'
 Requires-Dist: h11==0.16.0; extra == 'all'
@@ -78,7 +78,7 @@ Requires-Dist: hyperframe==6.1.0; extra == 'all'
 Requires-Dist: idna==3.10; extra == 'all'
 Requires-Dist: packaging==25.0; extra == 'all'
 Requires-Dist: python-telegram-bot==21.11.1; extra == 'all'
-Requires-Dist: qbittorrent-api==2025.4.1; extra == 'all'
+Requires-Dist: qbittorrent-api==2025.5.0; extra == 'all'
 Requires-Dist: requests==2.32.3; extra == 'all'
 Requires-Dist: sniffio==1.3.1; extra == 'all'
 Requires-Dist: socksio==1.0.0; extra == 'all'
@@ -102,7 +102,7 @@ Requires-Dist: brotlicffi==1.1.0.0; (platform_python_implementation == 'PyPy') a
 Requires-Dist: certifi==2025.4.26; extra == 'locked'
 Requires-Dist: cffi==1.17.1; (platform_python_implementation == 'PyPy') and extra == 'locked'
 Requires-Dist: cfgv==3.4.0; extra == 'locked'
-Requires-Dist: charset-normalizer==3.4.1; extra == 'locked'
+Requires-Dist: charset-normalizer==3.4.2; extra == 'locked'
 Requires-Dist: cheroot==10.0.1; extra == 'locked'
 Requires-Dist: cherrypy==18.10.0; extra == 'locked'
 Requires-Dist: click==8.1.8; extra == 'locked'
@@ -166,8 +166,8 @@ Requires-Dist: requests==2.32.3; extra == 'locked'
 Requires-Dist: rich==14.0.0; extra == 'locked'
 Requires-Dist: rpds-py==0.24.0; extra == 'locked'
 Requires-Dist: rpyc==6.0.2; extra == 'locked'
-Requires-Dist: ruff==0.11.7; extra == 'locked'
-Requires-Dist: setuptools==80.0.0; extra == 'locked'
+Requires-Dist: ruff==0.11.8; extra == 'locked'
+Requires-Dist: setuptools==80.3.1; extra == 'locked'
 Requires-Dist: sgmllib3k==1.0.0; extra == 'locked'
 Requires-Dist: six==1.17.0; extra == 'locked'
 Requires-Dist: soupsieve==2.7; extra == 'locked'
@@ -191,10 +191,10 @@ Requires-Dist: zstandard==0.23.0; extra == 'locked'
 Requires-Dist: zxcvbn==4.5.0; extra == 'locked'
 Provides-Extra: qbittorrent
 Requires-Dist: certifi==2025.4.26; extra == 'qbittorrent'
-Requires-Dist: charset-normalizer==3.4.1; extra == 'qbittorrent'
+Requires-Dist: charset-normalizer==3.4.2; extra == 'qbittorrent'
 Requires-Dist: idna==3.10; extra == 'qbittorrent'
 Requires-Dist: packaging==25.0; extra == 'qbittorrent'
-Requires-Dist: qbittorrent-api==2025.4.1; extra == 'qbittorrent'
+Requires-Dist: qbittorrent-api==2025.5.0; extra == 'qbittorrent'
 Requires-Dist: requests==2.32.3; extra == 'qbittorrent'
 Requires-Dist: urllib3==1.26.20; extra == 'qbittorrent'
 Provides-Extra: telegram
@@ -214,7 +214,7 @@ Requires-Dist: socksio==1.0.0; extra == 'telegram'
 Requires-Dist: typing-extensions==4.13.2; (python_full_version < '3.13') and extra == 'telegram'
 Provides-Extra: transmission
 Requires-Dist: certifi==2025.4.26; extra == 'transmission'
-Requires-Dist: charset-normalizer==3.4.1; extra == 'transmission'
+Requires-Dist: charset-normalizer==3.4.2; extra == 'transmission'
 Requires-Dist: idna==3.10; extra == 'transmission'
 Requires-Dist: requests==2.32.3; extra == 'transmission'
 Requires-Dist: transmission-rpc==7.0.11; extra == 'transmission'

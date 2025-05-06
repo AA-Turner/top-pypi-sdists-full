@@ -1,39 +1,34 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: streamlit-extras
-Version: 0.6.0
+Version: 0.7.0
 Summary: A library to discover, try, install and share Streamlit extras
-License: Apache-2.0
-Keywords: python,streamlit,ui,data
-Author: Arnaud Miribel
-Author-email: arnaudmiribel@gmail.com
-Requires-Python: >=3.8, !=2.7.*, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, !=3.7.*
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: entrypoints (>=0.4)
-Requires-Dist: htbuilder (>=0.6.2)
-Requires-Dist: markdownlit (>=0.0.5)
-Requires-Dist: plotly (>=1.0.0)
-Requires-Dist: prometheus-client (>=0.14.0)
-Requires-Dist: protobuf (!=3.20.2)
-Requires-Dist: st-annotated-text (>=3.0.0)
-Requires-Dist: st-theme (>=1.0.1)
-Requires-Dist: streamlit (>=1.0.0)
-Requires-Dist: streamlit-avatar (>=0.1.3)
-Requires-Dist: streamlit-camera-input-live (>=0.2.0)
-Requires-Dist: streamlit-card (>=0.0.4)
-Requires-Dist: streamlit-embedcode (>=0.1.2)
-Requires-Dist: streamlit-faker (>=0.0.2)
-Requires-Dist: streamlit-image-coordinates (>=0.1.1,<0.2.0)
-Requires-Dist: streamlit-keyup (>=0.1.9)
-Requires-Dist: streamlit-toggle-switch (>=1.0.2)
-Requires-Dist: streamlit-vertical-slider (>=2.5.5)
-Requires-Dist: validators (>=0.20.0)
+Project-URL: Homepage, https://github.com/arnaudmiribel/streamlit-extras
+Project-URL: Bug Tracker, https://github.com/arnaudmiribel/streamlit-extras/issues
+Author-email: Arnaud Miribel <arnaudmiribel@gmail.com>, Zachary Blackwood <zachary@streamlit.io>
+License-Expression: Apache-2.0
+License-File: LICENSE
+Keywords: data,python,streamlit,ui
+Requires-Python: <3.14,>=3.9
+Requires-Dist: entrypoints==0.4
+Requires-Dist: htbuilder==0.6.2
+Requires-Dist: markdownlit==0.0.7
+Requires-Dist: plotly==5.23.0
+Requires-Dist: prometheus-client==0.20.0
+Requires-Dist: protobuf==5.27.3
+Requires-Dist: snowflake-snowpark-python[pandas]>=1.30.0
+Requires-Dist: st-annotated-text==4.0.1
+Requires-Dist: st-theme==1.2.3
+Requires-Dist: streamlit-avatar==0.1.3
+Requires-Dist: streamlit-camera-input-live==0.2.0
+Requires-Dist: streamlit-card==1.0.2
+Requires-Dist: streamlit-embedcode==0.1.2
+Requires-Dist: streamlit-faker==0.0.3
+Requires-Dist: streamlit-image-coordinates==0.1.9
+Requires-Dist: streamlit-keyup==0.2.4
+Requires-Dist: streamlit-toggle-switch==1.0.2
+Requires-Dist: streamlit-vertical-slider==2.5.5
+Requires-Dist: streamlit==1.37.0
+Requires-Dist: validators==0.33.0
 Description-Content-Type: text/markdown
 
 
@@ -90,4 +85,3 @@ Visit <a href="https://arnaudmiribel.github.io/streamlit-extras/">https://arnaud
 PRs are welcome! Guidelines <a href="https://arnaudmiribel.github.io/streamlit-extras/contributing/">here</a>
 
 <sup>README template taken from <a href="https://github.com/LukasMasuch/streamlit-pydantic">LukasMasuch/streamlit-pydantic</a></sup>
-

@@ -103,6 +103,7 @@ if _ABLE_TO_COMPILE_EXTENSIONS and not SNOWFLAKE_DISABLE_COMPILE_ARROW_EXTENSION
                         "FixedSizeListConverter.cpp",
                         "FloatConverter.cpp",
                         "IntConverter.cpp",
+                        "IntervalConverter.cpp",
                         "MapConverter.cpp",
                         "ObjectConverter.cpp",
                         "SnowflakeType.cpp",
@@ -174,7 +175,7 @@ if _ABLE_TO_COMPILE_EXTENSIONS and not SNOWFLAKE_DISABLE_COMPILE_ARROW_EXTENSION
     cmd_class = {"build_ext": MyBuildExt}
 
 setup(
-    version="2025.04.29",
+    version="2025.05.06",
     ext_modules=extensions,
     cmdclass=cmd_class,
 )

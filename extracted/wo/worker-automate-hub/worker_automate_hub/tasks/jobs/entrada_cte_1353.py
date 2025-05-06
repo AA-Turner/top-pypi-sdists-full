@@ -13,12 +13,11 @@ from worker_automate_hub.models.dto.rpa_processo_entrada_dto import (
 from rich.console import Console
 import re
 from pywinauto.keyboard import send_keys
-from worker_automate_hub.utils.util import login_emsys
+from worker_automate_hub.utils.util import kill_all_emsys, login_emsys
 import warnings
 from pywinauto.application import Application
 from worker_automate_hub.api.client import get_config_by_name, get_status_cte_emsys
 from worker_automate_hub.utils.util import (
-    kill_process,
     set_variable,
     type_text_into_field,
     worker_sleep,
@@ -83,7 +82,8 @@ async def entrada_cte_1353(task: RpaProcessoEntradaDTO):
         multiplicador_timeout = int(float(task.sistemas[0].timeout))
         set_variable("timeout_multiplicador", multiplicador_timeout)
 
-        await kill_process("EMSys")
+        # Fecha a instancia do emsys - caso esteja aberta
+        await kill_all_emsys()
 
         # Verifica se o CTE ja foi lançado
         console.print("\nVerifica se o CTE ja foi lançado...")

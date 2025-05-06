@@ -2,7 +2,7 @@
 
 # update/gs1_ai.py - script to get GS1 application identifiers
 #
-# Copyright (C) 2019-2024 Arthur de Jong
+# Copyright (C) 2019-2025 Arthur de Jong
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -30,7 +30,7 @@ import requests
 
 
 # the location of the GS1 application identifiers
-download_url = 'https://www.gs1.org/standards/barcodes/application-identifiers'
+download_url = 'https://ref.gs1.org/ai/'
 
 
 # The user agent that will be passed in requests
@@ -55,8 +55,8 @@ def fetch_ais():
             yield (
                 ai,
                 formatstring,
-                entry['fnc1required'],
-                entry['label'].strip(),
+                entry['separatorRequired'],
+                entry['title'].strip(),
                 entry['description'].strip())
 
 
@@ -75,7 +75,7 @@ def group_ai_ranges():
 
 if __name__ == '__main__':
     print('# generated from %s' % download_url)
-    print('# on %s' % datetime.datetime.utcnow())
+    print('# on %s' % datetime.datetime.now(datetime.UTC))
     for ai1, ai2, format, require_fnc1, name, description in group_ai_ranges():
         _type = 'str'
         if re.match(r'^(N[68]\[?\+)?N[0-9]*[.]*[0-9]+\]?$', format) and 'date' in description.lower():

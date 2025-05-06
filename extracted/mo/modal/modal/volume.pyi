@@ -406,11 +406,15 @@ class VolumeUploadContextManager(AbstractVolumeUploadContextManager):
 class _VolumeUploadContextManager2(_AbstractVolumeUploadContextManager):
     _volume_id: str
     _client: modal.client._Client
-    _force: bool
     _progress_cb: collections.abc.Callable[..., typing.Any]
+    _force: bool
+    _hash_concurrency: int
+    _put_concurrency: int
     _uploader_generators: list[
         collections.abc.Generator[
-            collections.abc.Callable[[], typing.Awaitable[modal._utils.blob_utils.FileUploadSpec2]]
+            collections.abc.Callable[
+                [asyncio.locks.Semaphore], typing.Awaitable[modal._utils.blob_utils.FileUploadSpec2]
+            ]
         ]
     ]
 
@@ -420,6 +424,8 @@ class _VolumeUploadContextManager2(_AbstractVolumeUploadContextManager):
         client: modal.client._Client,
         progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
         force: bool = False,
+        hash_concurrency: int = 4,
+        put_concurrency: int = 4,
     ): ...
     async def __aenter__(self): ...
     async def __aexit__(self, exc_type, exc_val, exc_tb): ...
@@ -440,11 +446,15 @@ class _VolumeUploadContextManager2(_AbstractVolumeUploadContextManager):
 class VolumeUploadContextManager2(AbstractVolumeUploadContextManager):
     _volume_id: str
     _client: modal.client.Client
-    _force: bool
     _progress_cb: collections.abc.Callable[..., typing.Any]
+    _force: bool
+    _hash_concurrency: int
+    _put_concurrency: int
     _uploader_generators: list[
         collections.abc.Generator[
-            collections.abc.Callable[[], typing.Awaitable[modal._utils.blob_utils.FileUploadSpec2]]
+            collections.abc.Callable[
+                [asyncio.locks.Semaphore], typing.Awaitable[modal._utils.blob_utils.FileUploadSpec2]
+            ]
         ]
     ]
 
@@ -454,6 +464,8 @@ class VolumeUploadContextManager2(AbstractVolumeUploadContextManager):
         client: modal.client.Client,
         progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
         force: bool = False,
+        hash_concurrency: int = 4,
+        put_concurrency: int = 4,
     ): ...
     def __enter__(self): ...
     async def __aenter__(self): ...
@@ -482,6 +494,7 @@ async def _put_missing_blocks(
     file_specs: list[modal._utils.blob_utils.FileUploadSpec2],
     missing_blocks: list,
     put_responses: dict[bytes, bytes],
+    put_concurrency: int,
     progress_cb: collections.abc.Callable[..., typing.Any],
 ): ...
 def _open_files_error_annotation(mount_path: str) -> typing.Optional[str]: ...

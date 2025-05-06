@@ -13,11 +13,12 @@ use chroma_types::{
     CreateDatabaseResponse, CreateTenantRequest, CreateTenantResponse,
     DeleteCollectionRecordsResponse, DeleteDatabaseRequest, DeleteDatabaseResponse,
     GetCollectionRequest, GetDatabaseRequest, GetDatabaseResponse, GetRequest, GetResponse,
-    GetTenantRequest, GetTenantResponse, GetUserIdentityResponse, HeartbeatResponse, IncludeList,
-    InternalCollectionConfiguration, ListCollectionsRequest, ListCollectionsResponse,
-    ListDatabasesRequest, ListDatabasesResponse, Metadata, QueryRequest, QueryResponse,
-    UpdateCollectionConfiguration, UpdateCollectionRecordsResponse, UpdateCollectionResponse,
-    UpdateMetadata, UpsertCollectionRecordsResponse,
+    GetTenantRequest, GetTenantResponse, GetUserIdentityResponse, HeartbeatResponse,
+    HnswConfiguration, IncludeList, InternalCollectionConfiguration, ListCollectionsRequest,
+    ListCollectionsResponse, ListDatabasesRequest, ListDatabasesResponse, Metadata, QueryRequest,
+    QueryResponse, SpannConfiguration, UpdateCollectionConfiguration,
+    UpdateCollectionRecordsResponse, UpdateCollectionResponse, UpdateMetadata,
+    UpsertCollectionRecordsResponse,
 };
 use chroma_types::{ForkCollectionResponse, RawWhereFields};
 use mdac::{Rule, Scorecard, ScorecardTicket};
@@ -81,7 +82,7 @@ async fn graceful_shutdown(system: System) {
             system.stop().await;
             system.join().await;
         },
-    };
+    }
 }
 
 pub struct Metrics {
@@ -911,12 +912,85 @@ async fn create_collection(
         format!("tenant:{}", tenant).as_str(),
     ])?;
 
-    let configuration = match payload.configuration {
-        Some(c) => Some(InternalCollectionConfiguration::try_from_config(
-            c,
-            server.config.frontend.default_knn_index,
-        )?),
-        None => None,
+    let payload_clone = payload.clone();
+
+    let configuration = if !server.config.enable_set_index_params {
+        if let Some(mut new_configuration) = payload.configuration.clone() {
+            let hnsw_config = new_configuration.hnsw.clone();
+            let spann_config = new_configuration.spann.clone();
+
+            if let Some(hnsw) = &hnsw_config {
+                let space = hnsw.space.clone();
+                if hnsw.ef_construction.is_some()
+                    || hnsw.ef_search.is_some()
+                    || hnsw.max_neighbors.is_some()
+                    || hnsw.num_threads.is_some()
+                    || hnsw.resize_factor.is_some()
+                    || hnsw.sync_threshold.is_some()
+                    || hnsw.batch_size.is_some()
+                {
+                    return Err(ValidationError::SpaceConfigurationForVectorIndexType(
+                        "HNSW".to_string(),
+                    )
+                    .into());
+                }
+                let new_hnsw = HnswConfiguration {
+                    space,
+                    ..Default::default()
+                };
+                new_configuration.hnsw = Some(new_hnsw);
+            } else if let Some(spann) = &spann_config {
+                let space = spann.space.clone();
+                if spann.search_nprobe.is_some()
+                    || spann.write_nprobe.is_some()
+                    || spann.ef_construction.is_some()
+                    || spann.ef_search.is_some()
+                    || spann.max_neighbors.is_some()
+                    || spann.reassign_neighbor_count.is_some()
+                    || spann.split_threshold.is_some()
+                    || spann.merge_threshold.is_some()
+                {
+                    return Err(ValidationError::SpaceConfigurationForVectorIndexType(
+                        "SPANN".to_string(),
+                    )
+                    .into());
+                }
+                let new_spann = SpannConfiguration {
+                    space,
+                    ..Default::default()
+                };
+                new_configuration.spann = Some(new_spann);
+            }
+
+            Some(InternalCollectionConfiguration::try_from_config(
+                new_configuration,
+                server.config.frontend.default_knn_index,
+            )?)
+        } else {
+            Some(InternalCollectionConfiguration::try_from_config(
+                CollectionConfiguration {
+                    hnsw: None,
+                    spann: None,
+                    embedding_function: None,
+                },
+                server.config.frontend.default_knn_index,
+            )?)
+        }
+    } else {
+        match payload_clone.configuration {
+            Some(c) => Some(InternalCollectionConfiguration::try_from_config(
+                c,
+                server.config.frontend.default_knn_index,
+            )?),
+            None => Some(InternalCollectionConfiguration::try_from_config(
+                CollectionConfiguration {
+                    hnsw: None,
+                    spann: None,
+                    embedding_function: None,
+                },
+                server.config.frontend.default_knn_index,
+            )?),
+        }
     };
 
     let request = CreateCollectionRequest::try_new(
@@ -1135,7 +1209,7 @@ pub struct ForkCollectionPayload {
     )
 )]
 async fn fork_collection(
-    _headers: HeaderMap,
+    headers: HeaderMap,
     Path((tenant, database, collection_id)): Path<(String, String, String)>,
     State(mut server): State<FrontendServer>,
     Json(payload): Json<ForkCollectionPayload>,
@@ -1150,19 +1224,17 @@ async fn fork_collection(
     tracing::info!(
         "Forking collection [{collection_id}] in database [{database}] for tenant [{tenant}]"
     );
-    // NOTE: The quota check if skipped for fork collection for now, and we rely on the scorecard to limit access to certain tenents
-    // TODO: Unify the quota and scorecard
-    // server
-    //     .authenticate_and_authorize(
-    //         &headers,
-    //         AuthzAction::ForkCollection,
-    //         AuthzResource {
-    //             tenant: Some(tenant.clone()),
-    //             database: Some(database.clone()),
-    //             collection: Some(collection_id.clone()),
-    //         },
-    //     )
-    //     .await?;
+    server
+        .authenticate_and_authorize(
+            &headers,
+            AuthzAction::ForkCollection,
+            AuthzResource {
+                tenant: Some(tenant.clone()),
+                database: Some(database.clone()),
+                collection: Some(collection_id.clone()),
+            },
+        )
+        .await?;
     let _guard =
         server.scorecard_request(&["op:fork_collection", format!("tenant:{}", tenant).as_str()])?;
     let collection_id =
@@ -1185,6 +1257,24 @@ pub struct AddCollectionRecordsPayload {
     documents: Option<Vec<Option<String>>>,
     uris: Option<Vec<Option<String>>>,
     metadatas: Option<Vec<Option<Metadata>>>,
+}
+
+impl AddCollectionRecordsPayload {
+    pub fn new(
+        ids: Vec<String>,
+        embeddings: Option<Vec<Vec<f32>>>,
+        documents: Option<Vec<Option<String>>>,
+        uris: Option<Vec<Option<String>>>,
+        metadatas: Option<Vec<Option<Metadata>>>,
+    ) -> Self {
+        Self {
+            ids,
+            embeddings,
+            documents,
+            uris,
+            metadatas,
+        }
+    }
 }
 
 /// Adds records to a collection.
@@ -1744,6 +1834,9 @@ async fn collection_query(
     if let Some(n_results) = payload.n_results {
         quota_payload = quota_payload.with_n_results(n_results);
     }
+    if let Some(ids) = &payload.ids {
+        quota_payload = quota_payload.with_query_ids(ids);
+    }
     server.quota_enforcer.enforce(&quota_payload).await?;
     tracing::info!(
         "Querying records from collection [{collection_id}] in database [{database}] for tenant [{tenant}]",
@@ -1818,6 +1911,7 @@ impl Modify for ChromaTokenSecurityAddon {
         get_collection,
         update_collection,
         delete_collection,
+        fork_collection,
         collection_add,
         collection_update,
         collection_upsert,

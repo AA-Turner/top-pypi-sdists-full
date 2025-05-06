@@ -10,7 +10,7 @@ from worker_automate_hub.utils.logger import logger
 from worker_automate_hub.utils.util import (
     find_element_center,
     find_target_position,
-    kill_process,
+    kill_all_emsys,
     take_screenshot,
     type_text_into_field,
     wait_element_ready_win,
@@ -29,8 +29,8 @@ async def login_emsys(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
     )
 
     try:
-        # Mata todos processos do emsys antes de abrir uma nova instancia
-        await kill_process("EMSys")
+        # Fecha a instancia do emsys - caso esteja aberta
+        await kill_all_emsys()
 
         # Abre um novo emsys
         app = Application().start("C:\\Rezende\\EMSys3\\EMSys3.exe")

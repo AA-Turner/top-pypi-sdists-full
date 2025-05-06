@@ -598,7 +598,7 @@ class StatsEntry:
         """
         if not self.use_response_times_cache:
             raise ValueError(
-                "StatsEntry.use_response_times_cache must be set to True if we should be able to calculate the _current_ response time percentile"
+                "StatsEntry.use_response_times_cache must be set to True to calculate the _current_ response time percentile"
             )
         # First, we want to determine which of the cached response_times dicts we should
         # use to get response_times for approximately 10 seconds ago.
@@ -818,6 +818,11 @@ def print_stats(stats: RequestStats, current=True) -> None:
 
 def print_stats_json(stats: RequestStats) -> None:
     print(json.dumps(stats.serialize_stats(), indent=4))
+
+
+def save_stats_json(stats: RequestStats, filename: str) -> None:
+    with open(f"{filename}.json", "w") as _:
+        json.dumps(stats.serialize_stats(), indent=4)
 
 
 def get_stats_summary(stats: RequestStats, current=True) -> list[str]:

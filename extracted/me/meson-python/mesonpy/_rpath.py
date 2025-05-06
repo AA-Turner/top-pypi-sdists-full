@@ -16,25 +16,10 @@ if typing.TYPE_CHECKING:
     from mesonpy._compat import Iterable, Path
 
 
-if sys.platform == 'linux':
-
-    def _get_rpath(filepath: Path) -> List[str]:
-        r = subprocess.run(['patchelf', '--print-rpath', os.fspath(filepath)], capture_output=True, text=True)
-        return r.stdout.strip().split(':')
-
-    def _set_rpath(filepath: Path, rpath: Iterable[str]) -> None:
-        subprocess.run(['patchelf','--set-rpath', ':'.join(rpath), os.fspath(filepath)], check=True)
+if sys.platform == 'win32' or sys.platform == 'cygwin':
 
     def fix_rpath(filepath: Path, libs_relative_path: str) -> None:
-        old_rpath = _get_rpath(filepath)
-        new_rpath = []
-        for path in old_rpath:
-            if path.startswith('$ORIGIN/'):
-                path = '$ORIGIN/' + libs_relative_path
-            new_rpath.append(path)
-        if new_rpath != old_rpath:
-            _set_rpath(filepath, new_rpath)
-
+        pass
 
 elif sys.platform == 'darwin':
 
@@ -58,7 +43,48 @@ elif sys.platform == 'darwin':
             if path.startswith('@loader_path/'):
                 _replace_rpath(filepath, path, '@loader_path/' + libs_relative_path)
 
-else:
+elif sys.platform == 'sunos5':
+
+    def _get_rpath(filepath: Path) -> List[str]:
+        rpath = []
+        r = subprocess.run(['/usr/bin/elfedit', '-r', '-e', 'dyn:rpath', os.fspath(filepath)],
+            capture_output=True, check=True, text=True)
+        for line in [x.split() for x in r.stdout.split('\n')]:
+            if len(line) >= 4 and line[1] in ['RPATH', 'RUNPATH']:
+                for path in line[3].split(':'):
+                    if path not in rpath:
+                        rpath.append(path)
+        return rpath
+
+    def _set_rpath(filepath: Path, rpath: Iterable[str]) -> None:
+        subprocess.run(['/usr/bin/elfedit', '-e', 'dyn:rpath ' + ':'.join(rpath), os.fspath(filepath)], check=True)
 
     def fix_rpath(filepath: Path, libs_relative_path: str) -> None:
-        raise NotImplementedError(f'Bundling libraries in wheel is not supported on {sys.platform}')
+        old_rpath = _get_rpath(filepath)
+        new_rpath = []
+        for path in old_rpath:
+            if path.startswith('$ORIGIN/'):
+                path = '$ORIGIN/' + libs_relative_path
+            new_rpath.append(path)
+        if new_rpath != old_rpath:
+            _set_rpath(filepath, new_rpath)
+
+else:
+    # Assume that any other platform uses ELF binaries.
+
+    def _get_rpath(filepath: Path) -> List[str]:
+        r = subprocess.run(['patchelf', '--print-rpath', os.fspath(filepath)], capture_output=True, text=True)
+        return r.stdout.strip().split(':')
+
+    def _set_rpath(filepath: Path, rpath: Iterable[str]) -> None:
+        subprocess.run(['patchelf','--set-rpath', ':'.join(rpath), os.fspath(filepath)], check=True)
+
+    def fix_rpath(filepath: Path, libs_relative_path: str) -> None:
+        old_rpath = _get_rpath(filepath)
+        new_rpath = []
+        for path in old_rpath:
+            if path.startswith('$ORIGIN/'):
+                path = '$ORIGIN/' + libs_relative_path
+            new_rpath.append(path)
+        if new_rpath != old_rpath:
+            _set_rpath(filepath, new_rpath)

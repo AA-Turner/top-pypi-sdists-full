@@ -446,7 +446,7 @@ class ConfigLoader:
     no_sleep: bool
     username: Optional[str]
     max_nr_of_zero_results: int
-    mem_gb: float
+    mem_gb: int
     continue_previous_job: Optional[str]
     revert_to_random_when_seemingly_exhausted: bool
     minkowski_p: float
@@ -505,7 +505,7 @@ class ConfigLoader:
         required.add_argument('--max_eval', help='Maximum number of evaluations', type=int)
         required.add_argument('--run_program', action='append', nargs='+', help='A program that should be run. Use, for example, $x for the parameter named x', type=str)
         required.add_argument('--experiment_name', help='Name of the experiment', type=str)
-        required.add_argument('--mem_gb', help='Amount of RAM for each worker in GB (default: 1GB)', type=float, default=1)
+        required.add_argument('--mem_gb', help='Amount of RAM for each worker in GB (default: 1GB)', type=int, default=1)
 
         required_but_choice.add_argument('--parameter', action='append', nargs='+', help='Experiment parameters in the formats (options in round brackets are optional): <NAME> range <LOWER BOUND> <UPPER BOUND> (<INT, FLOAT>, log_scale: True/False, default: false>) -- OR -- <NAME> fixed <VALUE> -- OR -- <NAME> choice <Comma-separated list of values>', default=None)
         required_but_choice.add_argument('--continue_previous_job', help='Continue from a previous checkpoint, use run-dir as argument', type=str, default=None)
@@ -545,12 +545,12 @@ class ConfigLoader:
         optional.add_argument('--revert_to_random_when_seemingly_exhausted', help='Generate random steps instead of systematic steps when the search space is (seemingly) exhausted', action='store_true', default=False)
         optional.add_argument('--load_data_from_existing_jobs', type=str, nargs='*', default=[], help='List of job data to load from existing jobs')
         optional.add_argument('--n_estimators_randomforest', help='The number of trees in the forest for RANDOMFOREST (default: 100)', type=int, default=100)
-        optional.add_argument('--external_generator', help='Programm call for an external generato4', type=str, default=None)
+        optional.add_argument('--external_generator', help='Programm call for an external generator', type=str, default=None)
         optional.add_argument('--username', help='A username for live share', default=None, type=str)
         optional.add_argument('--max_failed_jobs', help='Maximum number of failed jobs before the search is cancelled. Is defaulted to the value of --max_eval', default=None, type=int)
 
-        slurm.add_argument('--num_parallel_jobs', help='Number of parallel slurm jobs (default: 20)', type=int, default=20)
-        slurm.add_argument('--worker_timeout', help='Timeout for slurm jobs (i.e. for each single point to be optimized)', type=int, default=30)
+        slurm.add_argument('--num_parallel_jobs', help='Number of parallel SLURM jobs (default: 20)', type=int, default=20)
+        slurm.add_argument('--worker_timeout', help='Timeout for SLURM jobs (i.e. for each single point to be optimized)', type=int, default=30)
         slurm.add_argument('--slurm_use_srun', help='Using srun instead of sbatch', action='store_true', default=False)
         slurm.add_argument('--time', help='Time for the main job', default='', type=str)
         slurm.add_argument('--partition', help='Partition to be run on', default='', type=str)
@@ -559,8 +559,8 @@ class ConfigLoader:
         slurm.add_argument('--slurm_signal_delay_s', help='When the workers end, they get a signal so your program can react to it. Default is 0, but set it to any number of seconds you wish your program to be able to react to USR1', type=int, default=0)
         slurm.add_argument('--nodes_per_job', help='Number of nodes per job due to the new alpha restriction', type=int, default=1)
         slurm.add_argument('--cpus_per_task', help='CPUs per task', type=int, default=1)
-        slurm.add_argument('--account', help='Account to be used', type=str, default=None)
-        slurm.add_argument('--gpus', help='Number of GPUs', type=int, default=0)
+        slurm.add_argument('--account', help='Account to be used for SLURM', type=str, default=None)
+        slurm.add_argument('--gpus', help='Number of GPUs per worker', type=int, default=0)
         #slurm.add_ argument('--tasks_per_node', help='ntasks', type=int, default=1)
 
         installing.add_argument('--run_mode', help='Either local or docker', default='local', type=str)
@@ -574,7 +574,7 @@ class ConfigLoader:
         debug.add_argument('--auto_exclude_defective_hosts', help='Run a Test if you can allocate a GPU on each node and if not, exclude it since the GPU driver seems to be broken somehow', action='store_true', default=False)
         debug.add_argument('--run_tests_that_fail_on_taurus', help='Run tests on Taurus that usually fail', action='store_true', default=False)
         debug.add_argument('--raise_in_eval', help='Raise a signal in eval (only useful for debugging and testing)', action='store_true', default=False)
-        debug.add_argument('--show_ram_every_n_seconds', help='Show RAM usage every n seconds', type=int, default=0)
+        debug.add_argument('--show_ram_every_n_seconds', help='Show RAM usage every n seconds (0 = disabled)', type=int, default=0)
 
     @beartype
     def load_config(self: Any, config_path: str, file_format: str) -> dict:
@@ -1016,6 +1016,22 @@ class RandomForestGenerationNode(ExternalGenerationNode):
             elif isinstance(param, ChoiceParameter):
                 best_sample[name] = str(reverse_choice_map.get(int(best_sample[name])))
 
+@beartype
+def warn_if_param_outside_of_valid_params(param: dict, _res: Any, keyname: str) -> None:
+    if param["parameter_type"] == "RANGE":
+        _min = param["range"][0]
+        _max = param["range"][1]
+
+        if not _min <= _res <= _max:
+            print_yellow(f"The result by the external generator for the axis '{keyname}' (RANGE) is outside of the range of min {_min}/max {_max}: {_res}")
+    elif param["parameter_type"] == "CHOICE":
+        if _res not in param["values"]:
+            joined_res = ', '.join(param["values"])
+            print_yellow(f"The result by the external generator for the axis '{keyname}' (CHOICE) is not in the valid results {joined_res}: {_res}")
+    elif param["parameter_type"] == "FIXED":
+        if _res != param["value"]:
+            print_yellow(f"The result by the external generator for the axis '{keyname}' (FIXED) is not the specified fixed value '{param['value']}' {_res}")
+
 @dataclass(init=False)
 class ExternalProgramGenerationNode(ExternalGenerationNode):
     @beartype
@@ -1128,23 +1144,30 @@ class ExternalProgramGenerationNode(ExternalGenerationNode):
 
             current_trials = parse_csv(RESULT_CSV_FILE)
 
-            inputs_json = {
+            this_objectives = {}
+
+            for i in range(len(arg_result_names)):
+                this_objectives[arg_result_names[i]] = arg_result_min_or_max[i]
+
+            input_json = {
                 "parameters": serialized_params,
                 "constraints": self._serialize_constraints(self.constraints),
                 "seed": self.seed,
-                "trials": current_trials
+                "trials": current_trials,
+                "objectives": this_objectives
             }
 
-            inputs_path = os.path.join(temp_dir, "input.json")
+            input_path = os.path.join(temp_dir, "input.json")
 
-            with open(inputs_path, mode="w", encoding="utf-8") as f:
-                json.dump(inputs_json, f, indent=4)
+            with open(input_path, mode="w", encoding="utf-8") as f:
+                json.dump(input_json, f, indent=4)
 
-            print_debug(f"Saved inputs.json to {inputs_path}")
+            print_debug(f"Saved inputs.json to {input_path}")
 
             run_this_program = self.external_generator.replace('\n', '').split() + [temp_dir]
 
             subprocess.run(run_this_program, check=True)
+
             print_debug(f"Executed external program: {' '.join(run_this_program)}")
 
             results_path = os.path.join(temp_dir, "results.json")
@@ -1161,18 +1184,23 @@ class ExternalProgramGenerationNode(ExternalGenerationNode):
             for keyname in serialized_params.keys():
                 if keyname not in results["parameters"]:
                     raise ValueError(f"Missing {keyname} from JSON file {results_path}")
+
                 to_type = serialized_params[keyname]["type"]
+
+                _res = results["parameters"][keyname]
 
                 try:
                     if to_type == "STRING":
-                        results["parameters"][keyname] = str(results["parameters"][keyname])
+                        results["parameters"][keyname] = str(_res)
                     elif to_type == "FLOAT":
-                        results["parameters"][keyname] = float(results["parameters"][keyname])
+                        results["parameters"][keyname] = float(_res)
                     elif to_type == "INT":
-                        results["parameters"][keyname] = int(results["parameters"][keyname])
+                        results["parameters"][keyname] = int(_res)
                 except ValueError:
                     failed_res = results["parameters"][keyname]
-                    print_red(f"Failed to convert {keyname} to {to_type}. Value: {failed_res}")
+                    print_red(f"Failed to convert '{keyname}' to {to_type}. Value: {failed_res}")
+
+                warn_if_param_outside_of_valid_params(serialized_params[keyname], _res, keyname)
 
             candidate = results["parameters"]
             print_debug(f"Found new candidate: {candidate}")
@@ -6902,17 +6930,8 @@ def execute_next_steps(next_nr_steps: int, _progress_bar: Any) -> int:
     if next_nr_steps:
         print_debug(f"trying to get {next_nr_steps} next steps (current done: {count_done_jobs()}, max: {max_eval})")
         nr_of_items = create_and_execute_next_runs(next_nr_steps, "systematic", max_eval, _progress_bar)
-        log_execution_result(nr_of_items, next_nr_steps)
         return nr_of_items
     return 0
-
-@beartype
-def log_execution_result(nr_of_items: int, next_nr_steps: int) -> None:
-    msg = f"got {nr_of_items}, requested {next_nr_steps}"
-    if nr_of_items > 0:
-        progressbar_description([msg])
-    else:
-        print_debug(msg)
 
 @beartype
 def log_worker_status(nr_of_items: int, next_nr_steps: int) -> None:
@@ -7525,6 +7544,9 @@ def main() -> None:
     show_available_hardware_and_generation_strategy_string(gpu_string, gpu_color)
 
     original_print(f"Run-Program: {global_vars['joined_run_program']}")
+
+    if args.external_generator:
+        original_print(f"External-Generator: {decode_if_base64(args.external_generator)}")
 
     checkpoint_parameters_filepath = f"{get_current_run_folder()}/state_files/checkpoint.json.parameters.json"
     save_experiment_parameters(checkpoint_parameters_filepath, experiment_parameters)

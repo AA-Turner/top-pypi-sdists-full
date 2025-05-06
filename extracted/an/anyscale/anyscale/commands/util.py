@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Dict, Tuple
+from typing import Dict, Tuple, TypeVar
 
 import click
 
@@ -136,9 +136,10 @@ def convert_kv_strings_to_dict(strings: Tuple[str]) -> Dict[str, str]:
     return ret_dict
 
 
-def override_env_vars(
-    config: WorkloadConfig, overrides: Dict[str, str]
-) -> WorkloadConfig:
+T = TypeVar("T", bound=WorkloadConfig)
+
+
+def override_env_vars(config: T, overrides: Dict[str, str]) -> T:
     """Returns a new copy of the WorkloadConfig with env vars overridden.
 
     This is a per-key override, so keys already in the config that are not specified in

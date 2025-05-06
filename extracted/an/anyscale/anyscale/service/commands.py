@@ -1,12 +1,15 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_command
 from anyscale.service._private.service_sdk import PrivateServiceSDK
 from anyscale.service.models import (
     ServiceConfig,
     ServiceLogMode,
+    ServiceSortField,
     ServiceState,
     ServiceStatus,
+    SortOrder,
 )
 
 
@@ -332,4 +335,78 @@ def _controller_logs(
         canary=canary,
         mode=mode,
         max_lines=max_lines,
+    )
+
+
+_LIST_EXAMPLE = """
+import anyscale
+from anyscale.service.models import ServiceState
+
+# Example: Get the first 50 running services
+for svc in anyscale.service.list(max_items=50, state_filter=[ServiceState.RUNNING]):
+    print(svc.name)
+"""
+
+_LIST_ARG_DOCSTRINGS = {
+    "service_id": (
+        "If provided, returns just the service with this ID "
+        "wrapped in a one-page iterator."
+    ),
+    "name": "Substring to match against the service name.",
+    "state_filter": (
+        "List of states to include. "
+        "May be `ServiceState` enums or case-insensitive strings."
+    ),
+    "creator_id": "Filter services by user ID.",
+    "cloud": "Name of the Anyscale Cloud to search in.",
+    "project": "Name of the Anyscale Project to search in.",
+    "include_archived": "Include archived services (default: False).",
+    # Paging
+    "max_items": "Maximum **total** number of items to yield (default: iterate all).",
+    "page_size": "Number of items to fetch per API request (default: API default).",
+    # Sorting
+    "sort_field": "Field to sort by (`NAME`, `STATUS`, `CREATED_AT`).",
+    "sort_order": "Sort direction (`ASC` or `DESC`).",
+}
+
+# Public command
+@sdk_command(
+    _SERVICE_SDK_SINGLETON_KEY,
+    PrivateServiceSDK,
+    doc_py_example=_LIST_EXAMPLE,
+    arg_docstrings=_LIST_ARG_DOCSTRINGS,
+)
+def list(  # noqa: A001
+    *,
+    # Single-item lookup
+    service_id: Optional[str] = None,
+    # Filters
+    name: Optional[str] = None,
+    state_filter: Optional[Union[List[ServiceState], List[str]]] = None,
+    creator_id: Optional[str] = None,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    include_archived: bool = False,
+    # Paging
+    max_items: Optional[int] = None,
+    page_size: Optional[int] = None,
+    # Sorting
+    sort_field: Optional[Union[str, ServiceSortField]] = None,
+    sort_order: Optional[Union[str, SortOrder]] = None,
+    # Injected SDK
+    _private_sdk: Optional[PrivateServiceSDK] = None,
+) -> ResultIterator[ServiceStatus]:
+    """List services or fetch a single service by ID."""
+    return _private_sdk.list(  # type: ignore
+        service_id=service_id,
+        name=name,
+        state_filter=state_filter,
+        creator_id=creator_id,
+        cloud=cloud,
+        project=project,
+        include_archived=include_archived,
+        max_items=max_items,
+        page_size=page_size,
+        sort_field=sort_field,
+        sort_order=sort_order,
     )

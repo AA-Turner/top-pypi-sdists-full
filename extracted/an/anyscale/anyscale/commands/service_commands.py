@@ -2,15 +2,18 @@ from io import StringIO
 from json import dumps as json_dumps
 import pathlib
 import sys
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
+from rich.console import Console
+from rich.table import Table
 from typing_extensions import Literal
 import yaml
 
 from anyscale._private.models.image_uri import ImageURI
 from anyscale.cli_logger import BlockLogger
 from anyscale.commands import command_examples
+from anyscale.commands.list_util import display_list
 from anyscale.commands.util import (
     AnyscaleCommand,
     convert_kv_strings_to_dict,
@@ -19,8 +22,21 @@ from anyscale.commands.util import (
 )
 from anyscale.controllers.service_controller import ServiceController
 import anyscale.service
-from anyscale.service import ServiceConfig, ServiceLogMode, ServiceState, ServiceStatus
-from anyscale.util import validate_non_negative_arg
+from anyscale.service.models import (
+    ServiceConfig,
+    ServiceLogMode,
+    ServiceSortField,
+    ServiceState,
+    ServiceStatus,
+    ServiceVersionStatus,
+    SortOrder,
+)
+from anyscale.util import (
+    AnyscaleJSONEncoder,
+    get_endpoint,
+    validate_non_negative_arg,
+    validate_service_state_filter,
+)
 
 
 log = BlockLogger()  # CLI Logger
@@ -389,12 +405,14 @@ def status(
         status_dict.get("primary_version", {}).pop("config", None)
         status_dict.get("canary_version", {}).pop("config", None)
 
+    console = Console()
     if json:
-        print(json_dumps(status_dict, indent=4, sort_keys=False))
+        json_str = json_dumps(status_dict, indent=2, cls=AnyscaleJSONEncoder)
+        console.print_json(json=json_str)
     else:
         stream = StringIO()
         yaml.dump(status_dict, stream, sort_keys=False)
-        print(stream.getvalue(), end="")
+        console.print(stream.getvalue(), end="")
 
 
 @service_cli.command(
@@ -624,50 +642,269 @@ def rollout(  # noqa: PLR0913
     )
 
 
-# TODO(mowen): Add cloud support for this when we refactor to new SDK method
-@service_cli.command(name="list", help="Display information about services.")
+MAX_PAGE_SIZE = 50
+NON_INTERACTIVE_DEFAULT_MAX_ITEMS = 10
+
+
+def validate_page_size(ctx, param, value):
+    value = validate_non_negative_arg(ctx, param, value)
+    if value is not None and value > MAX_PAGE_SIZE:
+        raise click.BadParameter(f"must be less than or equal to {MAX_PAGE_SIZE}.")
+    return value
+
+
+def validate_max_items(ctx, param, value):
+    if value is None:
+        return None
+    return validate_non_negative_arg(ctx, param, value)
+
+
+def _parse_sort_option(sort: Optional[str],) -> Tuple[Optional[str], SortOrder]:
+    """
+    Given a raw sort string (e.g. "-created_at"), return
+    (canonical_field_name, SortOrder).
+    """
+    if not sort:
+        return None, SortOrder.ASC
+
+    # build case-insensitive map of allowed fields
+    allowed = {f.value.lower(): f.value for f in ServiceSortField.__members__.values()}
+
+    # detect leading '-' for descending
+    if sort.startswith("-"):
+        raw = sort[1:]
+        order = SortOrder.DESC
+    else:
+        raw = sort
+        order = SortOrder.ASC
+
+    key = raw.lower()
+    if key not in allowed:
+        allowed_names = ", ".join(sorted(allowed.values()))
+        raise click.BadParameter(
+            f"Invalid sort field '{raw}'. Allowed fields: {allowed_names}"
+        )
+
+    return allowed[key], order
+
+
+def _create_service_list_table(show_header: bool) -> Table:
+    table = Table(show_header=show_header, expand=True)
+    # NAME and ID: larger ratios, can wrap but never truncate
+    table.add_column(
+        "NAME", no_wrap=False, overflow="fold", ratio=3, min_width=15,
+    )
+    table.add_column(
+        "ID", no_wrap=False, overflow="fold", ratio=2, min_width=12,
+    )
+    # all other columns will wrap as needed
+    for heading in (
+        "CURRENT STATE",
+        "CREATOR",
+        "PROJECT",
+        "LAST DEPLOYED AT",
+    ):
+        table.add_column(
+            heading, no_wrap=False, overflow="fold", ratio=1, min_width=8,
+        )
+
+    return table
+
+
+def _format_service_output_data(svc: ServiceStatus) -> Dict[str, str]:
+    last_deployed_at = ""
+    if isinstance(svc.primary_version, ServiceVersionStatus):
+        last_deployed_at = svc.primary_version.created_at.strftime("%Y-%m-%d %H:%M:%S")
+
+    return {
+        "name": svc.name,
+        "id": svc.id,
+        "current_state": str(svc.state),
+        "creator": str(svc.creator or ""),
+        "project": str(svc.project or ""),
+        "last_deployed_at": last_deployed_at,
+    }
+
+
+@service_cli.command(
+    name="list", help="List services.", cls=AnyscaleCommand,
+)
+@click.option("--service-id", "--id", help="ID of the service to display.")
+@click.option("--name", "-n", help="Name of the service to display.")
 @click.option(
-    "--name", "-n", required=False, default=None, help="Filter by service name."
+    "--cloud",
+    type=str,
+    help="The Anyscale Cloud of this workload; defaults to your org/workspace cloud.",
 )
 @click.option(
-    "--service-id", "--id", required=False, default=None, help="Filter by service id."
-)
-@click.option(
-    "--project-id", required=False, default=None, help="Filter by project id."
+    "--project",
+    type=str,
+    help="Named project to use; defaults to your org/workspace project.",
 )
 @click.option(
     "--created-by-me",
-    help="List services created by me only.",
     is_flag=True,
     default=False,
+    help="List services created by me only.",
+)
+@click.option(
+    "--state",
+    "-s",
+    "state_filter",
+    multiple=True,
+    callback=validate_service_state_filter,
+    help=(
+        "Filter by service state (repeatable). "
+        f"Allowed: {', '.join(s.value for s in ServiceState)}"
+    ),
+)
+@click.option(
+    "--include-archived",
+    is_flag=True,
+    default=False,
+    help="Include archived services.",
 )
 @click.option(
     "--max-items",
-    required=False,
-    default=10,
     type=int,
-    help="Max items to show in list.",
-    callback=validate_non_negative_arg,
+    callback=validate_max_items,
+    help="Max total items (only with --no-interactive).",
 )
-def list(  # noqa: A001
-    name: Optional[str],
+@click.option(
+    "--page-size",
+    type=int,
+    default=10,
+    show_default=True,
+    callback=validate_page_size,
+    help=f"Items per page (max {MAX_PAGE_SIZE}).",
+)
+@click.option(
+    "--interactive/--no-interactive",
+    default=True,
+    show_default=True,
+    help="Use interactive paging.",
+)
+@click.option(
+    "--sort",
+    help=(
+        "Sort by FIELD (prefix with '-' for desc). "
+        f"Allowed: {', '.join(f.value for f in ServiceSortField.__members__.values())}"
+    ),
+)
+@click.option(
+    "-v",
+    "--verbose",
+    is_flag=True,
+    default=False,
+    help="Include full config in JSON output.",
+)
+@click.option(
+    "-j",
+    "--json",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="Emit structured JSON to stdout.",
+)
+def list(  # noqa: PLR0913, A001
     service_id: Optional[str],
-    project_id: Optional[str],
+    name: Optional[str],
     created_by_me: bool,
-    max_items: int,
+    cloud: Optional[str],
+    project: Optional[str],
+    state_filter: List[str],
+    include_archived: bool,
+    max_items: Optional[int],
+    page_size: int,
+    sort: Optional[str],
+    json_output: bool,
+    interactive: bool,
+    verbose: bool,
 ):
-    """List services based on the provided filters.
+    """List services based on the provided filters."""
+    if max_items is not None and interactive:
+        raise click.UsageError("--max-items only allowed with --no-interactive")
 
-    This returns both v1 and v2 services.
-    """
-    service_controller = ServiceController()
-    service_controller.list(
-        name=name,
-        service_id=service_id,
-        project_id=project_id,
-        created_by_me=created_by_me,
-        max_items=max_items,
+    # parse sort
+    sort_field, sort_order = _parse_sort_option(sort)
+
+    # normalize max_items
+    effective_max = max_items
+    if not interactive and effective_max is None:
+        stderr = Console(stderr=True)
+        stderr.print(
+            f"Defaulting to {NON_INTERACTIVE_DEFAULT_MAX_ITEMS} items in batch mode; "
+            "use --max-items to override."
+        )
+        effective_max = NON_INTERACTIVE_DEFAULT_MAX_ITEMS
+
+    console = Console()
+    stderr = Console(stderr=True)
+
+    # diagnostics
+    stderr.print("[bold]Listing services with:[/]")
+    stderr.print(f"• name            = {name or '<any>'}")
+    stderr.print(f"• states          = {', '.join(state_filter) or '<all>'}")
+    stderr.print(f"• created_by_me   = {created_by_me}")
+    stderr.print(f"• include_archived= {include_archived}")
+    stderr.print(f"• sort            = {sort or '<none>'}")
+    stderr.print(f"• mode            = {'interactive' if interactive else 'batch'}")
+    stderr.print(f"• per-page limit  = {page_size}")
+    stderr.print(f"• max-items total = {effective_max or 'all'}")
+    stderr.print(f"\nView your Services in the UI at {get_endpoint('/services')}\n")
+
+    creator_id = (
+        ServiceController().get_authenticated_user_id() if created_by_me else None
     )
+
+    # choose formatter
+    if json_output:
+
+        def json_formatter(svc: ServiceStatus) -> Dict[str, Any]:
+            data = svc.to_dict()
+            if not verbose:
+                data.get("primary_version", {}).pop("config", None)
+                data.get("canary_version", {}).pop("config", None)
+            return data
+
+        formatter = json_formatter
+    else:
+        formatter = _format_service_output_data
+
+    total = 0
+    try:
+        iterator = anyscale.service.list(
+            service_id=service_id,
+            name=name,
+            state_filter=state_filter,
+            creator_id=creator_id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
+            max_items=None if interactive else effective_max,
+            page_size=page_size,
+            sort_field=sort_field,
+            sort_order=sort_order,
+        )
+        total = display_list(
+            iterator=iter(iterator),
+            item_formatter=formatter,
+            table_creator=_create_service_list_table,
+            json_output=json_output,
+            page_size=page_size,
+            interactive=interactive,
+            max_items=effective_max,
+            console=console,
+        )
+
+        if not json_output:
+            if total > 0:
+                stderr.print(f"\nFetched {total} services.")
+            else:
+                stderr.print("\nNo services found.")
+    except Exception as e:  # noqa: BLE001
+        log.error(f"Failed to list services: {e}")
+        sys.exit(1)
 
 
 # TODO(mowen): Add cloud support for this when we refactor to new SDK method
@@ -708,7 +945,6 @@ def rollback(
     service_controller.rollback(service_id, max_surge_percent)
 
 
-# TODO(mowen): Add cloud support for this when we refactor to new SDK method
 @service_cli.command(name="terminate", help="Terminate a service.")
 @click.option(
     "--service-id", "--id", required=False, help="ID of service.",

@@ -5317,6 +5317,7 @@ class FunctionMapRequest(google.protobuf.message.Message):
     FUNCTION_CALL_TYPE_FIELD_NUMBER: builtins.int
     PIPELINED_INPUTS_FIELD_NUMBER: builtins.int
     FUNCTION_CALL_INVOCATION_TYPE_FIELD_NUMBER: builtins.int
+    FROM_SPAWN_MAP_FIELD_NUMBER: builtins.int
     function_id: builtins.str
     parent_input_id: builtins.str
     return_exceptions: builtins.bool
@@ -5324,6 +5325,7 @@ class FunctionMapRequest(google.protobuf.message.Message):
     @property
     def pipelined_inputs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___FunctionPutInputsItem]: ...
     function_call_invocation_type: global___FunctionCallInvocationType.ValueType
+    from_spawn_map: builtins.bool
     def __init__(
         self,
         *,
@@ -5333,8 +5335,9 @@ class FunctionMapRequest(google.protobuf.message.Message):
         function_call_type: global___FunctionCallType.ValueType = ...,
         pipelined_inputs: collections.abc.Iterable[global___FunctionPutInputsItem] | None = ...,
         function_call_invocation_type: global___FunctionCallInvocationType.ValueType = ...,
+        from_spawn_map: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["function_call_invocation_type", b"function_call_invocation_type", "function_call_type", b"function_call_type", "function_id", b"function_id", "parent_input_id", b"parent_input_id", "pipelined_inputs", b"pipelined_inputs", "return_exceptions", b"return_exceptions"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["from_spawn_map", b"from_spawn_map", "function_call_invocation_type", b"function_call_invocation_type", "function_call_type", b"function_call_type", "function_id", b"function_id", "parent_input_id", b"parent_input_id", "pipelined_inputs", b"pipelined_inputs", "return_exceptions", b"return_exceptions"]) -> None: ...
 
 global___FunctionMapRequest = FunctionMapRequest
 
@@ -9416,6 +9419,57 @@ class VolumeDeleteRequest(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["environment_name", b"environment_name", "volume_id", b"volume_id"]) -> None: ...
 
 global___VolumeDeleteRequest = VolumeDeleteRequest
+
+class VolumeGetFile2Request(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    VOLUME_ID_FIELD_NUMBER: builtins.int
+    PATH_FIELD_NUMBER: builtins.int
+    START_FIELD_NUMBER: builtins.int
+    LEN_FIELD_NUMBER: builtins.int
+    volume_id: builtins.str
+    path: builtins.str
+    start: builtins.int
+    len: builtins.int
+    """0 is interpreted as 'read to end'"""
+    def __init__(
+        self,
+        *,
+        volume_id: builtins.str = ...,
+        path: builtins.str = ...,
+        start: builtins.int = ...,
+        len: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["len", b"len", "path", b"path", "start", b"start", "volume_id", b"volume_id"]) -> None: ...
+
+global___VolumeGetFile2Request = VolumeGetFile2Request
+
+class VolumeGetFile2Response(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    GET_URLS_FIELD_NUMBER: builtins.int
+    SIZE_FIELD_NUMBER: builtins.int
+    START_FIELD_NUMBER: builtins.int
+    LEN_FIELD_NUMBER: builtins.int
+    @property
+    def get_urls(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
+    size: builtins.int
+    """total file size"""
+    start: builtins.int
+    """file position of first byte returned"""
+    len: builtins.int
+    """number of bytes returned"""
+    def __init__(
+        self,
+        *,
+        get_urls: collections.abc.Iterable[builtins.str] | None = ...,
+        size: builtins.int = ...,
+        start: builtins.int = ...,
+        len: builtins.int = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["get_urls", b"get_urls", "len", b"len", "size", b"size", "start", b"start"]) -> None: ...
+
+global___VolumeGetFile2Response = VolumeGetFile2Response
 
 class VolumeGetFileRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

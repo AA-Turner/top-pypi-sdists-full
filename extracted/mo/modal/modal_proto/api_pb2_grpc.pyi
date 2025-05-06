@@ -592,6 +592,10 @@ class ModalClientStub:
         modal_proto.api_pb2.VolumeGetFileRequest,
         modal_proto.api_pb2.VolumeGetFileResponse,
     ]
+    VolumeGetFile2: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.VolumeGetFile2Request,
+        modal_proto.api_pb2.VolumeGetFile2Response,
+    ]
     VolumeGetOrCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.VolumeGetOrCreateRequest,
         modal_proto.api_pb2.VolumeGetOrCreateResponse,
@@ -1493,6 +1497,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.VolumeGetFileRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.VolumeGetFileResponse: ...
+    @abc.abstractmethod
+    def VolumeGetFile2(
+        self,
+        request: modal_proto.api_pb2.VolumeGetFile2Request,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.VolumeGetFile2Response: ...
     @abc.abstractmethod
     def VolumeGetOrCreate(
         self,

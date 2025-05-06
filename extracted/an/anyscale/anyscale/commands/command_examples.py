@@ -670,3 +670,7 @@ $ anyscale service archive --name my_service
 SERVICE_DELETE_EXAMPLE = """\
 $ anyscale service delete --name my_service
 """
+
+SERVICE_LIST_EXAMPLE = """\
+$ anyscale service list --state running --sort -created_at
+"""

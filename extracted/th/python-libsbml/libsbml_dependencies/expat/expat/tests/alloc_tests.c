@@ -10,7 +10,7 @@
    Copyright (c) 2003      Greg Stein <gstein@users.sourceforge.net>
    Copyright (c) 2005-2007 Steven Solie <steven@solie.ca>
    Copyright (c) 2005-2012 Karl Waclawek <karl@waclawek.net>
-   Copyright (c) 2016-2022 Sebastian Pipping <sebastian@pipping.org>
+   Copyright (c) 2016-2023 Sebastian Pipping <sebastian@pipping.org>
    Copyright (c) 2017-2022 Rhodri James <rhodri@wildebeest.org.uk>
    Copyright (c) 2017      Joe Orton <jorton@redhat.com>
    Copyright (c) 2017      José Gutiérrez de la Concha <jose@zeroc.com>
@@ -19,6 +19,7 @@
    Copyright (c) 2020      Tim Gates <tim.gates@iress.com>
    Copyright (c) 2021      Donghee Na <donghee.na@python.org>
    Copyright (c) 2023      Sony Corporation / Snild Dolkow <snild@sony.com>
+   Copyright (c) 2025      Berkay Eren Ürün <berkay.ueruen@siemens.com>
    Licensed under the MIT license:
 
    Permission is  hereby granted,  free of charge,  to any  person obtaining
@@ -322,7 +323,7 @@ START_TEST(test_alloc_run_external_parser) {
     XML_SetParamEntityParsing(g_parser, XML_PARAM_ENTITY_PARSING_ALWAYS);
     XML_SetUserData(g_parser, foo_text);
     XML_SetExternalEntityRefHandler(g_parser, external_entity_null_loader);
-    g_allocation_count = i;
+    g_allocation_count = (int)i;
     if (_XML_Parse_SINGLE_BYTES(g_parser, text, (int)strlen(text), XML_TRUE)
         != XML_STATUS_ERROR)
       break;
@@ -433,7 +434,7 @@ START_TEST(test_alloc_internal_entity) {
   const unsigned int max_alloc_count = 20;
 
   for (i = 0; i < max_alloc_count; i++) {
-    g_allocation_count = i;
+    g_allocation_count = (int)i;
     XML_SetUnknownEncodingHandler(g_parser, unknown_released_encoding_handler,
                                   NULL);
     if (_XML_Parse_SINGLE_BYTES(g_parser, text, (int)strlen(text), XML_TRUE)
@@ -447,6 +448,31 @@ START_TEST(test_alloc_internal_entity) {
     fail("Internal entity worked despite failing allocations");
   else if (i == max_alloc_count)
     fail("Internal entity failed at max allocation count");
+}
+END_TEST
+
+START_TEST(test_alloc_parameter_entity) {
+  const char *text = "<!DOCTYPE foo ["
+                     "<!ENTITY % param1 \"<!ENTITY internal 'some_text'>\">"
+                     "%param1;"
+                     "]> <foo>&internal;content</foo>";
+  int i;
+  const int alloc_test_max_repeats = 30;
+
+  for (i = 0; i < alloc_test_max_repeats; i++) {
+    g_allocation_count = i;
+    XML_SetParamEntityParsing(g_parser, XML_PARAM_ENTITY_PARSING_ALWAYS);
+    if (_XML_Parse_SINGLE_BYTES(g_parser, text, (int)strlen(text), XML_TRUE)
+        != XML_STATUS_ERROR)
+      break;
+    alloc_teardown();
+    alloc_setup();
+  }
+  g_allocation_count = -1;
+  if (i == 0)
+    fail("Parameter entity processed despite duff allocator");
+  if (i == alloc_test_max_repeats)
+    fail("Parameter entity not processed at max allocation count");
 }
 END_TEST
 
@@ -2048,7 +2074,7 @@ START_TEST(test_alloc_reset_after_external_entity_parser_create_fail) {
       g_parser, external_entity_parser_create_alloc_fail_handler);
   XML_SetParamEntityParsing(g_parser, XML_PARAM_ENTITY_PARSING_ALWAYS);
 
-  if (XML_Parse(g_parser, text, (int)strlen(text), XML_TRUE)
+  if (_XML_Parse_SINGLE_BYTES(g_parser, text, (int)strlen(text), XML_TRUE)
       != XML_STATUS_ERROR)
     fail("Call to parse was expected to fail");
 
@@ -2079,11 +2105,12 @@ make_alloc_test_case(Suite *s) {
   tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_external_entity);
   tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_ext_entity_set_encoding);
   tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_internal_entity);
+  tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_parameter_entity);
   tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_dtd_default_handling);
   tcase_add_test(tc_alloc, test_alloc_explicit_encoding);
   tcase_add_test(tc_alloc, test_alloc_set_base);
   tcase_add_test(tc_alloc, test_alloc_realloc_buffer);
-  tcase_add_test(tc_alloc, test_alloc_ext_entity_realloc_buffer);
+  tcase_add_test__if_xml_ge(tc_alloc, test_alloc_ext_entity_realloc_buffer);
   tcase_add_test(tc_alloc, test_alloc_realloc_many_attributes);
   tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_public_entity_value);
   tcase_add_test__ifdef_xml_dtd(tc_alloc,
@@ -2096,7 +2123,7 @@ make_alloc_test_case(Suite *s) {
                                 test_alloc_realloc_attribute_enum_value);
   tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_realloc_implied_attribute);
   tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_realloc_default_attribute);
-  tcase_add_test(tc_alloc, test_alloc_notation);
+  tcase_add_test__if_xml_ge(tc_alloc, test_alloc_notation);
   tcase_add_test(tc_alloc, test_alloc_public_notation);
   tcase_add_test(tc_alloc, test_alloc_system_notation);
   tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_nested_groups);
@@ -2110,17 +2137,17 @@ make_alloc_test_case(Suite *s) {
   tcase_add_test(tc_alloc, test_alloc_attribute_whitespace);
   tcase_add_test(tc_alloc, test_alloc_attribute_predefined_entity);
   tcase_add_test(tc_alloc, test_alloc_long_attr_default_with_char_ref);
-  tcase_add_test(tc_alloc, test_alloc_long_attr_value);
+  tcase_add_test__if_xml_ge(tc_alloc, test_alloc_long_attr_value);
   tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_nested_entities);
   tcase_add_test__ifdef_xml_dtd(tc_alloc,
                                 test_alloc_realloc_param_entity_newline);
   tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_realloc_ce_extends_pe);
   tcase_add_test__ifdef_xml_dtd(tc_alloc, test_alloc_realloc_attributes);
   tcase_add_test(tc_alloc, test_alloc_long_doc_name);
-  tcase_add_test(tc_alloc, test_alloc_long_base);
-  tcase_add_test(tc_alloc, test_alloc_long_public_id);
-  tcase_add_test(tc_alloc, test_alloc_long_entity_value);
-  tcase_add_test(tc_alloc, test_alloc_long_notation);
+  tcase_add_test__if_xml_ge(tc_alloc, test_alloc_long_base);
+  tcase_add_test__if_xml_ge(tc_alloc, test_alloc_long_public_id);
+  tcase_add_test__if_xml_ge(tc_alloc, test_alloc_long_entity_value);
+  tcase_add_test__if_xml_ge(tc_alloc, test_alloc_long_notation);
 
   tcase_add_test__ifdef_xml_dtd(
       tc_alloc, test_alloc_reset_after_external_entity_parser_create_fail);

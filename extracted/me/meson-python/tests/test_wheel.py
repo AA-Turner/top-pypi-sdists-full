@@ -6,7 +6,6 @@ import os
 import re
 import shutil
 import stat
-import subprocess
 import sys
 import sysconfig
 import textwrap
@@ -17,11 +16,8 @@ import wheel.wheelfile
 
 import mesonpy
 
-from .conftest import adjust_packaging_platform_tag
+from .conftest import MESON_VERSION, adjust_packaging_platform_tag, metadata
 
-
-_meson_ver_str = subprocess.run(['meson', '--version'], check=True, stdout=subprocess.PIPE, text=True).stdout
-MESON_VERSION = tuple(map(int, _meson_ver_str.split('.')[:3]))
 
 EXT_SUFFIX = sysconfig.get_config_var('EXT_SUFFIX')
 if sys.version_info <= (3, 8, 7):
@@ -140,7 +136,29 @@ def test_contents_license_file(wheel_license_file):
     assert artifact.read('license_file-1.0.0.dist-info/LICENSE.custom').rstrip() == b'Hello!'
 
 
-@pytest.mark.skipif(sys.platform not in {'linux', 'darwin'}, reason='Not supported on this platform')
+@pytest.mark.filterwarnings('ignore:canonicalization and validation of license expression')
+def test_license_pep639(wheel_license_pep639):
+    artifact = wheel.wheelfile.WheelFile(wheel_license_pep639)
+
+    assert wheel_contents(artifact) == {
+        'license_pep639-1.0.0.dist-info/METADATA',
+        'license_pep639-1.0.0.dist-info/RECORD',
+        'license_pep639-1.0.0.dist-info/WHEEL',
+        'license_pep639-1.0.0.dist-info/licenses/LICENSES/BSD-3-Clause.txt',
+        'license_pep639-1.0.0.dist-info/licenses/LICENSES/MIT.txt',
+    }
+
+    assert metadata(artifact.read('license_pep639-1.0.0.dist-info/METADATA')) == metadata(textwrap.dedent('''\
+        Metadata-Version: 2.4
+        Name: license-pep639
+        Version: 1.0.0
+        License-Expression: MIT OR BSD-3-Clause
+        License-File: LICENSES/BSD-3-Clause.txt
+        License-File: LICENSES/MIT.txt
+    '''))
+
+
+@pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')
 def test_contents(package_library, wheel_library):
     artifact = wheel.wheelfile.WheelFile(wheel_library)
 
@@ -154,40 +172,53 @@ def test_contents(package_library, wheel_library):
     }
 
 
-@pytest.mark.skipif(sys.platform not in {'linux', 'darwin'}, reason='Not supported on this platform')
 def test_local_lib(venv, wheel_link_against_local_lib):
     venv.pip('install', wheel_link_against_local_lib)
     output = venv.python('-c', 'import example; print(example.example_sum(1, 2))')
     assert int(output) == 3
 
 
-@pytest.mark.skipif(sys.platform not in {'linux', 'darwin'}, reason='Not supported on this platform')
+def test_sharedlib_in_package(venv, wheel_sharedlib_in_package):
+    venv.pip('install', wheel_sharedlib_in_package)
+    output = venv.python('-c', 'import mypkg; print(mypkg.example_sum(2, 5))')
+    assert int(output) == 7
+    output = venv.python('-c', 'import mypkg; print(mypkg.example_prod(6, 7))')
+    assert int(output) == 42
+
+
+@pytest.mark.skipif(MESON_VERSION < (1, 3, 0), reason='Meson version too old')
+def test_link_library_in_subproject(venv, wheel_link_library_in_subproject):
+    venv.pip('install', wheel_link_library_in_subproject)
+    output = venv.python('-c', 'import foo; print(foo.example_sum(3, 6))')
+    assert int(output) == 9
+
+
+@pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')
 def test_rpath(wheel_link_against_local_lib, tmp_path):
     artifact = wheel.wheelfile.WheelFile(wheel_link_against_local_lib)
     artifact.extractall(tmp_path)
 
-    origin = {'linux': '$ORIGIN', 'darwin': '@loader_path'}[sys.platform]
-    expected = {f'{origin}/.link_against_local_lib.mesonpy.libs', 'custom-rpath',}
+    origin = '@loader_path' if sys.platform == 'darwin' else '$ORIGIN'
+    expected = {f'{origin}/../.link_against_local_lib.mesonpy.libs', 'custom-rpath',}
 
-    rpath = set(mesonpy._rpath._get_rpath(tmp_path / f'example{EXT_SUFFIX}'))
+    rpath = set(mesonpy._rpath._get_rpath(tmp_path / 'example' / f'_example{EXT_SUFFIX}'))
     # Verify that rpath is a superset of the expected one: linking to
     # the Python runtime may require additional rpath entries.
     assert rpath >= expected
 
 
-@pytest.mark.skipif(sys.platform not in {'linux', 'darwin'}, reason='Not supported on this platform')
+@pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires RPATH support')
 def test_uneeded_rpath(wheel_purelib_and_platlib, tmp_path):
     artifact = wheel.wheelfile.WheelFile(wheel_purelib_and_platlib)
     artifact.extractall(tmp_path)
 
-    origin = {'linux': '$ORIGIN', 'darwin': '@loader_path'}[sys.platform]
-
+    origin = '@loader_path' if sys.platform == 'darwin' else '$ORIGIN'
     rpath = mesonpy._rpath._get_rpath(tmp_path / f'plat{EXT_SUFFIX}')
     for path in rpath:
         assert origin not in path
 
 
-@pytest.mark.skipif(sys.platform not in {'linux', 'darwin'}, reason='Not supported on this platform')
+@pytest.mark.skipif(sys.platform in {'win32', 'cygwin'}, reason='requires executable bit support')
 def test_executable_bit(wheel_executable_bit):
     artifact = wheel.wheelfile.WheelFile(wheel_executable_bit)
 
@@ -233,7 +264,8 @@ def test_entrypoints(wheel_full_metadata):
 
 def test_top_level_modules(package_module_types):
     with mesonpy._project() as project:
-        builder = mesonpy._EditableWheelBuilder(project._metadata, project._manifest, project._limited_api)
+        builder = mesonpy._EditableWheelBuilder(
+            project._metadata, project._manifest, project._limited_api, project._allow_windows_shared_libs)
         assert set(builder._top_level_modules) == {
             'file',
             'package',

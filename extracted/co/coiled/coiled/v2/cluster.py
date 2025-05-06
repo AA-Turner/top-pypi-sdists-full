@@ -203,6 +203,7 @@ class ClusterKwargs(TypedDict, total=False):
     host_setup_script: str | None
     region: str | None
     arm: bool | None
+    pause_on_exit: bool | None
 
 
 class Cluster(DistributedCluster, Generic[IsAsynchronous]):
@@ -449,6 +450,8 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         The cloud provider region in which to run the cluster.
     arm
         Use ARM instances for cluster; default is x86 (Intel) instances.
+    pause_on_exit
+        Pause the cluster instead of shutting it down when exiting.
     """
 
     _instances = weakref.WeakSet()
@@ -527,6 +530,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         arm: bool | None = None,
         batch_job_ids: List[int] | None = None,
         batch_job_container: str | None = None,
+        pause_on_exit: bool | None = None,
     ):
         self._cluster_event_queue = []
 
@@ -711,7 +715,15 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
         self._worker_on_scheduler_name = None
         self.n_worker_specs_per_host = _n_worker_specs_per_host
         self.batch_job_ids = batch_job_ids
-        self.extra_user_container = batch_job_container
+
+        # somewhat internal API since batch kwargs shouldn't be used directly by user but are for batch API:
+        # "!" at end of container URI means "ignore entrypoint"
+        if batch_job_container and batch_job_container[-1] == "!":
+            self.extra_user_container = batch_job_container.rstrip("!")
+            self.extra_user_container_ignore_entrypoint = True
+        else:
+            self.extra_user_container = batch_job_container
+            self.extra_user_container_ignore_entrypoint = False
 
         self.software_environment = software or dask.config.get("coiled.software")
         self.software_container = container
@@ -1540,6 +1552,7 @@ class Cluster(DistributedCluster, Generic[IsAsynchronous]):
                     custom_subdomain=self.dashboard_custom_subdomain,
                     batch_job_ids=self.batch_job_ids,
                     extra_user_container=self.extra_user_container,
+                    extra_user_container_ignore_entrypoint=self.extra_user_container_ignore_entrypoint,
                     host_setup_script_content=self.host_setup_script_content,
                 )
                 cluster_created = not cluster_existed

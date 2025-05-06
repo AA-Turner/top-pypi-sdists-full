@@ -1,18 +1,30 @@
+import asyncio
 import copy
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.workload import WorkloadSDK
+from anyscale.client.openapi_client.models.decorated_production_service_v2_api_model import (
+    DecoratedProductionServiceV2APIModel,
+)
+from anyscale.client.openapi_client.models.decoratedlistserviceapimodel_list_response import (
+    DecoratedlistserviceapimodelListResponse,
+)
+from anyscale.client.openapi_client.models.list_response_metadata import (
+    ListResponseMetadata,
+)
 from anyscale.compute_config.models import ComputeConfig
 from anyscale.sdk.anyscale_client.models import (
     AccessConfig,
-    ApplyServiceModel,
+    ApplyProductionServiceV2Model,
     GrpcProtocolConfig,
     ProductionServiceV2VersionModel,
     Protocols,
     RayGCSExternalStorageConfig as APIRayGCSExternalStorageConfig,
     ServiceConfig as ExternalAPIServiceConfig,
     ServiceEventCurrentState,
-    ServiceModel,
+    ServiceSortField,
+    SortOrder,
     TracingConfig as APITracingConfg,
 )
 from anyscale.service.models import (
@@ -30,6 +42,9 @@ from anyscale.utils.workspace_notification import (
     WorkspaceNotification,
     WorkspaceNotificationAction,
 )
+
+
+MAX_PAGE_SIZE = 50
 
 
 class PrivateServiceSDK(WorkloadSDK):
@@ -101,7 +116,10 @@ class PrivateServiceSDK(WorkloadSDK):
         return name
 
     def _log_deployed_service_info(
-        self, service: ServiceModel, *, canary_percent: Optional[int]
+        self,
+        service: DecoratedProductionServiceV2APIModel,
+        *,
+        canary_percent: Optional[int],
     ):
         """Log user-facing information about a deployed service."""
         version_id_info = "version ID: {version_id}".format(
@@ -177,9 +195,9 @@ class PrivateServiceSDK(WorkloadSDK):
         *,
         canary_percent: Optional[int] = None,
         max_surge_percent: Optional[int] = None,
-        existing_service: Optional[ServiceModel] = None,
-    ) -> ApplyServiceModel:
-        """Build the ApplyServiceModel for an in_place update.
+        existing_service: Optional[DecoratedProductionServiceV2APIModel] = None,
+    ) -> ApplyProductionServiceV2Model:
+        """Build the ApplyProductionServiceV2Model for an in_place update.
 
         in_place updates:
             - must be performed on an existing service.
@@ -246,7 +264,7 @@ class PrivateServiceSDK(WorkloadSDK):
         project_id = self.client.get_project_id(
             parent_cloud_id=cloud_id, name=config.project
         )
-        return ApplyServiceModel(
+        return ApplyProductionServiceV2Model(
             name=name,
             project_id=project_id,
             ray_serve_config=self._build_ray_serve_config(config),
@@ -269,9 +287,9 @@ class PrivateServiceSDK(WorkloadSDK):
         *,
         canary_percent: Optional[int] = None,
         max_surge_percent: Optional[int] = None,
-        existing_service: Optional[ServiceModel] = None,
-    ) -> ApplyServiceModel:
-        """Build the ApplyServiceModel for a rolling update."""
+        existing_service: Optional[DecoratedProductionServiceV2APIModel] = None,
+    ) -> ApplyProductionServiceV2Model:
+        """Build the ApplyProductionServiceV2Model for a rolling update."""
 
         build_id = None
         if config.containerfile is not None:
@@ -375,7 +393,7 @@ class PrivateServiceSDK(WorkloadSDK):
             if config.tracing_config.sampling_ratio is not None:
                 tracing_config.sampling_ratio = config.tracing_config.sampling_ratio
 
-        return ApplyServiceModel(
+        return ApplyProductionServiceV2Model(
             name=name,
             project_id=project_id,
             ray_serve_config=self._build_ray_serve_config(config),
@@ -417,7 +435,9 @@ class PrivateServiceSDK(WorkloadSDK):
                 raise ValueError("max_surge_percent must be between 0 and 100.")
 
         name = config.name or self._get_default_name()
-        existing_service: Optional[ServiceModel] = self.client.get_service(
+        existing_service: Optional[
+            DecoratedProductionServiceV2APIModel
+        ] = self.client.get_service(
             name=name, cloud=config.cloud, project=config.project
         )
         if existing_service is None:
@@ -444,7 +464,7 @@ class PrivateServiceSDK(WorkloadSDK):
                 existing_service=existing_service,
             )
 
-        service: ServiceModel = self.client.rollout_service(model)
+        service = self.client.rollout_service(model)
         self._log_deployed_service_info(service, canary_percent=canary_percent)
 
         return service.id
@@ -456,11 +476,11 @@ class PrivateServiceSDK(WorkloadSDK):
         cloud: Optional[str] = None,
         project: Optional[str] = None,
         include_archived: bool = False,
-    ) -> ServiceModel:
+    ) -> DecoratedProductionServiceV2APIModel:
         if name is None:
             name = self._get_default_name()
 
-        model: Optional[ServiceModel] = self.client.get_service(
+        model = self.client.get_service(
             name=name, cloud=cloud, project=project, include_archived=include_archived
         )
         if model is None:
@@ -539,7 +559,7 @@ class PrivateServiceSDK(WorkloadSDK):
         # in the DB to avoid breakages, but for now I'm copying the existing logic.
         return model.id[-SERVICE_VERSION_ID_TRUNCATED_LEN:]
 
-    def _service_version_model_to_status(
+    async def _service_version_model_to_status_async(
         self,
         model: ProductionServiceV2VersionModel,
         *,
@@ -547,10 +567,20 @@ class PrivateServiceSDK(WorkloadSDK):
         project_id: str,
         query_auth_token_enabled: bool,
     ) -> ServiceVersionStatus:
-        image_uri = self._image_sdk.get_image_uri_from_build_id(model.build_id)
+
+        image_uri, image_build, project, compute_config = await asyncio.gather(
+            asyncio.to_thread(
+                self._image_sdk.get_image_uri_from_build_id, model.build_id
+            ),
+            asyncio.to_thread(self._image_sdk.get_image_build, model.build_id),
+            asyncio.to_thread(self.client.get_project, project_id),
+            asyncio.to_thread(
+                self.get_user_facing_compute_config, model.compute_config_id
+            ),
+        )
+
         if image_uri is None:
             raise RuntimeError(f"Failed to get image URI for ID {model.build_id}.")
-        image_build = self._image_sdk.get_image_build(model.build_id)
         if image_build is None:
             raise RuntimeError(f"Failed to get image build for ID {model.build_id}.")
 
@@ -562,8 +592,6 @@ class PrivateServiceSDK(WorkloadSDK):
                 certificate_path=model.ray_gcs_external_storage_config.redis_certificate_path,
             )
 
-        project = self.client.get_project(project_id)
-        compute_config = self.get_user_facing_compute_config(model.compute_config_id)
         tracing_config = None
         if model.tracing_config is not None:
             tracing_config = TracingConfig(
@@ -574,6 +602,7 @@ class PrivateServiceSDK(WorkloadSDK):
 
         return ServiceVersionStatus(
             id=self._get_user_facing_service_version_id(model),
+            created_at=model.created_at,
             state=model.current_state,
             # NOTE(edoakes): there is also a "current_weight" field but it does not match the UI.
             weight=model.weight,
@@ -615,50 +644,137 @@ class PrivateServiceSDK(WorkloadSDK):
 
         return state
 
-    def _service_model_to_status(self, model: ServiceModel) -> ServiceStatus:
-        # TODO(edoakes): for some reason the primary_version is populated
-        # when the service is terminated. This should be fixed in the backend.
-        is_terminated = model.current_state == ServiceEventCurrentState.TERMINATED
-
+    async def _service_model_to_status_async(
+        self, model: DecoratedProductionServiceV2APIModel
+    ) -> ServiceStatus:
         # TODO(edoakes): this is currently only exposed at the service level in the API,
         # which means that the per-version `query_auth_token_enabled` field will lie if
         # it's changed.
         query_auth_token_enabled = model.auth_token is not None
 
-        primary_version = None
-        if not is_terminated and model.primary_version is not None:
-            primary_version = self._service_version_model_to_status(
-                model.primary_version,
-                service_name=model.name,
-                project_id=model.project_id,
-                query_auth_token_enabled=query_auth_token_enabled,
+        primary_version_task = None
+        if model.primary_version is not None:
+            primary_version_task = asyncio.create_task(
+                self._service_version_model_to_status_async(
+                    model.primary_version,
+                    service_name=model.name,
+                    project_id=model.project_id,
+                    query_auth_token_enabled=query_auth_token_enabled,
+                )
             )
 
-        canary_version = None
-        if not is_terminated and model.canary_version is not None:
-            canary_version = self._service_version_model_to_status(
-                model.canary_version,
-                service_name=model.name,
-                project_id=model.project_id,
-                query_auth_token_enabled=query_auth_token_enabled,
+        canary_version_task = None
+        if model.canary_version is not None:
+            canary_version_task = asyncio.create_task(
+                self._service_version_model_to_status_async(
+                    model.canary_version,
+                    service_name=model.name,
+                    project_id=model.project_id,
+                    query_auth_token_enabled=query_auth_token_enabled,
+                )
             )
+
+        primary_version = await primary_version_task if primary_version_task else None
+        canary_version = await canary_version_task if canary_version_task else None
+
+        project_name = None
+        if primary_version and isinstance(primary_version.config, ServiceConfig):
+            project_name = primary_version.config.project
 
         return ServiceStatus(
             id=model.id,
             name=model.name,
+            creator=model.creator.email if model.creator else None,
             state=self._model_state_to_state(model.current_state),
             query_url=model.base_url,
             query_auth_token=model.auth_token,
             primary_version=primary_version,
             canary_version=canary_version,
+            project=project_name,
         )
 
     def status(
         self, name: str, *, cloud: Optional[str] = None, project: Optional[str] = None
     ) -> ServiceStatus:
         model = self._resolve_to_service_model(name=name, cloud=cloud, project=project)
+        return asyncio.run(self._service_model_to_status_async(model))
 
-        return self._service_model_to_status(model)
+    def list(  # noqa: PLR0912
+        self,
+        *,
+        # Single-item lookup
+        service_id: Optional[str] = None,
+        # Filters
+        name: Optional[str] = None,
+        state_filter: Optional[Union[List[ServiceState], List[str]]] = None,
+        creator_id: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        include_archived: bool = False,
+        # Paging
+        max_items: Optional[int] = None,  # Controls total items yielded by iterator
+        page_size: Optional[int] = None,  # Controls items fetched per API call
+        # Sorting
+        sort_field: Optional[Union[str, ServiceSortField]] = None,
+        sort_order: Optional[Union[str, SortOrder]] = None,
+    ) -> ResultIterator[ServiceStatus]:
+
+        if page_size is not None and (page_size <= 0 or page_size > MAX_PAGE_SIZE):
+            raise ValueError(
+                f"page_size must be between 1 and {MAX_PAGE_SIZE}, inclusive."
+            )
+
+        if service_id is not None:
+            raw = self.client.get_service_by_id(service_id)
+
+            def _fetch_single_page(
+                _token: Optional[str],
+            ) -> DecoratedlistserviceapimodelListResponse:
+                # Only return data on the first call (token=None), simulate single-item page
+                if _token is None and raw is not None:
+                    results = [raw]
+                    metadata = ListResponseMetadata(total=1, next_paging_token=None)
+                else:
+                    results = []
+                    metadata = ListResponseMetadata(total=0, next_paging_token=None)
+
+                return DecoratedlistserviceapimodelListResponse(
+                    results=results, metadata=metadata,
+                )
+
+            return ResultIterator(
+                page_token=None,
+                max_items=1,
+                fetch_page=_fetch_single_page,
+                async_parse_fn=self._service_model_to_status_async,
+                parse_fn=None,
+            )
+
+        normalised_states = _normalize_state_filter(state_filter)
+
+        def _fetch_page(
+            token: Optional[str],
+        ) -> DecoratedlistserviceapimodelListResponse:
+            return self.client.list_services(
+                name=name,
+                state_filter=normalised_states,
+                creator_id=creator_id,
+                cloud=cloud,
+                project=project,
+                include_archived=include_archived,
+                count=page_size,
+                paging_token=token,
+                sort_field=sort_field,
+                sort_order=sort_order,
+            )
+
+        return ResultIterator(
+            page_token=None,
+            max_items=max_items,
+            fetch_page=_fetch_page,
+            async_parse_fn=self._service_model_to_status_async,
+            parse_fn=None,
+        )
 
     def wait(
         self,
@@ -738,3 +854,23 @@ class PrivateServiceSDK(WorkloadSDK):
         return self.client.controller_logs_for_service_version(
             model.primary_version, head, max_lines
         )
+
+
+def _normalize_state_filter(
+    states: Optional[Union[List[ServiceState], List[str]]]
+) -> Optional[List[str]]:
+    if states is None:
+        return None
+
+    normalized: List[str] = []
+    for s in states:
+        if isinstance(s, ServiceState):
+            normalized.append(s.value)
+        elif isinstance(s, str):
+            normalized.append(s.upper())
+        else:
+            raise TypeError(
+                "'state_filter' entries must be ServiceState or str, "
+                f"got {type(s).__name__}"
+            )
+    return normalized

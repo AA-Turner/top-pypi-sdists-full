@@ -24,7 +24,6 @@ from .base_plan import BasePlan
 from .base_plan_metronome_plan_type import BasePlanMetronomePlanType
 from .base_plan_name import BasePlanName
 from .base_plan_plan_frequency import BasePlanPlanFrequency
-from .base_prompt_template import BasePromptTemplate
 from .batch import Batch
 from .batch_item import BatchItem
 from .batch_paginated_list import BatchPaginatedList
@@ -34,7 +33,6 @@ from .bedrock_embedding_config import BedrockEmbeddingConfig
 from .billing_period import BillingPeriod
 from .box_auth_mechanism import BoxAuthMechanism
 from .character_chunking_config import CharacterChunkingConfig
-from .character_splitter import CharacterSplitter
 from .chat_app import ChatApp
 from .chat_app_response import ChatAppResponse
 from .chat_data import ChatData
@@ -57,7 +55,6 @@ from .cloud_qdrant_vector_store import CloudQdrantVectorStore
 from .cloud_s_3_data_source import CloudS3DataSource
 from .cloud_sharepoint_data_source import CloudSharepointDataSource
 from .cloud_slack_data_source import CloudSlackDataSource
-from .code_splitter import CodeSplitter
 from .cohere_embedding import CohereEmbedding
 from .cohere_embedding_config import CohereEmbeddingConfig
 from .composite_retrieval_mode import CompositeRetrievalMode
@@ -68,21 +65,64 @@ from .configurable_data_sink_names import ConfigurableDataSinkNames
 from .configurable_data_source_names import ConfigurableDataSourceNames
 from .configurable_transformation_definition import ConfigurableTransformationDefinition
 from .configurable_transformation_names import ConfigurableTransformationNames
-from .configured_transformation_item import ConfiguredTransformationItem
-from .configured_transformation_item_component import ConfiguredTransformationItemComponent
 from .credit_type import CreditType
 from .data_sink import DataSink
-from .data_sink_component import DataSinkComponent
+from .data_sink_component import (
+    DataSinkComponent,
+    DataSinkComponent_AzureAiSearch,
+    DataSinkComponent_Milvus,
+    DataSinkComponent_MongodbAtlas,
+    DataSinkComponent_Pinecone,
+    DataSinkComponent_Postgres,
+    DataSinkComponent_Qdrant,
+)
 from .data_sink_create import DataSinkCreate
-from .data_sink_create_component import DataSinkCreateComponent
+from .data_sink_create_component import (
+    DataSinkCreateComponent,
+    DataSinkCreateComponent_AzureAiSearch,
+    DataSinkCreateComponent_Milvus,
+    DataSinkCreateComponent_MongodbAtlas,
+    DataSinkCreateComponent_Pinecone,
+    DataSinkCreateComponent_Postgres,
+    DataSinkCreateComponent_Qdrant,
+)
 from .data_sink_definition import DataSinkDefinition
 from .data_source import DataSource
 from .data_source_component import DataSourceComponent
+from .data_source_component_one import (
+    DataSourceComponentOne,
+    DataSourceComponentOne_AzureStorageBlob,
+    DataSourceComponentOne_Box,
+    DataSourceComponentOne_Confluence,
+    DataSourceComponentOne_GoogleDrive,
+    DataSourceComponentOne_Jira,
+    DataSourceComponentOne_MicrosoftOnedrive,
+    DataSourceComponentOne_MicrosoftSharepoint,
+    DataSourceComponentOne_NotionPage,
+    DataSourceComponentOne_S3,
+    DataSourceComponentOne_Slack,
+)
 from .data_source_create import DataSourceCreate
 from .data_source_create_component import DataSourceCreateComponent
+from .data_source_create_component_one import (
+    DataSourceCreateComponentOne,
+    DataSourceCreateComponentOne_AzureStorageBlob,
+    DataSourceCreateComponentOne_Box,
+    DataSourceCreateComponentOne_Confluence,
+    DataSourceCreateComponentOne_GoogleDrive,
+    DataSourceCreateComponentOne_Jira,
+    DataSourceCreateComponentOne_MicrosoftOnedrive,
+    DataSourceCreateComponentOne_MicrosoftSharepoint,
+    DataSourceCreateComponentOne_NotionPage,
+    DataSourceCreateComponentOne_S3,
+    DataSourceCreateComponentOne_Slack,
+)
 from .data_source_create_custom_metadata_value import DataSourceCreateCustomMetadataValue
 from .data_source_custom_metadata_value import DataSourceCustomMetadataValue
 from .data_source_definition import DataSourceDefinition
+from .data_source_update_dispatcher_config import DataSourceUpdateDispatcherConfig
+from .delete_params import DeleteParams
+from .document_ingestion_job_params import DocumentIngestionJobParams
 from .edit_suggestion import EditSuggestion
 from .edit_suggestion_blocks_item import EditSuggestionBlocksItem
 from .element_segmentation_config import ElementSegmentationConfig
@@ -153,7 +193,21 @@ from .input_message import InputMessage
 from .job_name_mapping import JobNameMapping
 from .job_names import JobNames
 from .job_record import JobRecord
+from .job_record_parameters import (
+    JobRecordParameters,
+    JobRecordParameters_DataSourceUpdateDispatcher,
+    JobRecordParameters_DocumentIngestion,
+    JobRecordParameters_LegacyParse,
+    JobRecordParameters_LlamaParseTransform,
+    JobRecordParameters_LoadFiles,
+    JobRecordParameters_Parse,
+    JobRecordParameters_PipelineFileUpdateDispatcher,
+    JobRecordParameters_PipelineFileUpdater,
+    JobRecordParameters_PipelineManagedIngestion,
+)
 from .job_record_with_usage_metrics import JobRecordWithUsageMetrics
+from .l_lama_parse_transform_config import LLamaParseTransformConfig
+from .legacy_parse_job_config import LegacyParseJobConfig
 from .llama_extract_settings import LlamaExtractSettings
 from .llama_index_core_base_llms_types_chat_message import LlamaIndexCoreBaseLlmsTypesChatMessage
 from .llama_index_core_base_llms_types_chat_message_blocks_item import (
@@ -164,20 +218,17 @@ from .llama_index_core_base_llms_types_chat_message_blocks_item import (
 )
 from .llama_parse_parameters import LlamaParseParameters
 from .llama_parse_supported_file_extensions import LlamaParseSupportedFileExtensions
-from .llm import Llm
 from .llm_model_data import LlmModelData
 from .llm_parameters import LlmParameters
+from .load_files_job_config import LoadFilesJobConfig
 from .managed_ingestion_status import ManagedIngestionStatus
 from .managed_ingestion_status_response import ManagedIngestionStatusResponse
-from .markdown_element_node_parser import MarkdownElementNodeParser
-from .markdown_node_parser import MarkdownNodeParser
 from .message_annotation import MessageAnnotation
 from .message_role import MessageRole
 from .metadata_filter import MetadataFilter
 from .metadata_filter_value import MetadataFilterValue
 from .metadata_filters import MetadataFilters
 from .metadata_filters_filters_item import MetadataFiltersFiltersItem
-from .node_parser import NodeParser
 from .node_relationship import NodeRelationship
 from .none_chunking_config import NoneChunkingConfig
 from .none_segmentation_config import NoneSegmentationConfig
@@ -190,12 +241,12 @@ from .page_figure_metadata import PageFigureMetadata
 from .page_screenshot_metadata import PageScreenshotMetadata
 from .page_screenshot_node_with_score import PageScreenshotNodeWithScore
 from .page_segmentation_config import PageSegmentationConfig
-from .page_splitter_node_parser import PageSplitterNodeParser
 from .paginated_extract_runs_response import PaginatedExtractRunsResponse
 from .paginated_jobs_history_with_metrics import PaginatedJobsHistoryWithMetrics
 from .paginated_list_cloud_documents_response import PaginatedListCloudDocumentsResponse
 from .paginated_list_pipeline_files_response import PaginatedListPipelineFilesResponse
 from .paginated_report_response import PaginatedReportResponse
+from .parse_job_config import ParseJobConfig
 from .parse_plan_level import ParsePlanLevel
 from .parser_languages import ParserLanguages
 from .parsing_history_item import ParsingHistoryItem
@@ -226,6 +277,19 @@ from .pipeline_create_embedding_config import (
 from .pipeline_create_transform_config import PipelineCreateTransformConfig
 from .pipeline_data_source import PipelineDataSource
 from .pipeline_data_source_component import PipelineDataSourceComponent
+from .pipeline_data_source_component_one import (
+    PipelineDataSourceComponentOne,
+    PipelineDataSourceComponentOne_AzureStorageBlob,
+    PipelineDataSourceComponentOne_Box,
+    PipelineDataSourceComponentOne_Confluence,
+    PipelineDataSourceComponentOne_GoogleDrive,
+    PipelineDataSourceComponentOne_Jira,
+    PipelineDataSourceComponentOne_MicrosoftOnedrive,
+    PipelineDataSourceComponentOne_MicrosoftSharepoint,
+    PipelineDataSourceComponentOne_NotionPage,
+    PipelineDataSourceComponentOne_S3,
+    PipelineDataSourceComponentOne_Slack,
+)
 from .pipeline_data_source_create import PipelineDataSourceCreate
 from .pipeline_data_source_custom_metadata_value import PipelineDataSourceCustomMetadataValue
 from .pipeline_data_source_status import PipelineDataSourceStatus
@@ -248,6 +312,10 @@ from .pipeline_file_custom_metadata_value import PipelineFileCustomMetadataValue
 from .pipeline_file_permission_info_value import PipelineFilePermissionInfoValue
 from .pipeline_file_resource_info_value import PipelineFileResourceInfoValue
 from .pipeline_file_status import PipelineFileStatus
+from .pipeline_file_update_dispatcher_config import PipelineFileUpdateDispatcherConfig
+from .pipeline_file_updater_config import PipelineFileUpdaterConfig
+from .pipeline_managed_ingestion_job_params import PipelineManagedIngestionJobParams
+from .pipeline_metadata_config import PipelineMetadataConfig
 from .pipeline_transform_config import (
     PipelineTransformConfig,
     PipelineTransformConfig_Advanced,
@@ -265,7 +333,6 @@ from .progress_event_status import ProgressEventStatus
 from .project import Project
 from .project_create import ProjectCreate
 from .prompt_conf import PromptConf
-from .pydantic_program_mode import PydanticProgramMode
 from .re_rank_config import ReRankConfig
 from .re_ranker_type import ReRankerType
 from .recurring_credit_grant import RecurringCreditGrant
@@ -300,7 +367,6 @@ from .role import Role
 from .schema_relax_mode import SchemaRelaxMode
 from .semantic_chunking_config import SemanticChunkingConfig
 from .sentence_chunking_config import SentenceChunkingConfig
-from .sentence_splitter import SentenceSplitter
 from .status_enum import StatusEnum
 from .struct_mode import StructMode
 from .struct_parse_conf import StructParseConf
@@ -311,7 +377,6 @@ from .text_node import TextNode
 from .text_node_relationships_value import TextNodeRelationshipsValue
 from .text_node_with_score import TextNodeWithScore
 from .token_chunking_config import TokenChunkingConfig
-from .token_text_splitter import TokenTextSplitter
 from .transformation_category_names import TransformationCategoryNames
 from .usage_and_plan import UsageAndPlan
 from .usage_metric_response import UsageMetricResponse
@@ -349,7 +414,6 @@ __all__ = [
     "BasePlanMetronomePlanType",
     "BasePlanName",
     "BasePlanPlanFrequency",
-    "BasePromptTemplate",
     "Batch",
     "BatchItem",
     "BatchPaginatedList",
@@ -359,7 +423,6 @@ __all__ = [
     "BillingPeriod",
     "BoxAuthMechanism",
     "CharacterChunkingConfig",
-    "CharacterSplitter",
     "ChatApp",
     "ChatAppResponse",
     "ChatData",
@@ -382,7 +445,6 @@ __all__ = [
     "CloudS3DataSource",
     "CloudSharepointDataSource",
     "CloudSlackDataSource",
-    "CodeSplitter",
     "CohereEmbedding",
     "CohereEmbeddingConfig",
     "CompositeRetrievalMode",
@@ -393,21 +455,56 @@ __all__ = [
     "ConfigurableDataSourceNames",
     "ConfigurableTransformationDefinition",
     "ConfigurableTransformationNames",
-    "ConfiguredTransformationItem",
-    "ConfiguredTransformationItemComponent",
     "CreditType",
     "DataSink",
     "DataSinkComponent",
+    "DataSinkComponent_AzureAiSearch",
+    "DataSinkComponent_Milvus",
+    "DataSinkComponent_MongodbAtlas",
+    "DataSinkComponent_Pinecone",
+    "DataSinkComponent_Postgres",
+    "DataSinkComponent_Qdrant",
     "DataSinkCreate",
     "DataSinkCreateComponent",
+    "DataSinkCreateComponent_AzureAiSearch",
+    "DataSinkCreateComponent_Milvus",
+    "DataSinkCreateComponent_MongodbAtlas",
+    "DataSinkCreateComponent_Pinecone",
+    "DataSinkCreateComponent_Postgres",
+    "DataSinkCreateComponent_Qdrant",
     "DataSinkDefinition",
     "DataSource",
     "DataSourceComponent",
+    "DataSourceComponentOne",
+    "DataSourceComponentOne_AzureStorageBlob",
+    "DataSourceComponentOne_Box",
+    "DataSourceComponentOne_Confluence",
+    "DataSourceComponentOne_GoogleDrive",
+    "DataSourceComponentOne_Jira",
+    "DataSourceComponentOne_MicrosoftOnedrive",
+    "DataSourceComponentOne_MicrosoftSharepoint",
+    "DataSourceComponentOne_NotionPage",
+    "DataSourceComponentOne_S3",
+    "DataSourceComponentOne_Slack",
     "DataSourceCreate",
     "DataSourceCreateComponent",
+    "DataSourceCreateComponentOne",
+    "DataSourceCreateComponentOne_AzureStorageBlob",
+    "DataSourceCreateComponentOne_Box",
+    "DataSourceCreateComponentOne_Confluence",
+    "DataSourceCreateComponentOne_GoogleDrive",
+    "DataSourceCreateComponentOne_Jira",
+    "DataSourceCreateComponentOne_MicrosoftOnedrive",
+    "DataSourceCreateComponentOne_MicrosoftSharepoint",
+    "DataSourceCreateComponentOne_NotionPage",
+    "DataSourceCreateComponentOne_S3",
+    "DataSourceCreateComponentOne_Slack",
     "DataSourceCreateCustomMetadataValue",
     "DataSourceCustomMetadataValue",
     "DataSourceDefinition",
+    "DataSourceUpdateDispatcherConfig",
+    "DeleteParams",
+    "DocumentIngestionJobParams",
     "EditSuggestion",
     "EditSuggestionBlocksItem",
     "ElementSegmentationConfig",
@@ -474,7 +571,19 @@ __all__ = [
     "JobNameMapping",
     "JobNames",
     "JobRecord",
+    "JobRecordParameters",
+    "JobRecordParameters_DataSourceUpdateDispatcher",
+    "JobRecordParameters_DocumentIngestion",
+    "JobRecordParameters_LegacyParse",
+    "JobRecordParameters_LlamaParseTransform",
+    "JobRecordParameters_LoadFiles",
+    "JobRecordParameters_Parse",
+    "JobRecordParameters_PipelineFileUpdateDispatcher",
+    "JobRecordParameters_PipelineFileUpdater",
+    "JobRecordParameters_PipelineManagedIngestion",
     "JobRecordWithUsageMetrics",
+    "LLamaParseTransformConfig",
+    "LegacyParseJobConfig",
     "LlamaExtractSettings",
     "LlamaIndexCoreBaseLlmsTypesChatMessage",
     "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem",
@@ -483,20 +592,17 @@ __all__ = [
     "LlamaIndexCoreBaseLlmsTypesChatMessageBlocksItem_Text",
     "LlamaParseParameters",
     "LlamaParseSupportedFileExtensions",
-    "Llm",
     "LlmModelData",
     "LlmParameters",
+    "LoadFilesJobConfig",
     "ManagedIngestionStatus",
     "ManagedIngestionStatusResponse",
-    "MarkdownElementNodeParser",
-    "MarkdownNodeParser",
     "MessageAnnotation",
     "MessageRole",
     "MetadataFilter",
     "MetadataFilterValue",
     "MetadataFilters",
     "MetadataFiltersFiltersItem",
-    "NodeParser",
     "NodeRelationship",
     "NoneChunkingConfig",
     "NoneSegmentationConfig",
@@ -509,12 +615,12 @@ __all__ = [
     "PageScreenshotMetadata",
     "PageScreenshotNodeWithScore",
     "PageSegmentationConfig",
-    "PageSplitterNodeParser",
     "PaginatedExtractRunsResponse",
     "PaginatedJobsHistoryWithMetrics",
     "PaginatedListCloudDocumentsResponse",
     "PaginatedListPipelineFilesResponse",
     "PaginatedReportResponse",
+    "ParseJobConfig",
     "ParsePlanLevel",
     "ParserLanguages",
     "ParsingHistoryItem",
@@ -543,6 +649,17 @@ __all__ = [
     "PipelineCreateTransformConfig",
     "PipelineDataSource",
     "PipelineDataSourceComponent",
+    "PipelineDataSourceComponentOne",
+    "PipelineDataSourceComponentOne_AzureStorageBlob",
+    "PipelineDataSourceComponentOne_Box",
+    "PipelineDataSourceComponentOne_Confluence",
+    "PipelineDataSourceComponentOne_GoogleDrive",
+    "PipelineDataSourceComponentOne_Jira",
+    "PipelineDataSourceComponentOne_MicrosoftOnedrive",
+    "PipelineDataSourceComponentOne_MicrosoftSharepoint",
+    "PipelineDataSourceComponentOne_NotionPage",
+    "PipelineDataSourceComponentOne_S3",
+    "PipelineDataSourceComponentOne_Slack",
     "PipelineDataSourceCreate",
     "PipelineDataSourceCustomMetadataValue",
     "PipelineDataSourceStatus",
@@ -563,6 +680,10 @@ __all__ = [
     "PipelineFilePermissionInfoValue",
     "PipelineFileResourceInfoValue",
     "PipelineFileStatus",
+    "PipelineFileUpdateDispatcherConfig",
+    "PipelineFileUpdaterConfig",
+    "PipelineManagedIngestionJobParams",
+    "PipelineMetadataConfig",
     "PipelineTransformConfig",
     "PipelineTransformConfig_Advanced",
     "PipelineTransformConfig_Auto",
@@ -578,7 +699,6 @@ __all__ = [
     "Project",
     "ProjectCreate",
     "PromptConf",
-    "PydanticProgramMode",
     "ReRankConfig",
     "ReRankerType",
     "RecurringCreditGrant",
@@ -611,7 +731,6 @@ __all__ = [
     "SchemaRelaxMode",
     "SemanticChunkingConfig",
     "SentenceChunkingConfig",
-    "SentenceSplitter",
     "StatusEnum",
     "StructMode",
     "StructParseConf",
@@ -622,7 +741,6 @@ __all__ = [
     "TextNodeRelationshipsValue",
     "TextNodeWithScore",
     "TokenChunkingConfig",
-    "TokenTextSplitter",
     "TransformationCategoryNames",
     "UsageAndPlan",
     "UsageMetricResponse",

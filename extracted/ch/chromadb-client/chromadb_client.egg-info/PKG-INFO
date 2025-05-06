@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chromadb-client
-Version: 1.0.7
+Version: 1.0.8
 Summary: Chroma Client.
 Author-email: Jeff Huber <jeff@trychroma.com>
 Project-URL: Homepage, https://github.com/chroma-core/chroma

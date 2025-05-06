@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 4.20.30
+Version: 4.20.31
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>

@@ -111,17 +111,23 @@ elif detector.chip.H618:
     from adafruit_blinka.microcontroller.allwinner.h618.pin import Pin
 elif detector.chip.H616:
     from adafruit_blinka.microcontroller.allwinner.h616.pin import Pin
+elif detector.chip.T527:
+    from adafruit_blinka.microcontroller.allwinner.t527.pin import Pin
 elif detector.chip.D1_RISCV:
     from adafruit_blinka.microcontroller.allwinner.D1.pin import Pin
 elif detector.chip.TH1520:
     from adafruit_blinka.microcontroller.thead.th1520.pin import Pin
 elif detector.chip.K1:
     from adafruit_blinka.microcontroller.spacemit.k1.pin import Pin
+elif detector.chip.SUNRISE_X3:
+    from adafruit_blinka.microcontroller.horizon.sunrise_x3.pin import Pin
 # Special Case Boards
 elif detector.board.ftdi_ft232h:
     from adafruit_blinka.microcontroller.ftdi_mpsse.ft232h.pin import Pin
 elif detector.board.ftdi_ft2232h:
     from adafruit_blinka.microcontroller.ftdi_mpsse.ft2232h.pin import Pin
+elif detector.board.ftdi_ft4232h:
+    from adafruit_blinka.microcontroller.ftdi_mpsse.ft4232h.pin import Pin
 elif detector.board.binho_nova:
     from adafruit_blinka.microcontroller.nova.pin import Pin
 elif detector.board.greatfet_one:

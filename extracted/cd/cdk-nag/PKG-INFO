@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-nag
-Version: 2.35.89
+Version: 2.35.90
 Summary: Check CDK v2 applications for best practices using a combination on available rule packs.
 Home-page: https://github.com/cdklabs/cdk-nag.git
 Author: Arun Donti<donti@amazon.com>

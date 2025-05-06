@@ -22,7 +22,6 @@ from worker_automate_hub.api.client import get_config_by_name
 from worker_automate_hub.utils.util import (
     capture_and_send_screenshot,
     kill_all_emsys,
-    kill_process, 
     login_emsys, 
     type_text_into_field, 
     worker_sleep,

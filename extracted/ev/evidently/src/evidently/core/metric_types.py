@@ -45,6 +45,7 @@ from evidently.pydantic_utils import Fingerprint
 from evidently.pydantic_utils import FrozenBaseModel
 from evidently.pydantic_utils import PolymorphicModel
 
+from ._utils import _flatten
 from ._utils import not_implemented
 from .datasets import Dataset
 from .tests import GenericTest
@@ -91,7 +92,10 @@ class MetricValueLocation(BaseModel):
             label = self.params().get("label")
             if label is None or not isinstance(label, (bool, int, str)):
                 raise ValueError("label parameter not set in metric location")
-            return value.get_label_result(label)
+            result = value.get_label_result(label)
+            if result is None:
+                raise ValueError(f"label {label} does not exist in metric location")
+            return result
         if isinstance(value, CountValue):
             value_type = self.params().get("value_type")
             if value_type not in ["count", "share"]:
@@ -179,6 +183,9 @@ class MetricResult(AutoAliasMixin, PolymorphicModel):
     @abc.abstractmethod
     def to_simple_dict(self) -> object:
         raise NotImplementedError()
+
+    def itervalues(self) -> typing.Iterable[Tuple[str, float]]:
+        yield from _flatten(self.to_simple_dict())
 
     def get_widgets(self) -> List[BaseWidgetInfo]:
         return self.widget or []
@@ -284,8 +291,10 @@ class ByLabelValue(MetricResult):
     def labels(self) -> List[Label]:
         return list(self.values.keys())
 
-    def get_label_result(self, label: Label) -> SingleValue:
-        value = self.values[label]
+    def get_label_result(self, label: Label) -> Optional[SingleValue]:
+        value = self.values.get(
+            label,
+        )
         return value
 
     def set_metric_location(self, metric: MetricConfig):
@@ -305,8 +314,20 @@ class ByLabelCountValue(MetricResult):
         return list(self.counts.keys())
 
     def get_label_result(self, label: Label) -> Tuple[SingleValue, SingleValue]:
-        count = self.counts[label]
-        share = self.shares[label]
+        count = self.counts.get(
+            label,
+            SingleValue(
+                value=0,
+                display_name=f"Missing label {label} count",
+            ),
+        )
+        share = self.shares.get(
+            label,
+            SingleValue(
+                value=0,
+                display_name=f"Missing label {label} share",
+            ),
+        )
         return count, share
 
     def to_simple_dict(self) -> object:
@@ -789,7 +810,9 @@ class SingleValueBoundTest(BoundTest[SingleValue]):
         return result
 
 
+GenericTestList = Optional[List[Union[MetricTest, GenericTest]]]
 SingleValueMetricTests = Optional[List[MetricTest]]
+GenericSingleValueMetricTests = Union[GenericTestList, SingleValueMetricTests]
 
 
 def convert_test(test: Union[MetricTest, GenericTest]) -> MetricTest:
@@ -800,7 +823,11 @@ def convert_test(test: Union[MetricTest, GenericTest]) -> MetricTest:
     raise ValueError(f"test {test} is not a subclass of MetricTest")
 
 
-def convert_tests(tests: Optional[List[Union[MetricTest, GenericTest]]]):
+def convert_tests(tests: Union[GenericSingleValueMetricTests, "GenericByLabelMetricTests", "MeanStdMetricTests"]):
+    if isinstance(tests, dict):
+        return {label: convert_tests(tests) for label, tests in tests.items()}
+    if isinstance(tests, MeanStdMetricTests):
+        return MeanStdMetricTests(mean=convert_tests(tests.mean), std=convert_tests(tests.std))
     return [convert_test(t) for t in tests] if tests is not None else None
 
 
@@ -838,12 +865,24 @@ class ByLabelBoundTest(BoundTest[ByLabelValue]):
         metric_result: ByLabelValue,
     ) -> MetricTestResult:
         value = metric_result.get_label_result(self.label)
+        if value is None:
+            return MetricTestResult(
+                id="",
+                name="Missing label",
+                description=f"Missing label {self.label} for {calculation.display_name()} test",
+                metric_config=calculation.to_metric_config(),
+                test_config=self.dict(),
+                status=TestStatus.ERROR,
+                bound_test=self,
+            )
         result = self.test.run(context, calculation, value)
         result.bound_test = self
         return result
 
 
+GenericTestDict = Optional[Dict[Label, List[Union[MetricTest, GenericTest]]]]
 ByLabelMetricTests = Optional[Dict[Label, List[MetricTest]]]
+GenericByLabelMetricTests = Union[GenericTestDict, ByLabelMetricTests]
 
 
 class ByLabelMetric(Metric):
@@ -940,6 +979,10 @@ class ByLabelCountMetric(Metric):
             for label, tests in (self.share_tests or {}).items()
             for t in tests
         ]
+
+    @validator("tests", "share_tests", pre=True)
+    def validate_tests(cls, v):
+        return convert_tests(v)
 
 
 TByLabelCountMetric = TypeVar("TByLabelCountMetric", bound=ByLabelCountMetric)
@@ -1066,6 +1109,9 @@ class MeanStdBoundTest(BoundTest[MeanStdValue]):
 class MeanStdMetricTests(BaseModel):
     mean: SingleValueMetricTests = None
     std: SingleValueMetricTests = None
+
+    def __init__(self, mean: GenericSingleValueMetricTests = None, std: GenericSingleValueMetricTests = None):
+        super().__init__(mean=convert_tests(mean), std=convert_tests(std))
 
 
 class MeanStdMetric(Metric):

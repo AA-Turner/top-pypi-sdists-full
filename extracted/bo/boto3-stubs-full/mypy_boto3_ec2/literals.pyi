@@ -390,6 +390,8 @@ __all__ = (
     "LocalGatewayRouteStateType",
     "LocalGatewayRouteTableModeType",
     "LocalGatewayRouteTypeType",
+    "LocalGatewayVirtualInterfaceConfigurationStateType",
+    "LocalGatewayVirtualInterfaceGroupConfigurationStateType",
     "LocalStorageType",
     "LocalStorageTypeType",
     "LocationTypeType",
@@ -478,6 +480,7 @@ __all__ = (
     "SecurityGroupVpcAssociationStateType",
     "SelfServicePortalType",
     "ServiceConnectivityTypeType",
+    "ServiceLinkVirtualInterfaceConfigurationStateType",
     "ServiceManagedType",
     "ServiceName",
     "ServiceStateType",
@@ -2207,6 +2210,12 @@ ListingStatusType = Literal["active", "cancelled", "closed", "pending"]
 LocalGatewayRouteStateType = Literal["active", "blackhole", "deleted", "deleting", "pending"]
 LocalGatewayRouteTableModeType = Literal["coip", "direct-vpc-routing"]
 LocalGatewayRouteTypeType = Literal["propagated", "static"]
+LocalGatewayVirtualInterfaceConfigurationStateType = Literal[
+    "available", "deleted", "deleting", "pending"
+]
+LocalGatewayVirtualInterfaceGroupConfigurationStateType = Literal[
+    "available", "deleted", "deleting", "incomplete", "pending"
+]
 LocalStorageType = Literal["excluded", "included", "required"]
 LocalStorageTypeType = Literal["hdd", "ssd"]
 LocationTypeType = Literal["availability-zone", "availability-zone-id", "outpost", "region"]
@@ -2374,6 +2383,7 @@ ResourceTypeType = Literal[
     "network-insights-analysis",
     "network-insights-path",
     "network-interface",
+    "outpost-lag",
     "placement-group",
     "prefix-list",
     "replace-root-volume-task",
@@ -2384,6 +2394,7 @@ ResourceTypeType = Literal[
     "route-table",
     "security-group",
     "security-group-rule",
+    "service-link-virtual-interface",
     "snapshot",
     "spot-fleet-request",
     "spot-instances-request",
@@ -2463,6 +2474,9 @@ SecurityGroupVpcAssociationStateType = Literal[
 ]
 SelfServicePortalType = Literal["disabled", "enabled"]
 ServiceConnectivityTypeType = Literal["ipv4", "ipv6"]
+ServiceLinkVirtualInterfaceConfigurationStateType = Literal[
+    "available", "deleted", "deleting", "pending"
+]
 ServiceManagedType = Literal["alb", "nlb", "rnat"]
 ServiceStateType = Literal["Available", "Deleted", "Deleting", "Failed", "Pending"]
 ServiceTypeType = Literal["Gateway", "GatewayLoadBalancer", "Interface"]
@@ -3036,7 +3050,6 @@ ServiceName = Literal[
     "signer",
     "simspaceweaver",
     "sms",
-    "sms-voice",
     "snow-device-management",
     "snowball",
     "sns",

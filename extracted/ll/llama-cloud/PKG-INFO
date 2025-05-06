@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: llama-cloud
-Version: 0.1.19
+Version: 0.1.20
 Summary: 
 License: MIT
 Author: Logan Markewich
@@ -13,7 +13,6 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: certifi (>=2024.7.4)
 Requires-Dist: httpx (>=0.20.0)
 Requires-Dist: pydantic (>=1.10)
@@ -26,4 +25,7 @@ This client is auto-generated using [Fern](https://buildwithfern.com/docs/intro)
 To publish:
 - update the version in `pyproject.toml`
 - run `poetry publish --build` 
+
+Credentials:
+- run `poetry config pypi-token.pypi <my-token>`
 

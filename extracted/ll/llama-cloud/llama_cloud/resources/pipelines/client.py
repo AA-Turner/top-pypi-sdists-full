@@ -12,7 +12,6 @@ from ...errors.unprocessable_entity_error import UnprocessableEntityError
 from ...types.chat_data import ChatData
 from ...types.cloud_document import CloudDocument
 from ...types.cloud_document_create import CloudDocumentCreate
-from ...types.configured_transformation_item import ConfiguredTransformationItem
 from ...types.data_sink_create import DataSinkCreate
 from ...types.eval_execution_params import EvalExecutionParams
 from ...types.file_count_by_status_response import FileCountByStatusResponse
@@ -30,6 +29,7 @@ from ...types.pipeline_data_source_create import PipelineDataSourceCreate
 from ...types.pipeline_deployment import PipelineDeployment
 from ...types.pipeline_file import PipelineFile
 from ...types.pipeline_file_create import PipelineFileCreate
+from ...types.pipeline_metadata_config import PipelineMetadataConfig
 from ...types.pipeline_type import PipelineType
 from ...types.playground_session import PlaygroundSession
 from ...types.preset_retrieval_params import PresetRetrievalParams
@@ -210,7 +210,6 @@ class PipelinesClient:
         *,
         embedding_config: typing.Optional[PipelineUpdateEmbeddingConfig] = OMIT,
         transform_config: typing.Optional[PipelineUpdateTransformConfig] = OMIT,
-        configured_transformations: typing.Optional[typing.List[ConfiguredTransformationItem]] = OMIT,
         data_sink_id: typing.Optional[str] = OMIT,
         embedding_model_config_id: typing.Optional[str] = OMIT,
         data_sink: typing.Optional[DataSinkCreate] = OMIT,
@@ -218,6 +217,7 @@ class PipelinesClient:
         eval_parameters: typing.Optional[EvalExecutionParams] = OMIT,
         llama_parse_parameters: typing.Optional[LlamaParseParameters] = OMIT,
         status: typing.Optional[str] = OMIT,
+        metadata_config: typing.Optional[PipelineMetadataConfig] = OMIT,
         name: typing.Optional[str] = OMIT,
         managed_pipeline_id: typing.Optional[str] = OMIT,
     ) -> Pipeline:
@@ -230,8 +230,6 @@ class PipelinesClient:
             - embedding_config: typing.Optional[PipelineUpdateEmbeddingConfig].
 
             - transform_config: typing.Optional[PipelineUpdateTransformConfig]. Configuration for the transformation.
-
-            - configured_transformations: typing.Optional[typing.List[ConfiguredTransformationItem]].
 
             - data_sink_id: typing.Optional[str].
 
@@ -247,6 +245,8 @@ class PipelinesClient:
 
             - status: typing.Optional[str].
 
+            - metadata_config: typing.Optional[PipelineMetadataConfig].
+
             - name: typing.Optional[str].
 
             - managed_pipeline_id: typing.Optional[str].
@@ -256,8 +256,6 @@ class PipelinesClient:
             _request["embedding_config"] = embedding_config
         if transform_config is not OMIT:
             _request["transform_config"] = transform_config
-        if configured_transformations is not OMIT:
-            _request["configured_transformations"] = configured_transformations
         if data_sink_id is not OMIT:
             _request["data_sink_id"] = data_sink_id
         if embedding_model_config_id is not OMIT:
@@ -272,6 +270,8 @@ class PipelinesClient:
             _request["llama_parse_parameters"] = llama_parse_parameters
         if status is not OMIT:
             _request["status"] = status
+        if metadata_config is not OMIT:
+            _request["metadata_config"] = metadata_config
         if name is not OMIT:
             _request["name"] = name
         if managed_pipeline_id is not OMIT:
@@ -1817,7 +1817,6 @@ class AsyncPipelinesClient:
         *,
         embedding_config: typing.Optional[PipelineUpdateEmbeddingConfig] = OMIT,
         transform_config: typing.Optional[PipelineUpdateTransformConfig] = OMIT,
-        configured_transformations: typing.Optional[typing.List[ConfiguredTransformationItem]] = OMIT,
         data_sink_id: typing.Optional[str] = OMIT,
         embedding_model_config_id: typing.Optional[str] = OMIT,
         data_sink: typing.Optional[DataSinkCreate] = OMIT,
@@ -1825,6 +1824,7 @@ class AsyncPipelinesClient:
         eval_parameters: typing.Optional[EvalExecutionParams] = OMIT,
         llama_parse_parameters: typing.Optional[LlamaParseParameters] = OMIT,
         status: typing.Optional[str] = OMIT,
+        metadata_config: typing.Optional[PipelineMetadataConfig] = OMIT,
         name: typing.Optional[str] = OMIT,
         managed_pipeline_id: typing.Optional[str] = OMIT,
     ) -> Pipeline:
@@ -1837,8 +1837,6 @@ class AsyncPipelinesClient:
             - embedding_config: typing.Optional[PipelineUpdateEmbeddingConfig].
 
             - transform_config: typing.Optional[PipelineUpdateTransformConfig]. Configuration for the transformation.
-
-            - configured_transformations: typing.Optional[typing.List[ConfiguredTransformationItem]].
 
             - data_sink_id: typing.Optional[str].
 
@@ -1854,6 +1852,8 @@ class AsyncPipelinesClient:
 
             - status: typing.Optional[str].
 
+            - metadata_config: typing.Optional[PipelineMetadataConfig].
+
             - name: typing.Optional[str].
 
             - managed_pipeline_id: typing.Optional[str].
@@ -1863,8 +1863,6 @@ class AsyncPipelinesClient:
             _request["embedding_config"] = embedding_config
         if transform_config is not OMIT:
             _request["transform_config"] = transform_config
-        if configured_transformations is not OMIT:
-            _request["configured_transformations"] = configured_transformations
         if data_sink_id is not OMIT:
             _request["data_sink_id"] = data_sink_id
         if embedding_model_config_id is not OMIT:
@@ -1879,6 +1877,8 @@ class AsyncPipelinesClient:
             _request["llama_parse_parameters"] = llama_parse_parameters
         if status is not OMIT:
             _request["status"] = status
+        if metadata_config is not OMIT:
+            _request["metadata_config"] = metadata_config
         if name is not OMIT:
             _request["name"] = name
         if managed_pipeline_id is not OMIT:

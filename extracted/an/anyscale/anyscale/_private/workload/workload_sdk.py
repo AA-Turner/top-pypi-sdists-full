@@ -328,4 +328,6 @@ class WorkloadSDK(BaseSDK):
         if not compute_config.anonymous:
             return compute_config_name
 
-        return self._compute_config_sdk.get_compute_config(id=compute_config_id).config
+        return self._compute_config_sdk._convert_api_model_to_compute_config_version(  # noqa: SLF001
+            compute_config
+        ).config

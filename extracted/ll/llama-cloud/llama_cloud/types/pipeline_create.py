@@ -4,12 +4,12 @@ import datetime as dt
 import typing
 
 from ..core.datetime_utils import serialize_datetime
-from .configured_transformation_item import ConfiguredTransformationItem
 from .data_sink_create import DataSinkCreate
 from .eval_execution_params import EvalExecutionParams
 from .llama_parse_parameters import LlamaParseParameters
 from .pipeline_create_embedding_config import PipelineCreateEmbeddingConfig
 from .pipeline_create_transform_config import PipelineCreateTransformConfig
+from .pipeline_metadata_config import PipelineMetadataConfig
 from .pipeline_type import PipelineType
 from .preset_retrieval_params import PresetRetrievalParams
 
@@ -31,7 +31,6 @@ class PipelineCreate(pydantic.BaseModel):
     transform_config: typing.Optional[PipelineCreateTransformConfig] = pydantic.Field(
         description="Configuration for the transformation."
     )
-    configured_transformations: typing.Optional[typing.List[ConfiguredTransformationItem]]
     data_sink_id: typing.Optional[str]
     embedding_model_config_id: typing.Optional[str]
     data_sink: typing.Optional[DataSinkCreate]
@@ -45,6 +44,7 @@ class PipelineCreate(pydantic.BaseModel):
         description="Settings that can be configured for how to use LlamaParse to parse files within a LlamaCloud pipeline."
     )
     status: typing.Optional[str]
+    metadata_config: typing.Optional[PipelineMetadataConfig]
     name: str
     pipeline_type: typing.Optional[PipelineType] = pydantic.Field(
         description="Type of pipeline. Either PLAYGROUND or MANAGED."

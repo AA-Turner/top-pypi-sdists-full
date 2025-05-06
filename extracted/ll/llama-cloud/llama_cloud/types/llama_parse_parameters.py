@@ -79,6 +79,7 @@ class LlamaParseParameters(pydantic.BaseModel):
     auto_mode_trigger_on_text_in_page: typing.Optional[str]
     auto_mode_trigger_on_table_in_page: typing.Optional[bool]
     auto_mode_trigger_on_image_in_page: typing.Optional[bool]
+    auto_mode_configuration_json: typing.Optional[str]
     structured_output: typing.Optional[bool]
     structured_output_json_schema: typing.Optional[str]
     structured_output_json_schema_name: typing.Optional[str]

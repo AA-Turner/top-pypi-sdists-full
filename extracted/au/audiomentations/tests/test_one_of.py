@@ -1,7 +1,8 @@
 import os
+import pytest
 
 import numpy as np
-from numpy.testing import assert_array_equal, assert_array_almost_equal
+from numpy.testing import assert_array_equal, assert_array_almost_equal, assert_allclose
 
 from audiomentations import (
     ClippingDistortion,
@@ -10,7 +11,6 @@ from audiomentations import (
     Shift,
     PolarityInversion,
     Gain,
-    SpecFrequencyMask,
     OneOf,
 )
 from demo.demo import DEMO_DIR
@@ -150,47 +150,80 @@ def test_randomize_only_own_parameters():
         assert transform_parameters == transform.parameters
         assert not transform.are_parameters_frozen
 
-def test_one_of_spectrogram_magnitude():
-    spectrogram = np.random.random((128, 128, 2))
-    augmenter = OneOf(
-        [
-            SpecFrequencyMask(fill_mode="mean", p=1.0),
-            SpecFrequencyMask(fill_mode="constant", p=1.0),
-        ]
-    )
+def test_one_of_weights():
+    samples = np.array([1.0, 0.5, -0.25, -0.125, 0.0], dtype=np.float32)
+    sample_rate = 16000
+    
+    transforms = [
+        Gain(min_gain_db=6.0, max_gain_db=6.0, p=1.0),  # Gain approx 2.0
+        Gain(min_gain_db=-6.0, max_gain_db=-6.0, p=1.0), # Gain approx 0.5
+    ]
+    weights = [0.8, 0.2]
+    
+    augmenter = OneOf(transforms=transforms, p=1.0, weights=weights)
+    
+    counts = [0, 0]
+    num_runs = 2000
+    for _ in range(num_runs):
+        perturbed_samples = augmenter(samples=samples, sample_rate=sample_rate)
+        # Check which transform was applied based on the gain effect
+        if np.allclose(perturbed_samples[0], samples[0] * 1.99526, atol=1e-4):
+            counts[0] += 1
+        elif np.allclose(perturbed_samples[0], samples[0] * 0.501187, atol=1e-4):
+            counts[1] += 1
+        else:
+             # This should not happen if p=1.0 and gains are fixed
+             raise AssertionError("Unexpected output sample value")
 
-    # Positional argument
-    augmented_spectrogram = augmenter(spectrogram)
-    assert augmented_spectrogram.shape == spectrogram.shape
-    assert augmented_spectrogram.dtype == spectrogram.dtype
-    with np.testing.assert_raises(AssertionError):
-        assert_array_almost_equal(augmented_spectrogram, spectrogram)
+    observed_proportions = np.array(counts) / num_runs
+    assert_allclose(observed_proportions, weights, atol=0.05)
 
-    # Keyword argument
-    augmented_spectrogram = augmenter(magnitude_spectrogram=spectrogram)
-    assert augmented_spectrogram.shape == spectrogram.shape
-    assert augmented_spectrogram.dtype == spectrogram.dtype
-    with np.testing.assert_raises(AssertionError):
-        assert_array_almost_equal(augmented_spectrogram, spectrogram)
 
-def test_one_of_spectrogram_magnitude_with_p_0():
-    spectrogram = np.random.random((128, 128, 2))
-    augmenter = OneOf(
-        [
-            SpecFrequencyMask(fill_mode="mean", p=1.0),
-            SpecFrequencyMask(fill_mode="constant", p=1.0),
-        ],
-        p=0.0,
-    )
+def test_one_of_weights_normalization():
+    samples = np.array([1.0], dtype=np.float32)
+    sample_rate = 16000
+    
+    transforms = [
+        Gain(min_gain_db=6.0, max_gain_db=6.0, p=1.0), 
+        Gain(min_gain_db=-6.0, max_gain_db=-6.0, p=1.0),
+    ]
+    # Weights don't sum to 1, should be normalized to [0.8, 0.2]
+    weights = [4, 1] 
+    expected_normalized_weights = [0.8, 0.2]
 
-    # Positional argument
-    augmented_spectrogram = augmenter(spectrogram)
-    assert augmented_spectrogram.shape == spectrogram.shape
-    assert augmented_spectrogram.dtype == spectrogram.dtype
-    assert_array_equal(augmented_spectrogram, spectrogram)
+    augmenter = OneOf(transforms=transforms, p=1.0, weights=weights)
+    
+    counts = [0, 0]
+    num_runs = 2000
+    for _ in range(num_runs):
+        perturbed_samples = augmenter(samples=samples, sample_rate=sample_rate)
+        if np.allclose(perturbed_samples[0], samples[0] * 1.99526, atol=1e-4):
+            counts[0] += 1
+        elif np.allclose(perturbed_samples[0], samples[0] * 0.501187, atol=1e-4):
+            counts[1] += 1
+        else:
+            # This should not happen if p=1.0 and gains are fixed
+            raise AssertionError("Unexpected output sample value")
 
-    # Keyword argument
-    augmented_spectrogram = augmenter(magnitude_spectrogram=spectrogram)
-    assert augmented_spectrogram.shape == spectrogram.shape
-    assert augmented_spectrogram.dtype == spectrogram.dtype
-    assert_array_equal(augmented_spectrogram, spectrogram)
+    observed_proportions = np.array(counts) / num_runs
+    # Check proportions match the *normalized* weights
+    assert_allclose(observed_proportions, expected_normalized_weights, atol=0.05)
+
+
+def test_one_of_invalid_weights():
+    transforms = [
+        Gain(p=1.0),
+        PolarityInversion(p=1.0),
+    ]
+
+    # Length mismatch
+    with pytest.raises(ValueError, match="Length of weights must match"):
+        OneOf(transforms=transforms, weights=[0.5])
+        
+    # Negative weights
+    with pytest.raises(ValueError, match="weights must be non-negative"):
+        OneOf(transforms=transforms, weights=[0.5, -0.1])
+
+    # Weights sum to zero
+    with pytest.raises(ValueError, match="Sum of weights must be > 0"):
+        OneOf(transforms=transforms, weights=[0.0, 0.0])

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-dxf
-Version: 12.1.0
+Version: 12.1.1
 Summary: Package for accessing a Docker v2 registry
 Home-page: https://github.com/davedoesdev/dxf
 Author: David Halls
@@ -12,6 +12,16 @@ License-File: LICENCE
 Requires-Dist: www-authenticate>=0.9.2
 Requires-Dist: requests>=2.18.4
 Requires-Dist: tqdm>=4.19.4
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 |Build Status| |Coverage Status| |PyPI version|
 

@@ -1444,7 +1444,7 @@ class ConfigurationTypeDef(TypedDict):
 
 class GenerativeDataDetailsPaginatorTypeDef(TypedDict):
     completion: str
-    references: List["DataSummaryPaginatorTypeDef"]
+    references: List[Dict[str, Any]]
     rankingData: RankingDataTypeDef
 
 class GenerativeDataDetailsTypeDef(TypedDict):
@@ -1894,10 +1894,6 @@ class PutFeedbackResponseTypeDef(TypedDict):
     contentFeedback: ContentFeedbackDataTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class DataSummaryPaginatorTypeDef(TypedDict):
-    reference: DataReferenceTypeDef
-    details: "DataDetailsPaginatorTypeDef"
-
 class DocumentTypeDef(TypedDict):
     contentReference: ContentReferenceTypeDef
     title: NotRequired[DocumentTextTypeDef]
@@ -2284,17 +2280,6 @@ class StartImportJobRequestTypeDef(TypedDict):
     metadata: NotRequired[Mapping[str, str]]
     externalSourceConfiguration: NotRequired[ExternalSourceConfigurationTypeDef]
 
-ResultDataPaginatorTypeDef = TypedDict(
-    "ResultDataPaginatorTypeDef",
-    {
-        "resultId": str,
-        "document": NotRequired[DocumentTypeDef],
-        "relevanceScore": NotRequired[float],
-        "data": NotRequired["DataSummaryPaginatorTypeDef"],
-        "type": NotRequired[QueryResultTypeType],
-    },
-)
-
 class ContentDataDetailsTypeDef(TypedDict):
     textData: TextDataTypeDef
     rankingData: RankingDataTypeDef
@@ -2419,14 +2404,9 @@ class ListImportJobsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class QueryAssistantResponsePaginatorTypeDef(TypedDict):
-    results: List[ResultDataPaginatorTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 class DataDetailsPaginatorTypeDef(TypedDict):
     contentData: NotRequired[ContentDataDetailsTypeDef]
-    generativeData: NotRequired["GenerativeDataDetailsPaginatorTypeDef"]
+    generativeData: NotRequired[GenerativeDataDetailsPaginatorTypeDef]
     intentDetectedData: NotRequired[IntentDetectedDataDetailsTypeDef]
     sourceContentData: NotRequired[SourceContentDataDetailsTypeDef]
     generativeChunkData: NotRequired[GenerativeChunkDataDetailsPaginatorTypeDef]
@@ -2543,6 +2523,10 @@ class RenderMessageTemplateRequestTypeDef(TypedDict):
     messageTemplateId: str
     attributes: MessageTemplateAttributesUnionTypeDef
 
+class DataSummaryPaginatorTypeDef(TypedDict):
+    reference: DataReferenceTypeDef
+    details: DataDetailsPaginatorTypeDef
+
 class DataSummaryTypeDef(TypedDict):
     reference: DataReferenceTypeDef
     details: DataDetailsTypeDef
@@ -2628,6 +2612,16 @@ class KnowledgeBaseSummaryTypeDef(TypedDict):
 SourceConfigurationUnionTypeDef = Union[
     SourceConfigurationTypeDef, SourceConfigurationOutputTypeDef
 ]
+ResultDataPaginatorTypeDef = TypedDict(
+    "ResultDataPaginatorTypeDef",
+    {
+        "resultId": str,
+        "document": NotRequired[DocumentTypeDef],
+        "relevanceScore": NotRequired[float],
+        "data": NotRequired[DataSummaryPaginatorTypeDef],
+        "type": NotRequired[QueryResultTypeType],
+    },
+)
 RecommendationDataTypeDef = TypedDict(
     "RecommendationDataTypeDef",
     {
@@ -2717,6 +2711,11 @@ class CreateKnowledgeBaseRequestTypeDef(TypedDict):
     serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
     description: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+
+class QueryAssistantResponsePaginatorTypeDef(TypedDict):
+    results: List[ResultDataPaginatorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class GetRecommendationsResponseTypeDef(TypedDict):
     recommendations: List[RecommendationDataTypeDef]

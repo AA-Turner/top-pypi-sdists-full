@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-nvidia-ai-endpoints
-Version: 0.3.9
+Version: 0.3.10
 Summary: An integration package connecting NVIDIA AI Endpoints and LangChain
 Home-page: https://github.com/langchain-ai/langchain-nvidia
 License: MIT
@@ -12,7 +12,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Dist: aiohttp (>=3.9.1,<4.0.0)
-Requires-Dist: langchain-core (>=0.3.0,<0.4)
+Requires-Dist: filetype (>=1.2.0,<2.0.0)
+Requires-Dist: langchain-core (>=0.3.51,<0.4)
 Project-URL: Repository, https://github.com/langchain-ai/langchain-nvidia
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-nvidia/tree/main/libs/ai-endpoints
 Description-Content-Type: text/markdown

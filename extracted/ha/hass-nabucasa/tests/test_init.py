@@ -1,6 +1,7 @@
 """Test the cloud component."""
 
 import asyncio
+from datetime import timedelta
 import json
 from unittest.mock import AsyncMock, MagicMock, Mock, PropertyMock, patch
 
@@ -36,7 +37,6 @@ def test_constructor_loads_info_from_constant(cloud_client):
                     "remotestate": "test-google-actions-report-state-url",
                     "account_link": "test-account-link-url",
                     "servicehandlers": "test-servicehandlers-url",
-                    "thingtalk": "test-thingtalk-url",
                 },
             },
         ),
@@ -53,7 +53,6 @@ def test_constructor_loads_info_from_constant(cloud_client):
     assert cl.acme_server == "test-acme-directory-server"
     assert cl.remotestate_server == "test-google-actions-report-state-url"
     assert cl.account_link_server == "test-account-link-url"
-    assert cl.thingtalk_server == "test-thingtalk-url"
 
 
 async def test_initialize_loads_info(cloud_client):
@@ -342,3 +341,86 @@ async def test_claims_decoding(cloud_client):
     await cl.update_token(encoded_token, None)
     assert cl.claims == payload
     assert cl.username == "abc123"
+
+
+@pytest.mark.parametrize(
+    ("since_expired", "expected_sleep_hours"),
+    [
+        (timedelta(hours=1), 3),
+        (timedelta(days=1), 12),
+        (timedelta(days=8), 24),
+        (timedelta(days=31), 24),
+        (timedelta(days=180), 96),
+    ],
+)
+async def test_subscription_expired_handler_renews_and_starts(
+    cloud_client: MockClient,
+    since_expired: timedelta,
+    expected_sleep_hours: int,
+    caplog: pytest.LogCaptureFixture,
+):
+    """Test the subscription expired handler."""
+    cl = cloud.Cloud(cloud_client, cloud.MODE_DEV)
+    basedate = utcnow()
+    _decode_claims_mocker = Mock(
+        return_value={
+            "custom:sub-exp": (basedate - since_expired).strftime("%Y-%m-%d")
+        },
+    )
+
+    async def async_renew_access_token(*args, **kwargs):
+        _decode_claims_mocker.return_value = {
+            "custom:sub-exp": basedate.strftime("%Y-%m-%d"),
+        }
+
+    with (
+        patch("hass_nabucasa.Cloud.initialize", AsyncMock()) as _initialize_mocker,
+        patch(
+            "hass_nabucasa.CognitoAuth.async_renew_access_token",
+            side_effect=async_renew_access_token,
+        ),
+        patch("hass_nabucasa.asyncio.sleep", AsyncMock()) as sleep_mock,
+        patch(
+            "hass_nabucasa.Cloud._decode_claims",
+            _decode_claims_mocker,
+        ),
+        patch(
+            "hass_nabucasa.Cloud.is_logged_in",
+            return_value=True,
+        ),
+    ):
+        await cl._subscription_expired_handler()
+
+    sleep_mock.assert_called_with(expected_sleep_hours * 60 * 60)
+    _initialize_mocker.assert_awaited_once()
+    assert "Stopping subscription expired handler" in caplog.text
+
+
+async def test_subscription_expired_handler_aborts(
+    cloud_client: MockClient,
+    caplog: pytest.LogCaptureFixture,
+):
+    """Test the subscription expired handler abort."""
+    cl = cloud.Cloud(cloud_client, cloud.MODE_DEV)
+    basedate = utcnow()
+
+    with (
+        patch("hass_nabucasa.Cloud._start", AsyncMock()) as start_mock,
+        patch("hass_nabucasa.remote.RemoteUI.start", AsyncMock()) as remote_start_mock,
+        patch("hass_nabucasa.asyncio.sleep", AsyncMock()) as sleep_mock,
+        patch(
+            "hass_nabucasa.Cloud._decode_claims",
+            return_value={
+                "custom:sub-exp": (basedate - timedelta(days=450)).strftime("%Y-%m-%d")
+            },
+        ),
+    ):
+        await cl._subscription_expired_handler()
+
+    sleep_mock.assert_not_awaited()
+    sleep_mock.assert_not_called()
+    start_mock.assert_not_awaited()
+    start_mock.assert_not_called()
+    remote_start_mock.assert_not_awaited()
+    remote_start_mock.assert_not_called()
+    assert "Stopping subscription expired handler" in caplog.text

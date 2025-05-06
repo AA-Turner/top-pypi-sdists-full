@@ -17,8 +17,7 @@ from pywinauto import Application
 from rich.console import Console
 from worker_automate_hub.utils.util import (
     is_window_open_by_class,
-    kill_contabil_processes,
-    kill_process,
+    kill_all_emsys,
     login_emsys_fiscal,
     type_text_into_field,
     worker_sleep,
@@ -75,9 +74,8 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
     try:
         config = await get_config_by_name("login_emsys_fiscal")
 
-        await kill_process("EMSys")
-        await kill_process("EMSysFiscal")
-        await kill_contabil_processes()
+        # Fecha a instancia do emsys - caso esteja aberta
+        await kill_all_emsys()
 
         app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSysFiscal.exe")
         warnings.filterwarnings(

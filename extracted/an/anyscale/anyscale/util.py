@@ -37,7 +37,10 @@ from anyscale.authenticate import get_auth_api_client
 from anyscale.aws_iam_policies import ANYSCALE_IAM_POLICIES, AnyscaleIAMPolicy
 from anyscale.cli_logger import BlockLogger, CloudSetupLogger
 from anyscale.client.openapi_client.api.default_api import DefaultApi as ProductApi
-from anyscale.client.openapi_client.models import AWSMemoryDBClusterConfig
+from anyscale.client.openapi_client.models import (
+    AWSMemoryDBClusterConfig,
+    ServiceEventCurrentState,
+)
 from anyscale.client.openapi_client.models.cloud_analytics_event_cloud_resource import (
     CloudAnalyticsEventCloudResource,
 )
@@ -125,6 +128,15 @@ MEMORY_DB_RESOURCE = """  MemoryDBSubnetGroup:
 
 # Some resources (e.g. memorystore) take a long time to create, so we need to increase the timeout.
 GCP_DEPLOYMENT_MANAGER_TIMEOUT_SECONDS_LONG = 600  # 10 minutes
+
+
+class AnyscaleJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder for Anyscale models, handling datetime objects."""
+
+    def default(self, obj):
+        if isinstance(obj, datetime.datetime):
+            return obj.isoformat()
+        return json.JSONEncoder.default(self, obj)
 
 
 def confirm(msg: str, yes: bool) -> Optional[bool]:
@@ -621,6 +633,28 @@ def validate_non_negative_arg(ctx, param, value):  # noqa: ARG001
             f"Please specify a non-negative value for {param.opts[0]}"
         )
     return value
+
+
+def validate_service_state_filter(
+    ctx, param, value: Tuple[str, ...]  # noqa: ARG001
+) -> List[str]:
+    """Validate ServiceEventCurrentState values."""
+    if not value:
+        return []
+
+    allowable_values_upper = {
+        s.upper() for s in ServiceEventCurrentState.allowable_values
+    }
+    allowed_values_str = ", ".join(ServiceEventCurrentState.allowable_values)
+
+    for state_str in value:
+        state_upper = state_str.upper()
+        if state_upper not in allowable_values_upper:
+            raise click.ClickException(
+                f"'{state_str}' is not a valid value for {param.opts[0]}. Allowed values: {allowed_values_str}"
+            )
+
+    return [s.upper() for s in value]
 
 
 def _update_external_ids_for_policy(

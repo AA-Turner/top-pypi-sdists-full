@@ -11,13 +11,14 @@
    Copyright (c) 2001-2003 Fred L. Drake, Jr. <fdrake@users.sourceforge.net>
    Copyright (c) 2004-2009 Karl Waclawek <karl@waclawek.net>
    Copyright (c) 2005-2007 Steven Solie <steven@solie.ca>
-   Copyright (c) 2016-2022 Sebastian Pipping <sebastian@pipping.org>
+   Copyright (c) 2016-2023 Sebastian Pipping <sebastian@pipping.org>
    Copyright (c) 2017      Rhodri James <rhodri@wildebeest.org.uk>
    Copyright (c) 2019      David Loffredo <loffredo@steptools.com>
    Copyright (c) 2020      Joe Orton <jorton@redhat.com>
    Copyright (c) 2020      Kleber Tarcísio <klebertarcisio@yahoo.com.br>
    Copyright (c) 2021      Tim Bray <tbray@textuality.com>
    Copyright (c) 2022      Martin Ettl <ettl.martin78@googlemail.com>
+   Copyright (c) 2022      Sean McBride <sean@rogue-research.com>
    Licensed under the MIT license:
 
    Permission is  hereby granted,  free of charge,  to any  person obtaining
@@ -304,7 +305,7 @@ static XML_Char *
 xcsdup(const XML_Char *s) {
   XML_Char *result;
   int count = 0;
-  int numBytes;
+  size_t numBytes;
 
   /* Get the length of the string, including terminator */
   while (s[count++] != 0) {
@@ -918,6 +919,9 @@ usage(const XML_Char *prog, int rc) {
       T("  -a FACTOR      set maximum tolerated [a]mplification factor (default: 100.0)\n")
       T("  -b BYTES       set number of output [b]ytes needed to activate (default: 8 MiB)\n")
       T("\n")
+      T("reparse deferral:\n")
+      T("  -q             disable reparse deferral, and allow [q]uadratic parse runtime with large tokens\n")
+      T("\n")
       T("info arguments:\n")
       T("  -h, --help     show this [h]elp message and exit\n")
       T("  -v, --version  show program's [v]ersion number and exit\n")
@@ -972,6 +976,8 @@ tmain(int argc, XML_Char **argv) {
   float attackMaximumAmplification = -1.0f; /* signaling "not set" */
   unsigned long long attackThresholdBytes = 0;
   XML_Bool attackThresholdGiven = XML_FALSE;
+
+  XML_Bool disableDeferral = XML_FALSE;
 
   int exitCode = XMLWF_EXIT_SUCCESS;
   enum XML_ParamEntityParsing paramEntityParsing
@@ -1096,9 +1102,10 @@ tmain(int argc, XML_Char **argv) {
             " (needs a floating point number greater or equal than 1.0)"));
         exit(XMLWF_EXIT_USAGE_ERROR);
       }
-#ifndef XML_DTD
-      ftprintf(stderr, T("Warning: Given amplification limit ignored") T(
-                           ", xmlwf has been compiled without DTD support.\n"));
+#if XML_GE == 0
+      ftprintf(stderr,
+               T("Warning: Given amplification limit ignored")
+                   T(", xmlwf has been compiled without DTD/GE support.\n"));
 #endif
       break;
     }
@@ -1117,10 +1124,16 @@ tmain(int argc, XML_Char **argv) {
         exit(XMLWF_EXIT_USAGE_ERROR);
       }
       attackThresholdGiven = XML_TRUE;
-#ifndef XML_DTD
-      ftprintf(stderr, T("Warning: Given attack threshold ignored") T(
-                           ", xmlwf has been compiled without DTD support.\n"));
+#if XML_GE == 0
+      ftprintf(stderr,
+               T("Warning: Given attack threshold ignored")
+                   T(", xmlwf has been compiled without DTD/GE support.\n"));
 #endif
+      break;
+    }
+    case T('q'): {
+      disableDeferral = XML_TRUE;
+      j++;
       break;
     }
     case T('\0'):
@@ -1155,18 +1168,28 @@ tmain(int argc, XML_Char **argv) {
     }
 
     if (attackMaximumAmplification != -1.0f) {
-#ifdef XML_DTD
+#if XML_GE == 1
       XML_SetBillionLaughsAttackProtectionMaximumAmplification(
           parser, attackMaximumAmplification);
 #endif
     }
     if (attackThresholdGiven) {
-#ifdef XML_DTD
+#if XML_GE == 1
       XML_SetBillionLaughsAttackProtectionActivationThreshold(
           parser, attackThresholdBytes);
 #else
       (void)attackThresholdBytes; // silence -Wunused-but-set-variable
 #endif
+    }
+
+    if (disableDeferral) {
+      const XML_Bool success = XML_SetReparseDeferralEnabled(parser, XML_FALSE);
+      if (! success) {
+        // This prevents tperror(..) from reporting misleading "[..]: Success"
+        errno = EINVAL;
+        tperror(T("Failed to disable reparse deferral"));
+        exit(XMLWF_EXIT_INTERNAL_ERROR);
+      }
     }
 
     if (requireStandalone)

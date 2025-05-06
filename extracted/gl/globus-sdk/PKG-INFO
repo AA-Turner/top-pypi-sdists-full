@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: globus-sdk
-Version: 3.55.0
+Version: 3.56.0
 Summary: Globus SDK for Python
 Author-email: Globus Team <support@globus.org>
 License: Apache-2.0

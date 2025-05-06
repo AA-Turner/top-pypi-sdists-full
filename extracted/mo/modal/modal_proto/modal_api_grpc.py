@@ -150,6 +150,7 @@ class ModalClientModal:
         self.VolumeCopyFiles = modal.client.UnaryUnaryWrapper(grpclib_stub.VolumeCopyFiles, client)
         self.VolumeDelete = modal.client.UnaryUnaryWrapper(grpclib_stub.VolumeDelete, client)
         self.VolumeGetFile = modal.client.UnaryUnaryWrapper(grpclib_stub.VolumeGetFile, client)
+        self.VolumeGetFile2 = modal.client.UnaryUnaryWrapper(grpclib_stub.VolumeGetFile2, client)
         self.VolumeGetOrCreate = modal.client.UnaryUnaryWrapper(grpclib_stub.VolumeGetOrCreate, client)
         self.VolumeHeartbeat = modal.client.UnaryUnaryWrapper(grpclib_stub.VolumeHeartbeat, client)
         self.VolumeList = modal.client.UnaryUnaryWrapper(grpclib_stub.VolumeList, client)

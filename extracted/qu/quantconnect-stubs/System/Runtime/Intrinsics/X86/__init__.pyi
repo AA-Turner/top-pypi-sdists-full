@@ -7076,18 +7076,6 @@ class Avx10v2(System.Runtime.Intrinsics.X86.Avx10v1, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
-    def convert_to_vector_128_u_int_16(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """VMOVW xmm1, xmm2/m16"""
-        ...
-
-    @staticmethod
-    @overload
-    def convert_to_vector_128_u_int_32(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
-        """VMOVD xmm1, xmm2/m32"""
-        ...
-
-    @staticmethod
-    @overload
     def convert_to_vector_128_u_int_32(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector128[int]:
         """VCVTPD2UDQ xmm1{k1}{z}, ymm2/m256/m64bcst {er}"""
         ...
@@ -7159,6 +7147,11 @@ class Avx10v2(System.Runtime.Intrinsics.X86.Avx10v1, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def move_scalar(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        """VMOVD xmm1, xmm2/m32"""
+        ...
+
+    @staticmethod
     def multiply(left: System.Runtime.Intrinsics.Vector256[float], right: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
         """VMULPD ymm1{k1}{z}, ymm2, ymm3/m256/m64bcst {er}"""
         ...
@@ -7171,6 +7164,11 @@ class Avx10v2(System.Runtime.Intrinsics.X86.Avx10v1, metaclass=abc.ABCMeta):
     @staticmethod
     def sqrt(value: System.Runtime.Intrinsics.Vector256[float], mode: System.Runtime.Intrinsics.X86.FloatRoundingMode) -> System.Runtime.Intrinsics.Vector256[float]:
         """VSQRTPD ymm1{k1}{z}, ymm2/m256/m64bcst {er}"""
+        ...
+
+    @staticmethod
+    def store_scalar(address: typing.Any, source: System.Runtime.Intrinsics.Vector128[int]) -> None:
+        """VMOVW xmm1/m16, xmm2"""
         ...
 
     @staticmethod

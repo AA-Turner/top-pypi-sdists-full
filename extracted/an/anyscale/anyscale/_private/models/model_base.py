@@ -1,9 +1,13 @@
+import asyncio
+from collections import deque
 from dataclasses import asdict, fields
 from enum import Enum, EnumMeta
 import inspect
 from typing import (
     Any,
+    Awaitable,
     Callable,
+    Deque,
     Dict,
     Generic,
     Iterable,
@@ -252,3 +256,94 @@ class ListResponse(List[TModelBase]):
                 return
             if index >= len(self) and self.has_more:
                 self._fetch_next_page()
+
+
+RT = TypeVar("RT")
+
+
+class ResultIterator(Generic[RT]):
+    """
+    Lazily fetch and parse pages from a paged-list API that returns
+    Pydantic models with `.results` and `.metadata.next_paging_token`.
+    """
+
+    def __init__(
+        self,
+        *,
+        page_token: Optional[str],
+        max_items: Optional[int],
+        fetch_page: Callable[[Optional[str]], Any],
+        parse_fn: Optional[Callable[[Any], RT]] = None,
+        async_parse_fn: Optional[Callable[[Any], Awaitable[RT]]] = None,
+    ):
+        if parse_fn and async_parse_fn:
+            raise ValueError("Only one of parse_fn or async_parse_fn may be provided")
+
+        self._token = page_token
+        self._max = max_items
+        self._fetch = fetch_page
+        self._parse = parse_fn
+        self._aparse = async_parse_fn
+        self._buffer: Deque[RT] = deque()
+        self._count = 0
+        self._finished = False
+
+    def __iter__(self) -> Iterator[RT]:
+        while True:
+            # 1) Drain the buffer
+            while self._buffer:
+                if self._max is not None and self._count >= self._max:
+                    return
+                self._count += 1
+                yield self._buffer.popleft()
+
+            # 2) Done?
+            if self._finished or (self._max is not None and self._count >= self._max):
+                return
+
+            # 3) Fetch the next page (Pydantic model)
+            page = self._fetch(self._token)
+            raw_results = page.results
+            self._token = page.metadata.next_paging_token
+
+            # 4) No more data?
+            if not raw_results:
+                self._finished = True
+                return
+
+            # 5) Parse—sync or async
+            if self._aparse:
+                processed = asyncio.run(
+                    ResultIterator._process_items_async(raw_results, self._aparse)
+                )
+                self._buffer.extend(processed)
+
+            elif self._parse:
+                try:
+                    for raw in raw_results:
+                        self._buffer.append(self._parse(raw))
+                except Exception as e:  # noqa: BLE001
+                    raise RuntimeError(f"sync parse error: {e}") from e
+
+            else:
+                # No parser: assume items are already RT
+                self._buffer.extend(raw_results)  # type: ignore
+
+            # 6) If no next token, finish on next loop
+            if self._token is None:
+                self._finished = True
+
+    @staticmethod
+    async def _process_items_async(
+        items: List[Any], parser: Callable[[Any], Awaitable[RT]],
+    ) -> List[RT]:
+        if not items:
+            return []
+        tasks = [parser(item) for item in items]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        processed: List[RT] = []
+        for idx, res in enumerate(results):
+            if isinstance(res, Exception):
+                raise RuntimeError(f"async parse failed on item {idx}: {res}") from res
+            processed.append(res)
+        return processed

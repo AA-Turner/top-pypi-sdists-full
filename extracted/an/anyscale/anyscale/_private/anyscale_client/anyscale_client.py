@@ -60,6 +60,8 @@ from anyscale.client.openapi_client.models import (
     Dataset as InternalDataset,
     DatasetUpload,
     DecoratedComputeTemplate,
+    DecoratedlistserviceapimodelListResponse,
+    DecoratedProductionServiceV2APIModel,
     DecoratedSession,
     DeletedPlatformFineTunedModel,
     ExperimentalWorkspace,
@@ -85,7 +87,7 @@ from anyscale.cluster_compute import parse_cluster_compute_name_version
 from anyscale.feature_flags import FLAG_DEFAULT_WORKING_DIR_FOR_PROJ
 from anyscale.sdk.anyscale_client.api.default_api import DefaultApi as ExternalApi
 from anyscale.sdk.anyscale_client.models import (
-    ApplyServiceModel,
+    ApplyProductionServiceV2Model,
     Cluster,
     ClusterCompute,
     ClusterComputeConfig,
@@ -102,7 +104,6 @@ from anyscale.sdk.anyscale_client.models import (
     ProductionServiceV2VersionModel,
     Project,
     RollbackServiceModel,
-    ServiceModel,
     TextQuery,
 )
 from anyscale.sdk.anyscale_client.models.jobs_query import JobsQuery
@@ -250,6 +251,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         # Cached IDs and models to avoid duplicate lookups.
         self._default_project_id_from_cloud_id: Dict[Optional[str], str] = {}
         self._cloud_id_cache: Dict[Optional[str], str] = {}
+        self._cluster_env_build_cache: Dict[str, ClusterEnvironmentBuild] = {}
         self._current_workspace_cluster: Optional[Cluster] = None
         self._logger = logger or BlockLogger()
         self._host = host or ANYSCALE_HOST
@@ -715,16 +717,41 @@ class AnyscaleClient(AnyscaleClientInterface):
 
     @handle_api_exceptions
     def get_cluster_env_build(self, build_id: str) -> Optional[ClusterEnvironmentBuild]:
-        return self._external_api_client.get_cluster_environment_build(build_id).result
+        # Check cache first
+        if build_id in self._cluster_env_build_cache:
+            return self._cluster_env_build_cache[build_id]
+
+        # Fetch from API if not in cache
+        try:
+            res = self._external_api_client.get_cluster_environment_build(build_id)
+            build = res.result
+        except ExternalApiException as e:
+            if e.status == 404:
+                return None
+
+            raise e from None
+
+        # Store in cache ONLY if the build exists and is in a terminal state
+        if build:
+            terminal_states = {
+                ClusterEnvironmentBuildStatus.SUCCEEDED,
+                ClusterEnvironmentBuildStatus.FAILED,
+                ClusterEnvironmentBuildStatus.CANCELED,
+            }
+            if build.status in terminal_states:
+                self._cluster_env_build_cache[build_id] = build
+
+        return build
 
     @handle_api_exceptions
     def get_cluster_env_build_image_uri(
         self, cluster_env_build_id: str, use_image_alias: bool = False
     ) -> Optional[ImageURI]:
         try:
-            build: ClusterEnvironmentBuild = self._external_api_client.get_cluster_environment_build(
-                cluster_env_build_id
-            ).result
+            build = self.get_cluster_env_build(cluster_env_build_id)
+            if build is None:
+                return None
+
             cluster_env = self._external_api_client.get_cluster_environment(
                 build.cluster_environment_id
             ).result
@@ -786,9 +813,7 @@ class AnyscaleClient(AnyscaleClientInterface):
         """
         elapsed_secs = 0
         while elapsed_secs < timeout_secs:
-            build = self._external_api_client.get_cluster_environment_build(
-                build_id
-            ).result
+            build = self.get_cluster_env_build(build_id)
             if build.status == ClusterEnvironmentBuildStatus.SUCCEEDED:
                 self.logger.info("")
                 return
@@ -1001,35 +1026,60 @@ class AnyscaleClient(AnyscaleClientInterface):
         cloud: Optional[str],
         project: Optional[str],
         include_archived: bool = False,
-    ) -> Optional[ServiceModel]:
-        # TODO(edoakes): this endpoint is very slow and there's no reason we should need
-        # to use this complex list endpoint just to fetch a service by name.
-        paging_token = None
-        cloud_id = self.get_cloud_id(cloud_name=cloud)
-        project_id = self.get_project_id(parent_cloud_id=cloud_id, name=project)
-        archive_status = (
-            ArchiveStatus.ALL if include_archived else ArchiveStatus.NOT_ARCHIVED
+    ) -> Optional[DecoratedProductionServiceV2APIModel]:
+        # we don't have an api to get a service by name, so we need to list services and filter by name
+        resp = self.list_services(
+            name=name, cloud=cloud, project=project, include_archived=include_archived
+        )
+        for result in resp.results:
+            if result.name == name:
+                return result
+        return None
+
+    @handle_api_exceptions
+    def get_service_by_id(
+        self, service_id: str
+    ) -> Optional[DecoratedProductionServiceV2APIModel]:
+        return self._internal_api_client.get_service_api_v2_services_v2_service_id_get(
+            service_id
+        ).result
+
+    @handle_api_exceptions
+    def list_services(
+        self,
+        *,
+        name: Optional[str] = None,
+        state_filter: Optional[List[str]] = None,
+        creator_id: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        include_archived: bool = False,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,
+        sort_field: Optional[str] = None,
+        sort_order: Optional[str] = None,
+    ) -> DecoratedlistserviceapimodelListResponse:
+        cloud_id = self.get_cloud_id(cloud_name=cloud) if cloud else None
+        project_id = (
+            self.get_project_id(parent_cloud_id=cloud_id, name=project)
+            if project
+            else None
         )
 
-        service: Optional[ServiceModel] = None
-        while True:
-            resp = self._external_api_client.list_services(
-                project_id=project_id,
-                name=name,
-                count=self.LIST_ENDPOINT_COUNT,
-                paging_token=paging_token,
-                archive_status=archive_status,
-            )
-            for result in resp.results:
-                if result.name == name:
-                    service = result
-                    break
-
-            paging_token = resp.metadata.next_paging_token
-            if service is not None or paging_token is None:
-                break
-
-        return service
+        return self._internal_api_client.list_services_api_v2_services_v2_get(
+            project_id=project_id,
+            cloud_id=cloud_id,
+            name=name,
+            state_filter=state_filter,
+            creator_id=creator_id,
+            archive_status=ArchiveStatus.ALL
+            if include_archived
+            else ArchiveStatus.NOT_ARCHIVED,
+            count=count if count else self.LIST_ENDPOINT_COUNT,
+            paging_token=paging_token,
+            sort_field=sort_field,
+            sort_order=sort_order,
+        )
 
     @handle_api_exceptions
     def get_project(self, project_id: str) -> Optional[Project]:
@@ -1105,15 +1155,19 @@ class AnyscaleClient(AnyscaleClientInterface):
         return job_runs
 
     @handle_api_exceptions
-    def rollout_service(self, model: ApplyServiceModel) -> ServiceModel:
-        result: ServiceModel = self._external_api_client.rollout_service(model).result
+    def rollout_service(
+        self, model: ApplyProductionServiceV2Model
+    ) -> DecoratedProductionServiceV2APIModel:
+        result = self._internal_api_client.apply_service_api_v2_services_v2_apply_put(
+            model
+        ).result
         return result
 
     @handle_api_exceptions
     def rollback_service(
         self, service_id: str, *, max_surge_percent: Optional[int] = None
-    ) -> ServiceModel:
-        result: ServiceModel = self._external_api_client.rollback_service(
+    ) -> DecoratedProductionServiceV2APIModel:
+        result = self._internal_api_client.rollback_service_api_v2_services_v2_service_id_rollback_post(
             service_id,
             rollback_service_model=RollbackServiceModel(
                 max_surge_percent=max_surge_percent
@@ -1122,17 +1176,23 @@ class AnyscaleClient(AnyscaleClientInterface):
         return result
 
     @handle_api_exceptions
-    def terminate_service(self, service_id: str) -> ServiceModel:
-        result: ServiceModel = self._external_api_client.terminate_service(service_id)
+    def terminate_service(
+        self, service_id: str
+    ) -> DecoratedProductionServiceV2APIModel:
+        result = self._internal_api_client.terminate_service_api_v2_services_v2_service_id_terminate_post(
+            service_id
+        )
         return result
 
     @handle_api_exceptions
-    def archive_service(self, service_id: str) -> ServiceModel:
-        result: ServiceModel = self._external_api_client.archive_service(service_id)
+    def archive_service(self, service_id: str) -> DecoratedProductionServiceV2APIModel:
+        result = self._internal_api_client.archive_service_api_v2_services_v2_service_id_archive_post(
+            service_id
+        )
         return result
 
     @handle_api_exceptions
-    def delete_service(self, service_id: str):
+    def delete_service(self, service_id: str) -> None:
         self._internal_api_client.delete_service_api_v2_services_v2_service_id_delete(
             service_id
         )

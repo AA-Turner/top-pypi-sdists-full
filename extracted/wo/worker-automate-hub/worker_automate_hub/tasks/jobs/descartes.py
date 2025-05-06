@@ -25,7 +25,7 @@ from worker_automate_hub.utils.util import (
     faturar_pre_venda,
     find_element_center,
     find_target_position,
-    kill_process,
+    kill_all_emsys,
     login_emsys,
     set_variable,
     take_screenshot,
@@ -63,8 +63,8 @@ async def descartes(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
         # Print da resolução
         console.print(f"Largura: {screen_width}, Altura: {screen_height}")
 
-        # Abre um novo emsys
-        await kill_process("EMSys")
+        # Fecha a instancia do emsys - caso esteja aberta
+        await kill_all_emsys()
         app = Application(backend="win32").start("C:\\Rezende\\EMSys3\\EMSys3.exe")
         warnings.filterwarnings(
             "ignore",

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pydeseq2
-Version: 0.5.0
+Version: 0.5.1
 Summary: A python implementation of DESeq2.
 Author: Boris Muzellec, Maria Telenczuk, Vincent Cabelli and Mathieu Andreux
 Author-email: boris.muzellec@owkin.com
@@ -28,6 +28,7 @@ Dynamic: author-email
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python

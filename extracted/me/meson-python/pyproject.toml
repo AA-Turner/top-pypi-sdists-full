@@ -6,19 +6,21 @@
 build-backend = 'mesonpy'
 backend-path = ['.']
 requires = [
-  'meson >= 0.63.3; python_version < "3.12"',
+  'meson >= 0.64.0; python_version < "3.12"',
   'meson >= 1.2.3; python_version >= "3.12"',
-  'packaging >= 19.0',
-  'pyproject-metadata >= 0.7.1',
+  'packaging >= 23.2',
+  'pyproject-metadata >= 0.9.0',
   'tomli >= 1.0.0; python_version < "3.11"',
 ]
 
 [project]
 name = 'meson-python'
+version = '0.18.0'
 description = 'Meson Python build backend (PEP 517)'
 readme = 'README.rst'
-requires-python = '>= 3.7'
-license = { file = 'LICENSES/MIT.txt' }
+requires-python = '>= 3.8'
+license = 'MIT'
+license-files = ['LICENSES/MIT.txt']
 keywords = ['meson', 'build', 'backend', 'pep517', 'package']
 maintainers = [
   { name = 'Ralf Gommers', email = 'ralf.gommers@gmail.com' },
@@ -33,21 +35,16 @@ classifiers = [
 ]
 
 dependencies = [
-  'meson >= 0.63.3; python_version < "3.12"',
+  'meson >= 0.64.0; python_version < "3.12"',
   'meson >= 1.2.3; python_version >= "3.12"',
-  'packaging >= 19.0',
-  'pyproject-metadata >= 0.7.1',
+  'packaging >= 23.2',
+  'pyproject-metadata >= 0.9.0',
   'tomli >= 1.0.0; python_version < "3.11"',
-]
-
-dynamic = [
-  'version',
 ]
 
 [project.optional-dependencies]
 test = [
   'build',
-  'packaging >= 23.1',
   'pytest >= 6.0',
   'pytest-cov[toml]',
   'pytest-mock',
@@ -56,8 +53,8 @@ test = [
   'typing-extensions >= 3.7.4; python_version < "3.11"',
 ]
 docs = [
-  'furo >= 2023.5.20',
-  'sphinx ~= 6.2',
+  'furo >= 2024.08.06',
+  'sphinx ~= 8.1.0',
   'sphinx-copybutton >= 0.5.0',
   'sphinx-design >= 0.1.0',
   'sphinxext-opengraph >= 0.7.0',

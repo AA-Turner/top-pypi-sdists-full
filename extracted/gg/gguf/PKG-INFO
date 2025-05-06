@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: gguf
-Version: 0.16.2
+Version: 0.16.3
 Summary: Read and write ML models in GGUF for GGML
 Keywords: ggml,gguf,llama.cpp
 Author: GGML

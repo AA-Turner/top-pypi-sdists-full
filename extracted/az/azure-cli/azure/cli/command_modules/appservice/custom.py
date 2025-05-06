@@ -580,14 +580,6 @@ def update_application_settings_polling(cmd, resource_group_name, name, app_sett
 def add_azure_storage_account(cmd, resource_group_name, name, custom_id, storage_type, account_name,
                               share_name, access_key, mount_path=None, slot=None, slot_setting=False):
     AzureStorageInfoValue = cmd.get_models('AzureStorageInfoValue')
-    storage_client = get_mgmt_service_client(cmd.cli_ctx, StorageManagementClient)
-
-    # Check if the file share exists
-    try:
-        storage_client.file_shares.get(resource_group_name, account_name, share_name)
-    except:
-        raise ValidationError(f"The share '{share_name}' does not exist in the storage account '{account_name}'.")
-
     azure_storage_accounts = _generic_site_operation(cmd.cli_ctx, resource_group_name, name,
                                                      'list_azure_storage_accounts', slot)
 
@@ -3975,14 +3967,22 @@ def delete_ssl_cert(cmd, resource_group_name, certificate_thumbprint):
     raise ResourceNotFoundError("Certificate for thumbprint '{}' not found".format(certificate_thumbprint))
 
 
-def import_ssl_cert(cmd, resource_group_name, name, key_vault, key_vault_certificate_name, certificate_name=None):
+def import_ssl_cert(cmd, resource_group_name, key_vault, key_vault_certificate_name, name=None, certificate_name=None):
     Certificate = cmd.get_models('Certificate')
     client = web_client_factory(cmd.cli_ctx)
-    webapp = client.web_apps.get(resource_group_name, name)
-    if not webapp:
-        raise ResourceNotFoundError("'{}' app doesn't exist in resource group {}".format(name, resource_group_name))
-    server_farm_id = webapp.server_farm_id
-    location = webapp.location
+
+    # Webapp name is not required for this command, but the location of the webspace is required since the certificate
+    # is associated with the webspace, not the app. All apps and plans in the same webspace will share the same
+    # certificates. If the app is not provided, the location of the resource group is used.
+    if name:
+        webapp = client.web_apps.get(resource_group_name, name)
+        if not webapp:
+            raise ResourceNotFoundError("'{}' app doesn't exist in resource group {}".format(name, resource_group_name))
+        location = webapp.location
+    else:
+        rg_client = get_mgmt_service_client(cmd.cli_ctx, ResourceType.MGMT_RESOURCE_RESOURCES)
+        location = rg_client.resource_groups.get(resource_group_name).location
+
     kv_id = None
     if not is_valid_resource_id(key_vault):
         kv_client = get_mgmt_service_client(cmd.cli_ctx, ResourceType.MGMT_KEYVAULT)
@@ -3997,9 +3997,9 @@ def import_ssl_cert(cmd, resource_group_name, name, key_vault, key_vault_certifi
     if kv_id is None:
         kv_msg = 'The Key Vault {0} was not found in the subscription in context. ' \
                  'If your Key Vault is in a different subscription, please specify the full Resource ID: ' \
-                 '\naz .. ssl import -n {1} -g {2} --key-vault-certificate-name {3} ' \
+                 '\naz .. ssl import -g {1} --key-vault-certificate-name {2} ' \
                  '--key-vault /subscriptions/[sub id]/resourceGroups/[rg]/providers/Microsoft.KeyVault/' \
-                 'vaults/{0}'.format(key_vault, name, resource_group_name, key_vault_certificate_name)
+                 'vaults/{0}'.format(key_vault, resource_group_name, key_vault_certificate_name)
         logger.warning(kv_msg)
         return
 
@@ -4044,7 +4044,7 @@ def import_ssl_cert(cmd, resource_group_name, name, key_vault, key_vault_certifi
         logger.warning(lnk_msg)
 
     kv_cert_def = Certificate(location=location, key_vault_id=kv_id, password='',
-                              key_vault_secret_name=kv_secret_name, server_farm_id=server_farm_id)
+                              key_vault_secret_name=kv_secret_name)
 
     return client.certificates.create_or_update(name=cert_name, resource_group_name=resource_group_name,
                                                 certificate_envelope=kv_cert_def)
@@ -7295,6 +7295,8 @@ def create_tunnel(cmd, resource_group_name, name, port=None, slot=None, timeout=
         ssh_user_name = 'root'
         ssh_user_password = 'Docker!'
         logger.warning('SSH is available { username: %s, password: %s }', ssh_user_name, ssh_user_password)
+        logger.warning('Enter a full SSH session with: ssh %s@%s -m hmac-sha1 -p %s', ssh_user_name,
+                       tunnel_server.local_addr, tunnel_server.local_port)
 
     logger.warning('Ctrl + C to close')
 

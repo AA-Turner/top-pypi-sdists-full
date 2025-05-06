@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: geojson-pydantic
-Version: 1.2.0
+Version: 2.0.0
 Summary: Pydantic data models for the GeoJSON spec.
 Keywords: geojson,Pydantic
 Author-email: Drew Bollinger <drew@developmentseed.org>
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Typing :: Typed
+License-File: LICENSE
 Requires-Dist: pydantic~=2.0
 Requires-Dist: pre-commit ; extra == "dev"
 Requires-Dist: bump-my-version ; extra == "dev"

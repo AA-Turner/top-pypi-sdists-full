@@ -1,6 +1,6 @@
 [project]
 name = "sahi"
-version = "0.11.22"
+version = "0.11.23"
 readme = "README.md"
 description = "A vision library for performing sliced inference on large images/small objects"
 requires-python = ">=3.8"
@@ -41,7 +41,7 @@ sahi = "sahi.cli:app"
 
 [tool.uv]
 find-links = [
-  "https://download.openmmlab.com/mmcv/dist/cpu/torch2.1.0/index.html"
+  "https://download.openmmlab.com/mmcv/dist/cpu/torch2.1.0/index.html",
 ]
 default-groups = ["dev", "ci"]
 

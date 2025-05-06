@@ -4,17 +4,19 @@ from __future__ import annotations as _annotations
 
 import inspect
 from collections.abc import Awaitable, Callable, Sequence
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import TYPE_CHECKING, Annotated, Any
 
 import pydantic_core
-from mcp.types import EmbeddedResource, ImageContent, TextContent
+from mcp.types import EmbeddedResource, ImageContent, PromptMessage, Role, TextContent
 from mcp.types import Prompt as MCPPrompt
 from mcp.types import PromptArgument as MCPPromptArgument
 from pydantic import BaseModel, BeforeValidator, Field, TypeAdapter, validate_call
 
+from fastmcp.utilities.json_schema import prune_params
 from fastmcp.utilities.types import (
     _convert_set_defaults,
-    is_class_member_of_type,
+    find_kwarg_by_type,
+    get_cached_typeadapter,
 )
 
 if TYPE_CHECKING:
@@ -26,32 +28,24 @@ if TYPE_CHECKING:
 CONTENT_TYPES = TextContent | ImageContent | EmbeddedResource
 
 
-class Message(BaseModel):
-    """Base class for all prompt messages."""
-
-    role: Literal["user", "assistant"]
-    content: CONTENT_TYPES
-
-    def __init__(self, content: str | CONTENT_TYPES, **kwargs: Any):
-        if isinstance(content, str):
-            content = TextContent(type="text", text=content)
-        super().__init__(content=content, **kwargs)
-
-
-def UserMessage(content: str | CONTENT_TYPES, **kwargs: Any) -> Message:
-    """A message from the user."""
-    return Message(content=content, role="user", **kwargs)
+def Message(
+    content: str | CONTENT_TYPES, role: Role | None = None, **kwargs: Any
+) -> PromptMessage:
+    """A user-friendly constructor for PromptMessage."""
+    if isinstance(content, str):
+        content = TextContent(type="text", text=content)
+    if role is None:
+        role = "user"
+    return PromptMessage(content=content, role=role, **kwargs)
 
 
-def AssistantMessage(content: str | CONTENT_TYPES, **kwargs: Any) -> Message:
-    """A message from the assistant."""
-    return Message(content=content, role="assistant", **kwargs)
-
-
-message_validator = TypeAdapter[Message](Message)
+message_validator = TypeAdapter[PromptMessage](PromptMessage)
 
 SyncPromptResult = (
-    str | Message | dict[str, Any] | Sequence[str | Message | dict[str, Any]]
+    str
+    | PromptMessage
+    | dict[str, Any]
+    | Sequence[str | PromptMessage | dict[str, Any]]
 )
 PromptResult = SyncPromptResult | Awaitable[SyncPromptResult]
 
@@ -109,35 +103,32 @@ class Prompt(BaseModel):
 
         if func_name == "<lambda>":
             raise ValueError("You must provide a name for lambda functions")
+            # Reject functions with *args or **kwargs
+        sig = inspect.signature(fn)
+        for param in sig.parameters.values():
+            if param.kind == inspect.Parameter.VAR_POSITIONAL:
+                raise ValueError("Functions with *args are not supported as prompts")
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                raise ValueError("Functions with **kwargs are not supported as prompts")
+
+        type_adapter = get_cached_typeadapter(fn)
+        parameters = type_adapter.json_schema()
 
         # Auto-detect context parameter if not provided
         if context_kwarg is None:
-            if inspect.ismethod(fn) and hasattr(fn, "__func__"):
-                sig = inspect.signature(fn.__func__)
-            else:
-                sig = inspect.signature(fn)
-            for param_name, param in sig.parameters.items():
-                if is_class_member_of_type(param.annotation, Context):
-                    context_kwarg = param_name
-                    break
-
-        # Get schema from TypeAdapter - will fail if function isn't properly typed
-        parameters = TypeAdapter(fn).json_schema()
+            context_kwarg = find_kwarg_by_type(fn, kwarg_type=Context)
+        if context_kwarg:
+            parameters = prune_params(parameters, params=[context_kwarg])
 
         # Convert parameters to PromptArguments
         arguments: list[PromptArgument] = []
         if "properties" in parameters:
             for param_name, param in parameters["properties"].items():
-                # Skip context parameter
-                if param_name == context_kwarg:
-                    continue
-
-                required = param_name in parameters.get("required", [])
                 arguments.append(
                     PromptArgument(
                         name=param_name,
                         description=param.get("description"),
-                        required=required,
+                        required=param_name in parameters.get("required", []),
                     )
                 )
 
@@ -157,7 +148,7 @@ class Prompt(BaseModel):
         self,
         arguments: dict[str, Any] | None = None,
         context: Context[ServerSessionT, LifespanContextT] | None = None,
-    ) -> list[Message]:
+    ) -> list[PromptMessage]:
         """Render the prompt with arguments."""
         # Validate required arguments
         if self.arguments:
@@ -183,21 +174,28 @@ class Prompt(BaseModel):
                 result = [result]
 
             # Convert result to messages
-            messages: list[Message] = []
-            for msg in result:  # type: ignore[reportUnknownVariableType]
+            messages: list[PromptMessage] = []
+            for msg in result:
                 try:
-                    if isinstance(msg, Message):
+                    if isinstance(msg, PromptMessage):
                         messages.append(msg)
-                    elif isinstance(msg, dict):
-                        messages.append(message_validator.validate_python(msg))
                     elif isinstance(msg, str):
-                        content = TextContent(type="text", text=msg)
-                        messages.append(Message(role="user", content=content))
+                        messages.append(
+                            PromptMessage(
+                                role="user",
+                                content=TextContent(type="text", text=msg),
+                            )
+                        )
                     else:
                         content = pydantic_core.to_json(
                             msg, fallback=str, indent=2
                         ).decode()
-                        messages.append(Message(role="user", content=content))
+                        messages.append(
+                            PromptMessage(
+                                role="user",
+                                content=TextContent(type="text", text=content),
+                            )
+                        )
                 except Exception:
                     raise ValueError(
                         f"Could not convert prompt result to message: {msg}"

@@ -115,9 +115,10 @@ def _url_to_b64_string(image_source: str) -> str:
         elif os.path.exists(image_source):
             with open(image_source, "rb") as f:
                 image_data = f.read()
-                import imghdr
+                import filetype  # type: ignore
 
-                image_type = imghdr.what(None, image_data)
+                kind = filetype.guess(image_data)
+                image_type = kind.extension if kind else "unknown"
                 encoded = base64.b64encode(image_data).decode("utf-8")
                 return f"data:image/{image_type};base64,{encoded}"
         else:
@@ -414,7 +415,7 @@ class ChatNVIDIA(BaseChatModel):
         if (
             self._client.model
             and self._client.model.model_type
-            and self._client.model.model_type == "nv-vlm"
+            and self._client.model.model_type in ["nv-vlm", "qa"]
         ):
             payload.pop("stream_options")
         for response in self._client.get_req_stream(
@@ -799,6 +800,7 @@ class ChatNVIDIA(BaseChatModel):
 
         # check if the model supports structured output, warn if it does not
         known_good = False
+        guided_schema: Union[Dict[str, Any], Any] = schema
         # todo: we need to store model: Model in this class
         #       instead of model: str (= Model.id)
         #  this should be: if not self.model.supports_tools: warnings.warn...
@@ -819,7 +821,6 @@ class ChatNVIDIA(BaseChatModel):
         if isinstance(schema, dict):
             output_parser: BaseOutputParser = JsonOutputParser()
             nvext_param: Dict[str, Any] = {"guided_json": schema}
-
         elif issubclass(schema, enum.Enum):
             # langchain's EnumOutputParser is not in langchain_core
             # and doesn't support streaming. this is a simple implementation
@@ -847,6 +848,7 @@ class ChatNVIDIA(BaseChatModel):
                 )
             output_parser = EnumOutputParser(enum=schema)
             nvext_param = {"guided_choice": choices}
+            guided_schema = choices
 
         elif is_basemodel_subclass(schema):
             # PydanticOutputParser does not support streaming. what we do
@@ -869,6 +871,7 @@ class ChatNVIDIA(BaseChatModel):
             else:
                 json_schema = schema.schema()
             nvext_param = {"guided_json": json_schema}
+            guided_schema = json_schema
 
         else:
             raise ValueError(
@@ -876,4 +879,14 @@ class ChatNVIDIA(BaseChatModel):
                 "representing a JSON schema, or an Enum."
             )
 
-        return super().bind(nvext=nvext_param) | output_parser
+        ls_structured_output_format = {
+            "schema": guided_schema,
+        }
+
+        return (
+            super().bind(
+                nvext=nvext_param,
+                ls_structured_output_format=ls_structured_output_format,
+            )
+            | output_parser
+        )

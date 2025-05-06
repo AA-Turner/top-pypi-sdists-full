@@ -1,6 +1,7 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from anyscale._private.anyscale_client import AnyscaleClientInterface
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_docs
 from anyscale._private.sdk.base_sdk import Timer
 from anyscale.cli_logger import BlockLogger
@@ -15,6 +16,8 @@ from anyscale.service.commands import (
     _DELETE_EXAMPLE,
     _DEPLOY_ARG_DOCSTRINGS,
     _DEPLOY_EXAMPLE,
+    _LIST_ARG_DOCSTRINGS,
+    _LIST_EXAMPLE,
     _ROLLBACK_ARG_DOCSTRINGS,
     _ROLLBACK_EXAMPLE,
     _STATUS_ARG_DOCSTRINGS,
@@ -26,6 +29,7 @@ from anyscale.service.commands import (
     archive,
     delete,
     deploy,
+    list,
     rollback,
     status,
     terminate,
@@ -34,8 +38,10 @@ from anyscale.service.commands import (
 from anyscale.service.models import (
     ServiceConfig,
     ServiceLogMode,
+    ServiceSortField,
     ServiceState,
     ServiceStatus,
+    SortOrder,
 )
 
 
@@ -122,6 +128,7 @@ class ServiceSDK:
     )
     def archive(  # noqa: F811
         self,
+        id: Optional[str] = None,  # noqa: A002
         name: Optional[str] = None,
         *,
         cloud: Optional[str] = None,
@@ -133,13 +140,14 @@ class ServiceSDK:
 
         Returns the ID of the archived service.
         """
-        return self._private_sdk.archive(name=name, cloud=cloud, project=project)
+        return self._private_sdk.archive(id=id, name=name, cloud=cloud, project=project)
 
     @sdk_docs(
         doc_py_example=_DELETE_EXAMPLE, arg_docstrings=_DELETE_ARG_DOCSTRINGS,
     )
     def delete(  # noqa: F811
         self,
+        id: Optional[str] = None,  # noqa: A002
         name: Optional[str] = None,
         *,
         cloud: Optional[str] = None,
@@ -149,7 +157,49 @@ class ServiceSDK:
 
         This command is asynchronous, so it always returns immediately.
         """
-        return self._private_sdk.delete(name=name, cloud=cloud, project=project)
+        return self._private_sdk.delete(id=id, name=name, cloud=cloud, project=project)
+
+    def list(  # noqa: F811, A001
+        self,
+        *,
+        # Single-item lookup
+        service_id: Optional[str] = None,
+        # Filters
+        name: Optional[str] = None,
+        state_filter: Optional[Union[List[ServiceState], List[str]]] = None,
+        creator_id: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        include_archived: bool = False,
+        # Paging
+        max_items: Optional[int] = None,
+        page_size: Optional[int] = None,
+        # Sorting
+        sort_field: Optional[Union[str, ServiceSortField]] = None,
+        sort_order: Optional[Union[str, SortOrder]] = None,
+    ) -> ResultIterator[ServiceStatus]:
+        """List services.
+
+        Returns
+        -------
+        ResultIterator[ServiceStatus]
+            An iterator yielding ServiceStatus objects. Fetches pages
+            lazily as needed. Use a `for` loop to iterate or `list()`
+            to consume all at once.
+        """
+        return self._private_sdk.list(
+            service_id=service_id,
+            name=name,
+            state_filter=state_filter,
+            creator_id=creator_id,
+            cloud=cloud,
+            project=project,
+            include_archived=include_archived,
+            max_items=max_items,
+            page_size=page_size,
+            sort_field=sort_field,
+            sort_order=sort_order,
+        )
 
     @sdk_docs(
         doc_py_example=_STATUS_EXAMPLE, arg_docstrings=_STATUS_ARG_DOCSTRINGS,

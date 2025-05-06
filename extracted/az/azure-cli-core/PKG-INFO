@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-cli-core
-Version: 2.71.0
+Version: 2.72.0
 Summary: Microsoft Azure Command-Line Tools Core Module
 Home-page: https://github.com/Azure/azure-cli
 Author: Microsoft Corporation
@@ -28,7 +28,7 @@ Requires-Dist: jmespath
 Requires-Dist: knack~=0.11.0
 Requires-Dist: microsoft-security-utilities-secret-masker~=1.0.0b4
 Requires-Dist: msal-extensions==1.2.0
-Requires-Dist: msal[broker]==1.31.2b1
+Requires-Dist: msal[broker]==1.32.3
 Requires-Dist: msrestazure~=0.6.4
 Requires-Dist: packaging>=20.9
 Requires-Dist: pkginfo>=1.5.0.1

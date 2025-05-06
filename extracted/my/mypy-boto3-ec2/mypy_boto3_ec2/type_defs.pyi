@@ -208,6 +208,8 @@ from .literals import (
     LocalGatewayRouteStateType,
     LocalGatewayRouteTableModeType,
     LocalGatewayRouteTypeType,
+    LocalGatewayVirtualInterfaceConfigurationStateType,
+    LocalGatewayVirtualInterfaceGroupConfigurationStateType,
     LocalStorageType,
     LocalStorageTypeType,
     LocationTypeType,
@@ -277,6 +279,7 @@ from .literals import (
     SecurityGroupVpcAssociationStateType,
     SelfServicePortalType,
     ServiceConnectivityTypeType,
+    ServiceLinkVirtualInterfaceConfigurationStateType,
     ServiceManagedType,
     ServiceStateType,
     ServiceTypeType,
@@ -707,6 +710,10 @@ __all__ = (
     "CreateLocalGatewayRouteTableVirtualInterfaceGroupAssociationResultTypeDef",
     "CreateLocalGatewayRouteTableVpcAssociationRequestTypeDef",
     "CreateLocalGatewayRouteTableVpcAssociationResultTypeDef",
+    "CreateLocalGatewayVirtualInterfaceGroupRequestTypeDef",
+    "CreateLocalGatewayVirtualInterfaceGroupResultTypeDef",
+    "CreateLocalGatewayVirtualInterfaceRequestTypeDef",
+    "CreateLocalGatewayVirtualInterfaceResultTypeDef",
     "CreateManagedPrefixListRequestTypeDef",
     "CreateManagedPrefixListResultTypeDef",
     "CreateNatGatewayRequestTypeDef",
@@ -909,6 +916,10 @@ __all__ = (
     "DeleteLocalGatewayRouteTableVirtualInterfaceGroupAssociationResultTypeDef",
     "DeleteLocalGatewayRouteTableVpcAssociationRequestTypeDef",
     "DeleteLocalGatewayRouteTableVpcAssociationResultTypeDef",
+    "DeleteLocalGatewayVirtualInterfaceGroupRequestTypeDef",
+    "DeleteLocalGatewayVirtualInterfaceGroupResultTypeDef",
+    "DeleteLocalGatewayVirtualInterfaceRequestTypeDef",
+    "DeleteLocalGatewayVirtualInterfaceResultTypeDef",
     "DeleteManagedPrefixListRequestTypeDef",
     "DeleteManagedPrefixListResultTypeDef",
     "DeleteNatGatewayRequestTypeDef",
@@ -1306,6 +1317,8 @@ __all__ = (
     "DescribeNetworkInterfacesRequestTypeDef",
     "DescribeNetworkInterfacesRequestWaitTypeDef",
     "DescribeNetworkInterfacesResultTypeDef",
+    "DescribeOutpostLagsRequestTypeDef",
+    "DescribeOutpostLagsResultTypeDef",
     "DescribePlacementGroupsRequestTypeDef",
     "DescribePlacementGroupsResultTypeDef",
     "DescribePrefixListsRequestPaginateTypeDef",
@@ -1362,6 +1375,8 @@ __all__ = (
     "DescribeSecurityGroupsRequestTypeDef",
     "DescribeSecurityGroupsRequestWaitTypeDef",
     "DescribeSecurityGroupsResultTypeDef",
+    "DescribeServiceLinkVirtualInterfacesRequestTypeDef",
+    "DescribeServiceLinkVirtualInterfacesResultTypeDef",
     "DescribeSnapshotAttributeRequestSnapshotDescribeAttributeTypeDef",
     "DescribeSnapshotAttributeRequestTypeDef",
     "DescribeSnapshotAttributeResultTypeDef",
@@ -2334,6 +2349,7 @@ __all__ = (
     "OnDemandOptionsTypeDef",
     "OperatorRequestTypeDef",
     "OperatorResponseTypeDef",
+    "OutpostLagTypeDef",
     "PacketHeaderStatementRequestTypeDef",
     "PacketHeaderStatementTypeDef",
     "PaginatorConfigTypeDef",
@@ -2592,6 +2608,7 @@ __all__ = (
     "SendDiagnosticInterruptRequestTypeDef",
     "ServiceConfigurationTypeDef",
     "ServiceDetailTypeDef",
+    "ServiceLinkVirtualInterfaceTypeDef",
     "ServiceTypeDetailTypeDef",
     "SlotDateTimeRangeRequestTypeDef",
     "SlotStartTimeRangeRequestTypeDef",
@@ -4178,6 +4195,14 @@ class DeleteLocalGatewayRouteTableVirtualInterfaceGroupAssociationRequestTypeDef
 
 class DeleteLocalGatewayRouteTableVpcAssociationRequestTypeDef(TypedDict):
     LocalGatewayRouteTableVpcAssociationId: str
+    DryRun: NotRequired[bool]
+
+class DeleteLocalGatewayVirtualInterfaceGroupRequestTypeDef(TypedDict):
+    LocalGatewayVirtualInterfaceGroupId: str
+    DryRun: NotRequired[bool]
+
+class DeleteLocalGatewayVirtualInterfaceRequestTypeDef(TypedDict):
+    LocalGatewayVirtualInterfaceId: str
     DryRun: NotRequired[bool]
 
 class DeleteManagedPrefixListRequestTypeDef(TypedDict):
@@ -8422,18 +8447,27 @@ class LocalGatewayVirtualInterfaceGroupTypeDef(TypedDict):
     LocalGatewayVirtualInterfaceIds: NotRequired[List[str]]
     LocalGatewayId: NotRequired[str]
     OwnerId: NotRequired[str]
+    LocalBgpAsn: NotRequired[int]
+    LocalBgpAsnExtended: NotRequired[int]
+    LocalGatewayVirtualInterfaceGroupArn: NotRequired[str]
     Tags: NotRequired[List[TagTypeDef]]
+    ConfigurationState: NotRequired[LocalGatewayVirtualInterfaceGroupConfigurationStateType]
 
 class LocalGatewayVirtualInterfaceTypeDef(TypedDict):
     LocalGatewayVirtualInterfaceId: NotRequired[str]
     LocalGatewayId: NotRequired[str]
+    LocalGatewayVirtualInterfaceGroupId: NotRequired[str]
+    LocalGatewayVirtualInterfaceArn: NotRequired[str]
+    OutpostLagId: NotRequired[str]
     Vlan: NotRequired[int]
     LocalAddress: NotRequired[str]
     PeerAddress: NotRequired[str]
     LocalBgpAsn: NotRequired[int]
     PeerBgpAsn: NotRequired[int]
+    PeerBgpAsnExtended: NotRequired[int]
     OwnerId: NotRequired[str]
     Tags: NotRequired[List[TagTypeDef]]
+    ConfigurationState: NotRequired[LocalGatewayVirtualInterfaceConfigurationStateType]
 
 class ManagedPrefixListTypeDef(TypedDict):
     PrefixListId: NotRequired[str]
@@ -8474,6 +8508,15 @@ class NetworkInsightsAccessScopeTypeDef(TypedDict):
 class NetworkInterfaceCreateTagsRequestTypeDef(TypedDict):
     Tags: Sequence[TagTypeDef]
     DryRun: NotRequired[bool]
+
+class OutpostLagTypeDef(TypedDict):
+    OutpostArn: NotRequired[str]
+    OwnerId: NotRequired[str]
+    State: NotRequired[str]
+    OutpostLagId: NotRequired[str]
+    LocalGatewayVirtualInterfaceIds: NotRequired[List[str]]
+    ServiceLinkVirtualInterfaceIds: NotRequired[List[str]]
+    Tags: NotRequired[List[TagTypeDef]]
 
 class PlacementGroupTypeDef(TypedDict):
     GroupName: NotRequired[str]
@@ -8532,6 +8575,20 @@ class SecurityGroupForVpcTypeDef(TypedDict):
     GroupId: NotRequired[str]
     Tags: NotRequired[List[TagTypeDef]]
     PrimaryVpcId: NotRequired[str]
+
+class ServiceLinkVirtualInterfaceTypeDef(TypedDict):
+    ServiceLinkVirtualInterfaceId: NotRequired[str]
+    ServiceLinkVirtualInterfaceArn: NotRequired[str]
+    OutpostId: NotRequired[str]
+    OutpostArn: NotRequired[str]
+    OwnerId: NotRequired[str]
+    LocalAddress: NotRequired[str]
+    PeerAddress: NotRequired[str]
+    PeerBgpAsn: NotRequired[int]
+    Vlan: NotRequired[int]
+    OutpostLagId: NotRequired[str]
+    Tags: NotRequired[List[TagTypeDef]]
+    ConfigurationState: NotRequired[ServiceLinkVirtualInterfaceConfigurationStateType]
 
 class SnapshotCreateTagsRequestTypeDef(TypedDict):
     Tags: Sequence[TagTypeDef]
@@ -10752,6 +10809,13 @@ class DescribeNetworkInterfacesRequestTypeDef(TypedDict):
     NetworkInterfaceIds: NotRequired[Sequence[str]]
     Filters: NotRequired[Sequence[FilterTypeDef]]
 
+class DescribeOutpostLagsRequestTypeDef(TypedDict):
+    OutpostLagIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
+
 class DescribePlacementGroupsRequestTypeDef(TypedDict):
     GroupIds: NotRequired[Sequence[str]]
     DryRun: NotRequired[bool]
@@ -10946,6 +11010,13 @@ class DescribeSecurityGroupsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
+
+class DescribeServiceLinkVirtualInterfacesRequestTypeDef(TypedDict):
+    ServiceLinkVirtualInterfaceIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    DryRun: NotRequired[bool]
 
 class DescribeSnapshotTierStatusRequestPaginateTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -13890,10 +13961,26 @@ class DescribeLocalGatewaysResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class CreateLocalGatewayVirtualInterfaceGroupResultTypeDef(TypedDict):
+    LocalGatewayVirtualInterfaceGroup: LocalGatewayVirtualInterfaceGroupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteLocalGatewayVirtualInterfaceGroupResultTypeDef(TypedDict):
+    LocalGatewayVirtualInterfaceGroup: LocalGatewayVirtualInterfaceGroupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DescribeLocalGatewayVirtualInterfaceGroupsResultTypeDef(TypedDict):
     LocalGatewayVirtualInterfaceGroups: List[LocalGatewayVirtualInterfaceGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class CreateLocalGatewayVirtualInterfaceResultTypeDef(TypedDict):
+    LocalGatewayVirtualInterface: LocalGatewayVirtualInterfaceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteLocalGatewayVirtualInterfaceResultTypeDef(TypedDict):
+    LocalGatewayVirtualInterface: LocalGatewayVirtualInterfaceTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeLocalGatewayVirtualInterfacesResultTypeDef(TypedDict):
     LocalGatewayVirtualInterfaces: List[LocalGatewayVirtualInterfaceTypeDef]
@@ -13932,6 +14019,11 @@ class StartNetworkInsightsAccessScopeAnalysisResultTypeDef(TypedDict):
 
 class DescribeNetworkInsightsAccessScopesResultTypeDef(TypedDict):
     NetworkInsightsAccessScopes: List[NetworkInsightsAccessScopeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class DescribeOutpostLagsResultTypeDef(TypedDict):
+    OutpostLags: List[OutpostLagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -13984,6 +14076,11 @@ class ModifyRouteServerResultTypeDef(TypedDict):
 
 class GetSecurityGroupsForVpcResultTypeDef(TypedDict):
     SecurityGroupForVpcs: List[SecurityGroupForVpcTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class DescribeServiceLinkVirtualInterfacesResultTypeDef(TypedDict):
+    ServiceLinkVirtualInterfaces: List[ServiceLinkVirtualInterfaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -16274,6 +16371,24 @@ class CreateLocalGatewayRouteTableVpcAssociationRequestTypeDef(TypedDict):
     VpcId: str
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     DryRun: NotRequired[bool]
+
+class CreateLocalGatewayVirtualInterfaceGroupRequestTypeDef(TypedDict):
+    LocalGatewayId: str
+    LocalBgpAsn: NotRequired[int]
+    LocalBgpAsnExtended: NotRequired[int]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    DryRun: NotRequired[bool]
+
+class CreateLocalGatewayVirtualInterfaceRequestTypeDef(TypedDict):
+    LocalGatewayVirtualInterfaceGroupId: str
+    OutpostLagId: str
+    Vlan: int
+    LocalAddress: str
+    PeerAddress: str
+    PeerBgpAsn: NotRequired[int]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    DryRun: NotRequired[bool]
+    PeerBgpAsnExtended: NotRequired[int]
 
 class CreateManagedPrefixListRequestTypeDef(TypedDict):
     PrefixListName: str

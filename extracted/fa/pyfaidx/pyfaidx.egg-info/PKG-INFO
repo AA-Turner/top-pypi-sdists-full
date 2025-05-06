@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyfaidx
-Version: 0.8.1.3
+Version: 0.8.1.4
 Summary: pyfaidx: efficient pythonic random access to fasta subsequences
 Author-email: Matthew Shirley <mdshw5@gmail.com>
 License: BSD-3-Clause
@@ -22,10 +22,11 @@ Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: importlib_metadata
+Requires-Dist: importlib_metadata; python_version < "3.8"
 Requires-Dist: packaging
+Dynamic: license-file
 
-|CI| |Package| |PyPI| |Coverage| |Depsy| |Downloads|
+|CI| |Package| |PyPI| |Coverage| |Downloads|
 
 Description
 -----------

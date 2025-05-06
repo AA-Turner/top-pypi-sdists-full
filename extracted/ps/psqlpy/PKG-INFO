@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: psqlpy
-Version: 0.9.3
+Version: 0.10.0
 Classifier: Typing :: Typed
 Classifier: Topic :: Database
 Classifier: Development Status :: 4 - Beta

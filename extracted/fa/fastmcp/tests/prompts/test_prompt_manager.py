@@ -7,7 +7,7 @@ from mcp.shared.context import LifespanContextT
 from fastmcp import Context
 from fastmcp.exceptions import NotFoundError
 from fastmcp.prompts import Prompt
-from fastmcp.prompts.prompt import TextContent, UserMessage
+from fastmcp.prompts.prompt import PromptMessage, TextContent
 from fastmcp.prompts.prompt_manager import PromptManager
 
 
@@ -147,28 +147,36 @@ class TestPromptManager:
         """Test rendering a prompt."""
 
         def fn() -> str:
+            """An example prompt."""
             return "Hello, world!"
 
         manager = PromptManager()
         prompt = Prompt.from_function(fn)
         manager.add_prompt(prompt)
-        messages = await manager.render_prompt("fn")
-        assert messages == [
-            UserMessage(content=TextContent(type="text", text="Hello, world!"))
+        result = await manager.render_prompt("fn")
+        assert result.description == "An example prompt."
+        assert result.messages == [
+            PromptMessage(
+                role="user", content=TextContent(type="text", text="Hello, world!")
+            )
         ]
 
     async def test_render_prompt_with_args(self):
         """Test rendering a prompt with arguments."""
 
         def fn(name: str) -> str:
+            """An example prompt."""
             return f"Hello, {name}!"
 
         manager = PromptManager()
         prompt = Prompt.from_function(fn)
         manager.add_prompt(prompt)
-        messages = await manager.render_prompt("fn", arguments={"name": "World"})
-        assert messages == [
-            UserMessage(content=TextContent(type="text", text="Hello, World!"))
+        result = await manager.render_prompt("fn", arguments={"name": "World"})
+        assert result.description == "An example prompt."
+        assert result.messages == [
+            PromptMessage(
+                role="user", content=TextContent(type="text", text="Hello, World!")
+            )
         ]
 
     async def test_render_unknown_prompt(self):
@@ -188,6 +196,30 @@ class TestPromptManager:
         manager.add_prompt(prompt)
         with pytest.raises(ValueError, match="Missing required arguments"):
             await manager.render_prompt("fn")
+
+    async def test_prompt_with_varargs_not_allowed(self):
+        """Test that a prompt with *args is not allowed."""
+
+        def fn(*args: int) -> str:
+            return f"Hello, {args}!"
+
+        manager = PromptManager()
+        with pytest.raises(
+            ValueError, match=r"Functions with \*args are not supported as prompts"
+        ):
+            manager.add_prompt(Prompt.from_function(fn))
+
+    async def test_prompt_with_varkwargs_not_allowed(self):
+        """Test that a prompt with **kwargs is not allowed."""
+
+        def fn(**kwargs: int) -> str:
+            return f"Hello, {kwargs}!"
+
+        manager = PromptManager()
+        with pytest.raises(
+            ValueError, match=r"Functions with \*\*kwargs are not supported as prompts"
+        ):
+            manager.add_prompt(Prompt.from_function(fn))
 
 
 class TestPromptTags:

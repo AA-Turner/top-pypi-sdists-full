@@ -249,7 +249,7 @@ class EMRClusterConfig(StrictModel):
     from tecton import batch_feature_view, Input, EMRClusterConfig
 
     @batch_feature_view(
-        sources=[FilteredSource(credit_scores_batch)],
+        sources=[credit_scores_batch],
         # Can be an argument instance to a batch feature view decorator
         batch_compute = EMRClusterConfig(
             instance_type = 'm5.2xlarge',
@@ -443,7 +443,7 @@ class DatabricksClusterConfig(StrictModel):
     from tecton import batch_feature_view, Input, DatabricksClusterConfig
 
     @batch_feature_view(
-        sources=[FilteredSource(credit_scores_batch)],
+        sources=[credit_scores_batch],
         # Can be an argument instance to a batch feature view decorator
         batch_compute = DatabricksClusterConfig(
             instance_type = 'm5.2xlarge',
@@ -747,7 +747,7 @@ class MonitoringConfig(StrictModel):
     from tecton import batch_feature_view, Input, MonitoringConfig
     # For all named arguments to the batch feature view, see docs for details and types.
     @batch_feature_view(
-        sources=[FilteredSource(credit_scores_batch)],
+        sources=[credit_scores_batch],
         # Can be an argument instance to a batch feature view decorator
         monitoring = MonitoringConfig(
             monitor_freshness=True,
@@ -1094,9 +1094,7 @@ class FileConfig(BaseBatchConfig):
 
         :param uri: S3 or HDFS path to file(s).
         :param file_format: File format. "json", "parquet", or "csv"
-        :param timestamp_field: The timestamp column in this data source that should be used by `FilteredSource`
-                                to filter data from this source, before any feature view transformations are applied.
-                                Only required if this source is used with `FilteredSource`.
+        :param timestamp_field: The timestamp column in this data source that should be used for time-based filtering. Required unless this source is used in Feature Views only with `unfiltered()`.
         :param timestamp_format: Format of string-encoded timestamp column (e.g. "yyyy-MM-dd'T'hh:mm:ss.SSS'Z'").
                                  If the timestamp string cannot be parsed with this format, Tecton will fallback and attempt to
                                  use the default timestamp parser.
@@ -1482,9 +1480,7 @@ class HiveConfig(BaseBatchConfig):
 
         :param table: A table registered in Hive MetaStore.
         :param database: A database registered in Hive MetaStore.
-        :param timestamp_field: The timestamp column in this data source that should be used by `FilteredSource`
-                                    to filter data from this source, before any feature view transformations are applied.
-                                    Only required if this source is used with `FilteredSource`.
+        :param timestamp_field: The timestamp column in this data source that should be used for time-based filtering. Required unless this source is used in Feature Views only with `unfiltered()`.
         :param timestamp_format: Format of string-encoded timestamp column (e.g. "yyyy-MM-dd'T'hh:mm:ss.SSS'Z'").
                                  If the timestamp string cannot be parsed with this format, Tecton will fallback and attempt to
                                  use the default timestamp parser.
@@ -1560,9 +1556,7 @@ class UnityConfig(BaseBatchConfig):
         :param catalog: A catalog registered in Unity
         :param schema: A schema registered in Unity
         :param table: A table registered in Unity
-        :param timestamp_field: The timestamp column in this data source that should be used by `FilteredSource`
-                                    to filter data from this source, before any feature view transformations are applied.
-                                    Only required if this source is used with `FilteredSource`.
+        :param timestamp_field: The timestamp column in this data source that should be used for time-based filtering. Required unless this source is used in Feature Views only with `unfiltered()`.
         :param timestamp_format: Format of string-encoded timestamp column (e.g. "yyyy-MM-dd'T'hh:mm:ss.SSS'Z'").
                                  If the timestamp string cannot be parsed with this format, Tecton will fallback and attempt to
                                  use the default timestamp parser.
@@ -1679,9 +1673,7 @@ class SnowflakeConfig(BaseBatchConfig):
                                     this table name cannot include quotation marks. For example, the
                                     table name 'foo"bar' is not supported.
         :param query: The query for this Data source. Only one of `table` and `query` must be specified.
-        :param timestamp_field: The timestamp column in this data source that should be used by `FilteredSource`
-                                    to filter data from this source, before any feature view transformations are applied.
-                                    Only required if this source is used with `FilteredSource`.
+        :param timestamp_field: The timestamp column in this data source that should be used for time-based filtering. Required unless this source is used in Feature Views only with `unfiltered()`.
         :param post_processor: (Only supported in Spark) Python user defined function `f(DataFrame) -> DataFrame` that takes in raw
                                      PySpark data source DataFrame and translates it to the DataFrame to be
                                      consumed by the Feature View.
@@ -1784,9 +1776,7 @@ class RedshiftConfig(BaseBatchConfig):
                                      PySpark data source DataFrame and translates it to the DataFrame to be
                                      consumed by the Feature View.
         :param query: A Redshift query for this Data source. Only one of table and query should be specified.
-        :param timestamp_field: The timestamp column in this data source that should be used by `FilteredSource`
-                                    to filter data from this source, before any feature view transformations are applied.
-                                    Only required if this source is used with `FilteredSource`.
+        :param timestamp_field: The timestamp column in this data source that should be used for time-based filtering. Required unless this source is used in Feature Views only with `unfiltered()`.
         :param data_delay: By default, incremental materialization jobs run immediately at the end of the
                                     batch schedule period. This parameter configures how long they wait after the end
                                     of the period before starting, typically to ensure that all data has landed.
@@ -1866,9 +1856,7 @@ class BigQueryConfig(BaseBatchConfig):
                          This is for ensuring that queries are run in the same location as the data.
         :param table: The table for this Data source. Only one of `table` and `query` must be specified.
         :param query: The query for this Data source. Only one of `table` and `query` must be specified.
-        :param timestamp_field: The timestamp column in this data source that should be used by `FilteredSource`
-                               to filter data from this source, before any feature view transformations are applied.
-                               Only required if this source is used with `FilteredSource`.
+        :param timestamp_field: The timestamp column in this data source that should be used for time-based filtering. Required unless this source is used in Feature Views only with `unfiltered()`.
         :param data_delay: This parameter configures how long jobs wait after the end of the batch_schedule period before
                            starting, typically to ensure that all data has landed.
                            For example, if a feature view has a `batch_schedule` of 1 day and one of
@@ -1938,13 +1926,7 @@ class SparkBatchConfig(BaseBatchConfig):
                                     For example, if a feature view has a `batch_schedule` of 1 day and one of
                                     the data source inputs has a `data_delay` of 1 hour, then
                                     incremental materialization jobs will run at `01:00` UTC.
-        :param supports_time_filtering: When set to `True`, the Data Source Function must take the `filter_context`
-                                    parameter and implement time filtering logic.
-                                    `supports_time_filtering` must be set to `True` if `<data source>.get_dataframe()` is called with `start_time`
-                                    or `end_time`. `supports_time_filtering` must also be set to `True` if using `tecton.declarative.FilteredSource`
-                                    with a Data Source when defining a `FeatureView`. The `FeatureView` will call
-                                    the Data Source Function with the `tecton.FilterContext`, which has the `start_time` and
-                                    `end_time` set.
+        :param supports_time_filtering: When set to `True`, the Data Source Function must take the `filter_context` parameter and implement time filtering logic. `supports_time_filtering` must be set to `True` if `<data source>.get_dataframe()` is called with `start_time` or `end_time`, or if using time filtering with a Data Source when defining a `FeatureView` which has time filtering enabled by default. To use a Data Source without time filtering, call `.unfiltered()` on the Data Source. The `FeatureView` will call the Data Source Function with the `tecton.FilterContext`, which has the `start_time` and `end_time` set.
 
         :return: A SparkBatchConfig class instance.
         """
@@ -2024,13 +2006,7 @@ def spark_batch_config(
                                 For example, if a feature view has a `batch_schedule` of 1 day and one of
                                 the data source inputs has `data_delay=timedelta(hours=1)` set, then
                                 incremental materialization jobs will run at `01:00` UTC.
-    :param supports_time_filtering: When set to `True`, the Data Source Function must take the `filter_context`
-                                    parameter and implement time filtering logic.
-                                    `supports_time_filtering` must be set to `True` if `<data source>.get_dataframe()` is called with `start_time`
-                                    or `end_time`. `supports_time_filtering` must also be set to `True` if using `tecton.declarative.FilteredSource`
-                                    with a Data Source when defining a `FeatureView`. The `FeatureView` will call
-                                    the Data Source Function with the `tecton.FilterContext`, which has the `start_time` and
-                                    `end_time` set.
+    :param supports_time_filtering: When set to `True`, the Data Source Function must take the `filter_context` parameter and implement time filtering logic. `supports_time_filtering` must be set to `True` if `<data source>.get_dataframe()` is called with `start_time` or `end_time`, or if using time filtering with a Data Source when defining a `FeatureView` which has time filtering enabled by default. To use a Data Source without time filtering, call `.unfiltered()` on the Data Source. The `FeatureView` will call the Data Source Function with the `tecton.FilterContext`, which has the `start_time` and `end_time` set.
     """
 
     def decorator(data_source_function):
@@ -2189,12 +2165,7 @@ class PandasBatchConfig(BaseBatchConfig):
         typically to ensure that all data has landed. For example, if a feature view has a `batch_schedule` of 1 day
         and one of the data source inputs has a `data_delay` of 1 hour, then incremental materialization jobs will
         run at `01:00` UTC.
-        :param supports_time_filtering: When set to `True`, the Data Source Function must take
-        the `filter_context` parameter and implement time filtering logic. `supports_time_filtering` must be set to
-        `True` if `<data source>.get_dataframe()` is called with `start_time` or `end_time`.
-        `supports_time_filtering` must also be set to `True` if using `tecton.declarative.FilteredSource` with a Data
-        Source when defining a `FeatureView`. The `FeatureView` will call the Data Source Function with the
-        `tecton.FilterContext`, which has the `start_time` and `end_time` set.
+        :param supports_time_filtering: When set to `True`, the Data Source Function must take the `filter_context` parameter and implement time filtering logic. `supports_time_filtering` must be set to `True` if `<data source>.get_dataframe()` is called with `start_time` or `end_time`, or if using time filtering with a Data Source when defining a `FeatureView` which has time filtering enabled by default. To use a Data Source without time filtering, call `.unfiltered()` on the Data Source. The `FeatureView` will call the Data Source Function with the `tecton.FilterContext`, which has the `start_time` and `end_time` set.
         :param secrets: A dictionary of Secret references that will be resolved and provided to the Data Source Function at runtime. During local
         development and testing, strings may be used instead Secret references.
 
@@ -2284,7 +2255,7 @@ def pandas_batch_config(
     ```
 
     :param data_delay: By default, incremental materialization jobs run immediately at the end of the batch schedule period. This parameter configures how long they wait after the end of the period before starting, typically to ensure that all data has landed. For example, if a feature view has a `batch_schedule` of 1 day and one of the data source inputs has `data_delay=timedelta(hours=1)` set, then incremental materialization jobs will run at `01:00` UTC.
-    :param supports_time_filtering: When set to `True`, the Data Source Function must take the `filter_context` parameter and implement time filtering logic. `supports_time_filtering` must be set to `True` if `<data source>.get_dataframe()` is called with `start_time`or `end_time`. `supports_time_filtering` must also be set to `True` if using `tecton.declarative.FilteredSource` with a Data Source when defining a `FeatureView`. The `FeatureView` will call the Data Source Function with the `tecton.FilterContext`, which has the `start_time` and `end_time` set.
+    :param supports_time_filtering: When set to `True`, the Data Source Function must take the `filter_context` parameter and implement time filtering logic. `supports_time_filtering` must be set to `True` if `<data source>.get_dataframe()` is called with `start_time` or `end_time`, or if using time filtering with a Data Source when defining a `FeatureView` which has time filtering enabled by default. To use a Data Source without time filtering, call `.unfiltered()` on the Data Source. The `FeatureView` will call the Data Source Function with the `tecton.FilterContext`, which has the `start_time` and `end_time` set.
     :param secrets: A dictionary of Secret references that will be resolved and provided to the Data Source Function at runtime. During local development and testing, strings may be used instead Secret references.
 
     :return:  Returns a `pandas.DataFrame`.
@@ -2350,12 +2321,7 @@ class PyArrowBatchConfig(BaseBatchConfig):
         typically to ensure that all data has landed. For example, if a feature view has a `batch_schedule` of 1 day
         and one of the data source inputs has a `data_delay` of 1 hour, then incremental materialization jobs will
         run at `01:00` UTC.
-        :param supports_time_filtering: When set to `True`, the Data Source Function must take
-        the `filter_context` parameter and implement time filtering logic. `supports_time_filtering` must be set to
-        `True` if `<data source>.get_dataframe()` is called with `start_time` or `end_time`.
-        `supports_time_filtering` must also be set to `True` if using `tecton.declarative.FilteredSource` with a Data
-        Source when defining a `FeatureView`. The `FeatureView` will call the Data Source Function with the
-        `tecton.FilterContext`, which has the `start_time` and `end_time` set.
+        :param supports_time_filtering: When set to `True`, the Data Source Function must take the `filter_context` parameter and implement time filtering logic. `supports_time_filtering` must be set to `True` if `<data source>.get_dataframe()` is called with `start_time` or `end_time`, or if using time filtering with a Data Source when defining a `FeatureView` which has time filtering enabled by default. To use a Data Source without time filtering, call `.unfiltered()` on the Data Source. The `FeatureView` will call the Data Source Function with the `tecton.FilterContext`, which has the `start_time` and `end_time` set.
         :param secrets: A dictionary of Secret references that will be resolved and provided to the Data Source Function at runtime. During local
         development and testing, strings may be used instead Secret references.
 
@@ -2445,7 +2411,7 @@ def pyarrow_batch_config(
     ```
 
     :param data_delay: By default, incremental materialization jobs run immediately at the end of the batch schedule period. This parameter configures how long they wait after the end of the period before starting, typically to ensure that all data has landed. For example, if a feature view has a `batch_schedule` of 1 day and one of the data source inputs has `data_delay=timedelta(hours=1)` set, then incremental materialization jobs will run at `01:00` UTC.
-    :param supports_time_filtering: When set to `True`, the Data Source Function must take the `filter_context` parameter and implement time filtering logic. `supports_time_filtering` must be set to `True` if `<data source>.get_dataframe()` is called with `start_time`or `end_time`. `supports_time_filtering` must also be set to `True` if using `tecton.declarative.FilteredSource` with a Data Source when defining a `FeatureView`. The `FeatureView` will call the Data Source Function with the `tecton.FilterContext`, which has the `start_time` and `end_time` set.
+    :param supports_time_filtering: When set to `True`, the Data Source Function must take the `filter_context` parameter and implement time filtering logic. `supports_time_filtering` must be set to `True` if `<data source>.get_dataframe()` is called with `start_time` or `end_time`, or if using time filtering with a Data Source when defining a `FeatureView` which has time filtering enabled by default. To use a Data Source without time filtering, call `.unfiltered()` on the Data Source.. The `FeatureView` will call the Data Source Function with the `tecton.FilterContext`, which has the `start_time` and `end_time` set.
     :param secrets: A dictionary of Secret references that will be resolved and provided to the Data Source Function at runtime. During local development and testing, strings may be used instead Secret references.
 
     :return:  Returns a `pyarrow.Table` or `pyarrow.RecordBatchReader`.

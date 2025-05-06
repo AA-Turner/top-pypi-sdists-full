@@ -6,7 +6,7 @@
 #                      \___/_/\_\ .__/ \__,_|\__|
 #                               |_| XML parser
 #
-# Copyright (c) 2019-2021 Sebastian Pipping <sebastian@pipping.org>
+# Copyright (c) 2019-2023 Sebastian Pipping <sebastian@pipping.org>
 # Copyright (c) 2021      Tim Bray <tbray@textuality.com>
 # Licensed under the MIT license:
 #
@@ -81,6 +81,10 @@ billion_laughs = parser.add_argument_group('billion laughs attack protection',
 billion_laughs.add_argument('-a', metavar='FACTOR',
                             help='set maximum tolerated [a]mplification factor (default: 100.0)')
 billion_laughs.add_argument('-b', metavar='BYTES', help='set number of output [b]ytes needed to activate (default: 8 MiB)')
+
+reparse_deferral = parser.add_argument_group('reparse deferral')
+reparse_deferral.add_argument('-q', metavar='FACTOR',
+                            help='disable reparse deferral, and allow [q]uadratic parse runtime with large tokens')
 
 parser.add_argument('files', metavar='FILE', nargs='*', help='file to process (default: STDIN)')
 

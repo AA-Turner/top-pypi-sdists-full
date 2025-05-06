@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: adbc-driver-manager
-Version: 1.5.0
+Version: 1.6.0
 Summary: A generic entrypoint for ADBC drivers.
 Author-email: Apache Arrow Developers <dev@arrow.apache.org>
 License: Apache-2.0
@@ -13,12 +13,13 @@ License-File: NOTICE.txt
 Requires-Dist: typing-extensions
 Provides-Extra: dbapi
 Requires-Dist: pandas; extra == "dbapi"
-Requires-Dist: pyarrow>=8.0.0; extra == "dbapi"
+Requires-Dist: pyarrow>=14.0.1; extra == "dbapi"
 Provides-Extra: test
 Requires-Dist: duckdb; extra == "test"
 Requires-Dist: pandas; extra == "test"
-Requires-Dist: pyarrow>=8.0.0; extra == "test"
+Requires-Dist: pyarrow>=14.0.1; extra == "test"
 Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
 
 <!---
   Licensed to the Apache Software Foundation (ASF) under one

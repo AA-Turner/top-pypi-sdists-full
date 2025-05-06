@@ -732,6 +732,7 @@ __all__ = (
     "UpdateSubscriptionTargetOutputTypeDef",
     "UpdateUserProfileInputTypeDef",
     "UpdateUserProfileOutputTypeDef",
+    "UseAssetTypePolicyGrantDetailTypeDef",
     "UserDetailsTypeDef",
     "UserPolicyGrantPrincipalOutputTypeDef",
     "UserPolicyGrantPrincipalTypeDef",
@@ -2238,6 +2239,10 @@ class PhysicalConnectionRequirementsTypeDef(TypedDict):
     securityGroupIdList: NotRequired[Sequence[str]]
     subnetId: NotRequired[str]
     subnetIdList: NotRequired[Sequence[str]]
+
+
+class UseAssetTypePolicyGrantDetailTypeDef(TypedDict):
+    domainUnitId: NotRequired[str]
 
 
 class UserPolicyGrantPrincipalOutputTypeDef(TypedDict):
@@ -4113,6 +4118,21 @@ class OAuth2PropertiesTypeDef(TypedDict):
     tokenUrlParametersMap: NotRequired[Mapping[str, str]]
 
 
+class OwnerPropertiesOutputTypeDef(TypedDict):
+    group: NotRequired[OwnerGroupPropertiesOutputTypeDef]
+    user: NotRequired[OwnerUserPropertiesOutputTypeDef]
+
+
+class OwnerPropertiesTypeDef(TypedDict):
+    group: NotRequired[OwnerGroupPropertiesTypeDef]
+    user: NotRequired[OwnerUserPropertiesTypeDef]
+
+
+PhysicalConnectionRequirementsUnionTypeDef = Union[
+    PhysicalConnectionRequirementsTypeDef, PhysicalConnectionRequirementsOutputTypeDef
+]
+
+
 class PolicyGrantDetailOutputTypeDef(TypedDict):
     addToProjectMemberPool: NotRequired[AddToProjectMemberPoolPolicyGrantDetailTypeDef]
     createAssetType: NotRequired[CreateAssetTypePolicyGrantDetailTypeDef]
@@ -4129,6 +4149,7 @@ class PolicyGrantDetailOutputTypeDef(TypedDict):
     delegateCreateEnvironmentProfile: NotRequired[Dict[str, Any]]
     overrideDomainUnitOwners: NotRequired[OverrideDomainUnitOwnersPolicyGrantDetailTypeDef]
     overrideProjectOwners: NotRequired[OverrideProjectOwnersPolicyGrantDetailTypeDef]
+    useAssetType: NotRequired[UseAssetTypePolicyGrantDetailTypeDef]
 
 
 class PolicyGrantDetailTypeDef(TypedDict):
@@ -4147,21 +4168,7 @@ class PolicyGrantDetailTypeDef(TypedDict):
     delegateCreateEnvironmentProfile: NotRequired[Mapping[str, Any]]
     overrideDomainUnitOwners: NotRequired[OverrideDomainUnitOwnersPolicyGrantDetailTypeDef]
     overrideProjectOwners: NotRequired[OverrideProjectOwnersPolicyGrantDetailTypeDef]
-
-
-class OwnerPropertiesOutputTypeDef(TypedDict):
-    group: NotRequired[OwnerGroupPropertiesOutputTypeDef]
-    user: NotRequired[OwnerUserPropertiesOutputTypeDef]
-
-
-class OwnerPropertiesTypeDef(TypedDict):
-    group: NotRequired[OwnerGroupPropertiesTypeDef]
-    user: NotRequired[OwnerUserPropertiesTypeDef]
-
-
-PhysicalConnectionRequirementsUnionTypeDef = Union[
-    PhysicalConnectionRequirementsTypeDef, PhysicalConnectionRequirementsOutputTypeDef
-]
+    useAssetType: NotRequired[UseAssetTypePolicyGrantDetailTypeDef]
 
 
 class RuleScopeOutputTypeDef(TypedDict):
@@ -5090,7 +5097,6 @@ class AuthenticationConfigurationTypeDef(TypedDict):
 
 
 OAuth2PropertiesUnionTypeDef = Union[OAuth2PropertiesTypeDef, OAuth2PropertiesOutputTypeDef]
-PolicyGrantDetailUnionTypeDef = Union[PolicyGrantDetailTypeDef, PolicyGrantDetailOutputTypeDef]
 
 
 class ListEntityOwnersOutputTypeDef(TypedDict):
@@ -5113,6 +5119,9 @@ class RemoveEntityOwnerInputTypeDef(TypedDict):
     entityType: Literal["DOMAIN_UNIT"]
     owner: OwnerPropertiesTypeDef
     clientToken: NotRequired[str]
+
+
+PolicyGrantDetailUnionTypeDef = Union[PolicyGrantDetailTypeDef, PolicyGrantDetailOutputTypeDef]
 
 
 class RuleSummaryTypeDef(TypedDict):

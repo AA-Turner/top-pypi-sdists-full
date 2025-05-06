@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-ai-evaluation
-Version: 1.5.0
+Version: 1.6.0
 Summary: Microsoft Azure Evaluation Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -30,9 +30,10 @@ Requires-Dist: nltk>=3.9.1
 Requires-Dist: azure-storage-blob>=12.10.0
 Requires-Dist: httpx>=0.25.1
 Requires-Dist: pandas<3.0.0,>=2.1.2
-Requires-Dist: openai>=1.40.0
+Requires-Dist: openai>=1.73.0
 Requires-Dist: ruamel.yaml<1.0.0,>=0.17.10
 Requires-Dist: msrest>=0.6.21
+Requires-Dist: Jinja2>=3.1.6
 Provides-Extra: redteam
 Requires-Dist: pyrit==0.8.1; extra == "redteam"
 
@@ -380,6 +381,28 @@ This project has adopted the [Microsoft Open Source Code of Conduct][code_of_con
 
 
 # Release History
+
+## 1.6.0 (2025-05-07)
+
+### Features Added
+- New `<evaluator>.binary_aggregate` field added to evaluation result metrics. This field contains the aggregated binary evaluation results for each evaluator, providing a summary of the evaluation outcomes.
+- Added support for Azure Open AI evaluation via 4 new 'grader' classes, which serve as wrappers around Azure Open AI grader configurations. These new grader objects can be supplied to the main `evaluate` method as if they were normal callable evaluators. The new classes are:
+    - AzureOpenAIGrader (general class for experienced users)
+    - AzureOpenAILabelGrader
+    - AzureOpenAIStringCheckGrader
+    - AzureOpenAITextSimilarityGrader
+
+### Breaking Changes
+- In the experimental RedTeam's scan method, the `data_only` param has been replaced with `skip_evals` and if you do not want data to be uploaded, use the `skip_upload` flag.
+
+### Bugs Fixed
+- Fixed error in `evaluate` where data fields could not contain numeric characters. Previously, a data file with schema:
+    ```
+    "query1": "some query", "response": "some response"
+    ```
+    throws error when passed into `evaluator_config` as `{"evaluator_name": {"column_mapping": {"query": "${data.query1}", "response": "${data.response}"}},}`.
+    Now, users may import data containing fields with numeric characters. 
+
 
 ## 1.5.0 (2025-04-04)
 

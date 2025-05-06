@@ -411,8 +411,6 @@ def test_create_distutils_cfg(creator, tmp_path, monkeypatch):
             creator,
             "--setuptools",
             "bundle",
-            "--wheel",
-            "bundle",
         ],
     )
 

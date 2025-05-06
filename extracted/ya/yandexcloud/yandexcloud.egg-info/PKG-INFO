@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: yandexcloud
-Version: 0.341.0
+Version: 0.342.0
 Summary: The Yandex Cloud official SDK
 Author-email: Yandex LLC <cloud@support.yandex.ru>
 License: MIT
@@ -147,6 +147,7 @@ Check `examples` directory for more examples.
 | yandex.cloud.serverless.triggers                                       | serverless-triggers      |
 | yandex.cloud.spark                                                     | managed-spark            |
 | yandex.cloud.storage                                                   | storage-api              |
+| yandex.cloud.trino                                                     | trino                    |
 | yandex.cloud.vpc                                                       | vpc                      |
 | yandex.cloud.ydb                                                       | ydb                      |
 

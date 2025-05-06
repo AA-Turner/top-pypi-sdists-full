@@ -705,6 +705,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.VolumeGetFileRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.VolumeGetFileResponse.FromString,
                 )
+        self.VolumeGetFile2 = channel.unary_unary(
+                '/modal.client.ModalClient/VolumeGetFile2',
+                request_serializer=modal__proto_dot_api__pb2.VolumeGetFile2Request.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.VolumeGetFile2Response.FromString,
+                )
         self.VolumeGetOrCreate = channel.unary_unary(
                 '/modal.client.ModalClient/VolumeGetOrCreate',
                 request_serializer=modal__proto_dot_api__pb2.VolumeGetOrCreateRequest.SerializeToString,
@@ -1617,6 +1622,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def VolumeGetFile2(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def VolumeGetOrCreate(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2370,6 +2381,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.VolumeGetFile,
                     request_deserializer=modal__proto_dot_api__pb2.VolumeGetFileRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.VolumeGetFileResponse.SerializeToString,
+            ),
+            'VolumeGetFile2': grpc.unary_unary_rpc_method_handler(
+                    servicer.VolumeGetFile2,
+                    request_deserializer=modal__proto_dot_api__pb2.VolumeGetFile2Request.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.VolumeGetFile2Response.SerializeToString,
             ),
             'VolumeGetOrCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.VolumeGetOrCreate,
@@ -4774,6 +4790,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/VolumeGetFile',
             modal__proto_dot_api__pb2.VolumeGetFileRequest.SerializeToString,
             modal__proto_dot_api__pb2.VolumeGetFileResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def VolumeGetFile2(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/VolumeGetFile2',
+            modal__proto_dot_api__pb2.VolumeGetFile2Request.SerializeToString,
+            modal__proto_dot_api__pb2.VolumeGetFile2Response.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

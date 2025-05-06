@@ -1658,6 +1658,7 @@ class GetDevicePoolCompatibilityRequestTypeDef(TypedDict):
     testType: NotRequired[TestTypeType]
     test: NotRequired[ScheduleRunTestTypeDef]
     configuration: NotRequired[ScheduleRunConfigurationTypeDef]
+    projectArn: NotRequired[str]
 
 
 class GetRunResultTypeDef(TypedDict):

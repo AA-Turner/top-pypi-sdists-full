@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: boto3-stubs-lite
-Version: 1.38.8
-Summary: Lite type annotations for boto3 1.38.8 generated with mypy-boto3-builder 8.10.1
+Version: 1.38.9
+Summary: Lite type annotations for boto3 1.38.9 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -36,7 +36,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: boto3-stubs-full<1.39.0,>=1.38.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.38.8; extra == "boto3"
+Requires-Dist: boto3==1.38.9; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: mypy-boto3-accessanalyzer<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-account<1.39.0,>=1.38.0; extra == "all"
@@ -395,7 +395,6 @@ Requires-Dist: mypy-boto3-shield<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-signer<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-simspaceweaver<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-sms<1.39.0,>=1.38.0; extra == "all"
-Requires-Dist: mypy-boto3-sms-voice<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-snow-device-management<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-snowball<1.39.0,>=1.38.0; extra == "all"
 Requires-Dist: mypy-boto3-sns<1.39.0,>=1.38.0; extra == "all"
@@ -1165,8 +1164,6 @@ Provides-Extra: simspaceweaver
 Requires-Dist: mypy-boto3-simspaceweaver<1.39.0,>=1.38.0; extra == "simspaceweaver"
 Provides-Extra: sms
 Requires-Dist: mypy-boto3-sms<1.39.0,>=1.38.0; extra == "sms"
-Provides-Extra: sms-voice
-Requires-Dist: mypy-boto3-sms-voice<1.39.0,>=1.38.0; extra == "sms-voice"
 Provides-Extra: snow-device-management
 Requires-Dist: mypy-boto3-snow-device-management<1.39.0,>=1.38.0; extra == "snow-device-management"
 Provides-Extra: snowball
@@ -1287,7 +1284,7 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.38.8](https://pypi.org/project/boto3/) compatible
+Type annotations for [boto3 1.38.9](https://pypi.org/project/boto3/) compatible
 with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1296,7 +1293,7 @@ with [VSCode](https://code.visualstudio.com/),
 [pyright](https://github.com/microsoft/pyright) and other tools.
 
 Generated with
-[mypy-boto3-builder 8.10.1](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.11.0](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found on
 [boto3-stubs](https://pypi.org/project/boto3-stubs/) page and in
@@ -1347,7 +1344,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.38.8' mypy-boto3-builder`
+   `uvx --with 'boto3==1.38.9' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1680,9 +1677,9 @@ repository.
 
 ## Submodules
 
-- `boto3-stubs-lite[full]` - Type annotations for all 405 services in one
+- `boto3-stubs-lite[full]` - Type annotations for all 404 services in one
   package (recommended).
-- `boto3-stubs-lite[all]` - Type annotations for all 405 services in separate
+- `boto3-stubs-lite[all]` - Type annotations for all 404 services in separate
   packages.
 - `boto3-stubs-lite[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudformation/),
@@ -2735,9 +2732,6 @@ repository.
   service.
 - `boto3-stubs-lite[sms]` - Type annotations for
   [SMS](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sms/) service.
-- `boto3-stubs-lite[sms-voice]` - Type annotations for
-  [SMSVoice](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sms_voice/)
-  service.
 - `boto3-stubs-lite[snow-device-management]` - Type annotations for
   [SnowDeviceManagement](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_snow_device_management/)
   service.

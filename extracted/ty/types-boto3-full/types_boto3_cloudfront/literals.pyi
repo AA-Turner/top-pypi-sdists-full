@@ -539,7 +539,6 @@ ServiceName = Literal[
     "signer",
     "simspaceweaver",
     "sms",
-    "sms-voice",
     "snow-device-management",
     "snowball",
     "sns",

@@ -4,12 +4,12 @@ import datetime as dt
 import typing
 
 from ..core.datetime_utils import serialize_datetime
-from .configured_transformation_item import ConfiguredTransformationItem
 from .data_sink import DataSink
 from .eval_execution_params import EvalExecutionParams
 from .llama_parse_parameters import LlamaParseParameters
 from .pipeline_configuration_hashes import PipelineConfigurationHashes
 from .pipeline_embedding_config import PipelineEmbeddingConfig
+from .pipeline_metadata_config import PipelineMetadataConfig
 from .pipeline_transform_config import PipelineTransformConfig
 from .pipeline_type import PipelineType
 from .preset_retrieval_params import PresetRetrievalParams
@@ -39,9 +39,6 @@ class Pipeline(pydantic.BaseModel):
     )
     managed_pipeline_id: typing.Optional[str]
     embedding_config: PipelineEmbeddingConfig
-    configured_transformations: typing.Optional[typing.List[ConfiguredTransformationItem]] = pydantic.Field(
-        description="Deprecated don't use it, List of configured transformations."
-    )
     config_hash: typing.Optional[PipelineConfigurationHashes]
     transform_config: typing.Optional[PipelineTransformConfig] = pydantic.Field(
         description="Configuration for the transformation."
@@ -54,6 +51,7 @@ class Pipeline(pydantic.BaseModel):
     )
     llama_parse_parameters: typing.Optional[LlamaParseParameters]
     data_sink: typing.Optional[DataSink]
+    metadata_config: typing.Optional[PipelineMetadataConfig]
 
     def json(self, **kwargs: typing.Any) -> str:
         kwargs_with_defaults: typing.Any = {"by_alias": True, "exclude_unset": True, **kwargs}

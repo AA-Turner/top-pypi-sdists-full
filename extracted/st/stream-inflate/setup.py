@@ -18,7 +18,7 @@ setup(
     )], compiler_directives=compiler_directives),
     # Python 3.6 seems to need all of the below, even though they are in pyproject.toml
     name="stream-inflate",
-    version="v0.0.41",
+    version="v0.0.42",
     extras_require={
         'dev': [
             "coverage>=6.2",

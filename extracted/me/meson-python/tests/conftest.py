@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 import contextlib
+import importlib.metadata
 import os
 import os.path
 import pathlib
@@ -25,8 +26,23 @@ import mesonpy
 from mesonpy._util import chdir
 
 
+_meson_ver_str = subprocess.run(['meson', '--version'], check=True, stdout=subprocess.PIPE, text=True).stdout
+MESON_VERSION = tuple(map(int, _meson_ver_str.split('.')[:3]))
+
+
 def metadata(data):
     meta, other = packaging.metadata.parse_email(data)
+    # PEP-639 support requires packaging >= 24.1.  Add minimal
+    # handling of PEP-639 fields here to allow testing with older
+    # packaging releases.
+    value = other.pop('license-expression', None)
+    if value is not None:
+        # The ``License-Expression`` header should appear only once.
+        assert len(value) == 1
+        meta['license-expression'] = value[0]
+    value = other.pop('license-file', None)
+    if value is not None:
+        meta['license-file'] = value
     assert not other
     return meta
 
@@ -58,8 +74,8 @@ package_dir = pathlib.Path(__file__).parent / 'packages'
 
 @contextlib.contextmanager
 def in_git_repo_context(path=os.path.curdir):
-    # Resist the tentation of using pathlib.Path here: it is not
-    # supporded by subprocess in Python 3.7.
+    # Resist the temptation of using pathlib.Path here: it is not
+    # supported by subprocess in Python 3.7.
     path = os.path.abspath(path)
     shutil.rmtree(os.path.join(path, '.git'), ignore_errors=True)
     try:
@@ -96,10 +112,6 @@ class VEnv(EnvBuilder):
 
         # Free-threaded Python 3.13 requires pip 24.1b1 or later.
         if sysconfig.get_config_var('Py_GIL_DISABLED'):
-            # importlib.metadata is not available on Python 3.7 and
-            # earlier, however no-gil builds are available only for
-            # Python 3.13 and later.
-            import importlib.metadata
             if packaging.version.Version(importlib.metadata.version('pip')) < packaging.version.Version('24.1b1'):
                 self.pip('install', '--upgrade', 'pip >= 24.1b1')
 

@@ -156,7 +156,7 @@ def _var_pop_full_aggregation(cols: List[str], aggregation_wrapper: Callable[[Te
     var_pop = (sum_of_squares_query_term / count_query_term) - (sum_query_term / count_query_term) ** 2
     # Due to floating-point error `var_pop` can be negative when sum of squares is too close to square of sums.
     # This might happen when feature values are too close (or identical) and variance is essentially zero.
-    return Function("greatest", var_pop, LiteralValue("0"))
+    return Case().when(var_pop.isnotnull(), Function("greatest", var_pop, LiteralValue("0")))
 
 
 def _stddev_samp_full_aggregation(cols: List[str], aggregation_wrapper: Callable[[Term], Term]) -> Term:

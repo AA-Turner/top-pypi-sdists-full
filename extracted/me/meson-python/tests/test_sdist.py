@@ -9,8 +9,6 @@ import tarfile
 import textwrap
 import time
 
-from itertools import chain
-
 import pytest
 
 import mesonpy
@@ -18,7 +16,7 @@ import mesonpy
 from .conftest import in_git_repo_context, metadata
 
 
-def test_no_pep621(sdist_library):
+def test_meson_build_metadata(sdist_library):
     with tarfile.open(sdist_library, 'r:gz') as sdist:
         sdist_pkg_info = sdist.extractfile('library-1.0.0/PKG-INFO').read()
 
@@ -29,29 +27,20 @@ def test_no_pep621(sdist_library):
     '''))
 
 
-def test_pep621(sdist_full_metadata):
+def test_pep621_metadata(sdist_full_metadata):
     with tarfile.open(sdist_full_metadata, 'r:gz') as sdist:
         sdist_pkg_info = sdist.extractfile('full_metadata-1.2.3/PKG-INFO').read()
 
     meta = metadata(sdist_pkg_info)
-
-    # pyproject-metadata prior to 0.8.0 uses spaces to join keywords
-    meta['keywords'] = list(chain(*(v.split(' ') for v in meta['keywords'])))
-
-    # pyproject-metadata prior to 0.9.0 strips trailing newlines
+    # Including the trailing newline in the expected value is inconvenient.
     meta['license'] = meta['license'].rstrip()
-
-    # pyproject-metadata 0.9.0 and later does not emit Home-Page
-    meta.pop('home_page', None)
-    # nor normalizes Project-URL keys
-    meta['project_urls'] = {k.lower(): v for k, v in meta['project_urls'].items()}
 
     assert meta == metadata(textwrap.dedent('''\
         Metadata-Version: 2.1
         Name: full-metadata
         Version: 1.2.3
         Summary: Some package with all of the PEP 621 metadata
-        Keywords: full,metadata
+        Keywords: full,metadata,keyword with spaces
         Author: Jane Doe
         Author-Email: Unknown <jhon.doe@example.com>
         Maintainer-Email: Jane Doe <jane.doe@example.com>
@@ -227,3 +216,22 @@ def test_reproducible(package_pure, tmp_path):
 
     assert sdist_path_a == sdist_path_b
     assert tmp_path.joinpath('a', sdist_path_a).read_bytes() == tmp_path.joinpath('b', sdist_path_b).read_bytes()
+
+@pytest.mark.filterwarnings('ignore:symbolic link')
+def test_symlinks(tmp_path, sdist_symlinks):
+    with tarfile.open(sdist_symlinks, 'r:gz') as sdist:
+        names = {member.name for member in sdist.getmembers()}
+        mtimes = {member.mtime for member in sdist.getmembers()}
+
+    assert names == {
+        'symlinks-1.0.0/PKG-INFO',
+        'symlinks-1.0.0/meson.build',
+        'symlinks-1.0.0/pyproject.toml',
+        'symlinks-1.0.0/__init__.py',
+        'symlinks-1.0.0/submodule/__init__.py',
+        'symlinks-1.0.0/submodule/aaa.py',
+        'symlinks-1.0.0/submodule/bbb.py',
+    }
+
+    # All the archive members have a valid mtime.
+    assert 0 not in mtimes

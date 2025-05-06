@@ -8,7 +8,7 @@ Tools for building ESP-IDF related apps.
 # ruff: noqa: E402
 # avoid circular imports
 
-__version__ = '2.10.0'
+__version__ = '2.10.1'
 
 from .session_args import (
     SessionArgs,
@@ -28,6 +28,7 @@ from .log import (
 from .main import (
     build_apps,
     find_apps,
+    json_list_files_to_apps,
     json_to_app,
 )
 
@@ -38,6 +39,7 @@ __all__ = [
     'MakeApp',
     'build_apps',
     'find_apps',
+    'json_list_files_to_apps',
     'json_to_app',
     'setup_logging',
 ]

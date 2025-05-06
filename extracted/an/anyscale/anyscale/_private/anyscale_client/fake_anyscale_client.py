@@ -26,6 +26,8 @@ from anyscale.client.openapi_client.models import (
     CreateResourceQuota,
     CreateUserProjectCollaborator,
     DecoratedComputeTemplate,
+    DecoratedlistserviceapimodelListResponse,
+    DecoratedProductionServiceV2APIModel,
     DeletedPlatformFineTunedModel,
     ExperimentalWorkspace,
     FineTunedModel,
@@ -33,6 +35,7 @@ from anyscale.client.openapi_client.models import (
     HaJobGoalStates,
     HaJobStates,
     InternalProductionJob,
+    ListResponseMetadata,
     MiniCloud,
     MiniUser,
     OrganizationCollaborator,
@@ -53,7 +56,7 @@ from anyscale.cluster_compute import parse_cluster_compute_name_version
 from anyscale.llm.dataset._private.models import Dataset
 from anyscale.sdk.anyscale_client.configuration import Configuration
 from anyscale.sdk.anyscale_client.models import (
-    ApplyServiceModel,
+    ApplyProductionServiceV2Model,
     Cluster,
     ClusterCompute,
     ClusterComputeConfig,
@@ -63,7 +66,6 @@ from anyscale.sdk.anyscale_client.models import (
     Job as APIJobRun,
     ProductionServiceV2VersionModel,
     ServiceEventCurrentState,
-    ServiceModel,
     ServiceVersionState,
     SessionState,
 )
@@ -143,14 +145,14 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._archived_compute_configs: Dict[str, ClusterCompute] = {}
         self._workspace_cluster: Optional[Cluster] = None
         self._workspace_dependency_tracking_enabled: bool = False
-        self._services: Dict[str, ServiceModel] = {}
-        self._archived_services: Dict[str, ServiceModel] = {}
-        self._deleted_services: Dict[str, ServiceModel] = {}
+        self._services: Dict[str, DecoratedProductionServiceV2APIModel] = {}
+        self._archived_services: Dict[str, DecoratedProductionServiceV2APIModel] = {}
+        self._deleted_services: Dict[str, DecoratedProductionServiceV2APIModel] = {}
         self._jobs: Dict[str, ProductionJob] = {}
         self._job_runs: Dict[str, List[APIJobRun]] = defaultdict(list)
         self._project_to_id: Dict[Optional[str] : Dict[Optional[str], str]] = {}
         self._project_collaborators: Dict[str, List[CreateUserProjectCollaborator]] = {}
-        self._rolled_out_model: Optional[ApplyServiceModel] = None
+        self._rolled_out_model: Optional[ApplyProductionServiceV2Model] = None
         self._sent_workspace_notifications: List[WorkspaceNotification] = []
         self._rolled_back_service: Optional[Tuple[str, Optional[int]]] = None
         self._terminated_service: Optional[str] = None
@@ -598,17 +600,17 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
                 cluster_env = self._images[build.cluster_environment_id]
                 return ImageURI.from_cluster_env_build(cluster_env, build)
 
-    def update_service(self, model: ServiceModel):
+    def update_service(self, model: DecoratedProductionServiceV2APIModel):
         self._services[model.id] = model
 
     def get_service(
         self,
         name: str,
         *,
-        cloud: Optional[str],
-        project: Optional[str],
-        include_archived=False,
-    ) -> Optional[ServiceModel]:
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        include_archived: bool = False,
+    ) -> Optional[DecoratedProductionServiceV2APIModel]:
         cloud_id = self.get_cloud_id(cloud_name=cloud)
         cloud_project_dict = self._project_to_id.get(cloud_id, None)
         project_id = (
@@ -720,10 +722,12 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             return project_id
 
     @property
-    def rolled_out_model(self) -> Optional[ApplyServiceModel]:
+    def rolled_out_model(self) -> Optional[ApplyProductionServiceV2Model]:
         return self._rolled_out_model
 
-    def rollout_service(self, model: ApplyServiceModel) -> ServiceModel:
+    def rollout_service(
+        self, model: ApplyProductionServiceV2Model
+    ) -> DecoratedProductionServiceV2APIModel:
         self._rolled_out_model = model
         # TODO(mowen): This feels convoluted, is there a better way to pull cloud name and project name from the model?
         project_model = self.get_project(model.project_id)
@@ -738,18 +742,17 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         else:
             service_id = f"service-id-{uuid.uuid4()!s}"
 
-        service = ServiceModel(
+        service = DecoratedProductionServiceV2APIModel(
             id=service_id,
             name=model.name,
-            current_state=ServiceEventCurrentState.RUNNING,
-            cloud_id=cloud_id,
             project_id=model.project_id,
-            base_url="http://fake-service-url",
-            auth_token="fake-auth-token"
-            if model.config.access.use_bearer_token
-            else None,
+            cloud_id=self.get_cloud_id(compute_config_id=model.compute_config_id),
+            current_state=ServiceEventCurrentState.STARTING,
+            base_url=f"http://{model.name}.fake.url",
+            auth_token="fake-auth-token",
             primary_version=ProductionServiceV2VersionModel(
                 id=str(uuid.uuid4()),
+                created_at=datetime.now(),
                 version="primary",
                 current_state=ServiceVersionState.RUNNING,
                 weight=100,
@@ -761,9 +764,12 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             ),
             local_vars_configuration=OPENAPI_NO_VALIDATION,
         )
-
         self.update_service(service)
         return service
+
+    @property
+    def submitted_job(self) -> Optional[CreateInternalProductionJob]:
+        return self._submitted_job
 
     @property
     def rolled_back_service(self) -> Optional[Tuple[str, Optional[int]]]:
@@ -790,22 +796,18 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             ].primary_version.current_state = ServiceVersionState.TERMINATED
 
     @property
-    def archived_services(self) -> Dict[str, ServiceModel]:
+    def archived_services(self) -> Dict[str, DecoratedProductionServiceV2APIModel]:
         return self._archived_services
 
     def archive_service(self, service_id: str):
         self._archived_services[service_id] = self._services.pop(service_id)
 
     @property
-    def deleted_services(self) -> Dict[str, ServiceModel]:
+    def deleted_services(self) -> Dict[str, DecoratedProductionServiceV2APIModel]:
         return self._deleted_services
 
     def delete_service(self, service_id: str):
         self._deleted_services[service_id] = self._services.pop(service_id)
-
-    @property
-    def submitted_job(self) -> Optional[CreateInternalProductionJob]:
-        return self._submitted_job
 
     def submit_job(self, model: CreateInternalProductionJob) -> InternalProductionJob:
         self._submitted_job = model
@@ -1379,3 +1381,72 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             raise ValueError(f"Resource Quota with id '{resource_quota_id}' not found.")
 
         resource_quota.is_enabled = is_enabled
+
+    def get_service_by_id(
+        self, service_id: str
+    ) -> Optional[DecoratedProductionServiceV2APIModel]:
+        if service_id in self._services:
+            return self._services[service_id]
+        if service_id in self._archived_services:
+            return self._archived_services[service_id]
+        if service_id in self._deleted_services:
+            return self._deleted_services[service_id]
+        return None
+
+    def list_services(
+        self,
+        *,
+        name: Optional[str] = None,
+        state_filter: Optional[List[str]] = None,
+        creator_id: Optional[str] = None,  # noqa: ARG002
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        include_archived: bool = False,
+        count: Optional[int] = None,
+        paging_token: Optional[str] = None,  # noqa: ARG002
+        sort_field: Optional[str] = None,  # noqa: ARG002
+        sort_order: Optional[str] = None,  # noqa: ARG002
+    ) -> DecoratedlistserviceapimodelListResponse:
+        target_services = list(self._services.values())
+        if include_archived:
+            target_services.extend(list(self._archived_services.values()))
+
+        target_cloud_id = self.get_cloud_id(cloud_name=cloud) if cloud else None
+        target_project_id = (
+            self.get_project_id(parent_cloud_id=target_cloud_id, name=project)
+            if project
+            else None
+        )
+
+        filtered_results = []
+        for svc in target_services:
+            if name is not None and svc.name != name:
+                continue
+            # Ensure state comparison works whether svc.current_state is Enum or str
+            current_state_str = (
+                svc.current_state.value
+                if hasattr(svc.current_state, "value")
+                else svc.current_state
+            )
+            if state_filter is not None and current_state_str not in state_filter:
+                continue
+            if target_project_id is not None and svc.project_id != target_project_id:
+                continue
+            if target_cloud_id is not None and svc.cloud_id != target_cloud_id:
+                continue
+
+            filtered_results.append(svc)
+
+        if count is None:
+            count = len(filtered_results)
+        final_results = filtered_results[:count]
+
+        response = DecoratedlistserviceapimodelListResponse(
+            results=final_results,
+            metadata=ListResponseMetadata(
+                total=len(final_results),
+                next_paging_token=None,  # Fake doesn't support paging
+            ),
+            local_vars_configuration=OPENAPI_NO_VALIDATION,
+        )
+        return response

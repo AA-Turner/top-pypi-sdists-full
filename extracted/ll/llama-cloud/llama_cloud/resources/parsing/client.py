@@ -204,6 +204,7 @@ class ParsingClient:
         auto_mode_trigger_on_table_in_page: bool,
         auto_mode_trigger_on_text_in_page: str,
         auto_mode_trigger_on_regexp_in_page: str,
+        auto_mode_configuration_json: str,
         azure_openai_api_version: str,
         azure_openai_deployment_name: str,
         azure_openai_endpoint: str,
@@ -302,6 +303,8 @@ class ParsingClient:
             - auto_mode_trigger_on_text_in_page: str.
 
             - auto_mode_trigger_on_regexp_in_page: str.
+
+            - auto_mode_configuration_json: str.
 
             - azure_openai_api_version: str.
 
@@ -463,6 +466,7 @@ class ParsingClient:
             "auto_mode_trigger_on_table_in_page": auto_mode_trigger_on_table_in_page,
             "auto_mode_trigger_on_text_in_page": auto_mode_trigger_on_text_in_page,
             "auto_mode_trigger_on_regexp_in_page": auto_mode_trigger_on_regexp_in_page,
+            "auto_mode_configuration_json": auto_mode_configuration_json,
             "azure_openai_api_version": azure_openai_api_version,
             "azure_openai_deployment_name": azure_openai_deployment_name,
             "azure_openai_endpoint": azure_openai_endpoint,
@@ -1211,6 +1215,7 @@ class AsyncParsingClient:
         auto_mode_trigger_on_table_in_page: bool,
         auto_mode_trigger_on_text_in_page: str,
         auto_mode_trigger_on_regexp_in_page: str,
+        auto_mode_configuration_json: str,
         azure_openai_api_version: str,
         azure_openai_deployment_name: str,
         azure_openai_endpoint: str,
@@ -1309,6 +1314,8 @@ class AsyncParsingClient:
             - auto_mode_trigger_on_text_in_page: str.
 
             - auto_mode_trigger_on_regexp_in_page: str.
+
+            - auto_mode_configuration_json: str.
 
             - azure_openai_api_version: str.
 
@@ -1470,6 +1477,7 @@ class AsyncParsingClient:
             "auto_mode_trigger_on_table_in_page": auto_mode_trigger_on_table_in_page,
             "auto_mode_trigger_on_text_in_page": auto_mode_trigger_on_text_in_page,
             "auto_mode_trigger_on_regexp_in_page": auto_mode_trigger_on_regexp_in_page,
+            "auto_mode_configuration_json": auto_mode_configuration_json,
             "azure_openai_api_version": azure_openai_api_version,
             "azure_openai_deployment_name": azure_openai_deployment_name,
             "azure_openai_endpoint": azure_openai_endpoint,

@@ -1,9 +1,9 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: maxminddb
-Version: 2.6.3
+Version: 2.7.0
 Summary: Reader for the MaxMind DB format
 Author-email: Gregory Oschwald <goschwald@maxmind.com>
-License: Apache License, Version 2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://www.maxmind.com/
 Project-URL: Documentation, https://maxminddb.readthedocs.org/
 Project-URL: Source Code, https://github.com/maxmind/MaxMind-DB-Reader-python
@@ -12,10 +12,8 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -23,9 +21,10 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet
 Classifier: Topic :: Internet :: Proxy Servers
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 ========================
 MaxMind DB Python Module
@@ -43,18 +42,18 @@ subnets (IPv4 or IPv6).
 Installation
 ------------
 
-To install maxminddb, type:
+To install ``maxminddb```, type:
 
 .. code-block:: bash
 
     $ pip install maxminddb
 
-If you are not able to use pip, you may also use easy_install from the
+If you are not able to install from PyPI, you may also use ``pip`` from the
 source directory:
 
 .. code-block:: bash
 
-    $ easy_install .
+    $ python -m pip install .
 
 The installer will attempt to build the C extension. If this fails, the
 module will fall-back to the pure Python implementation.
@@ -126,7 +125,7 @@ invalid IP address or an IPv6 address in an IPv4 database.
 Requirements
 ------------
 
-This code requires Python 3.8+. Older versions are not supported. The C
+This code requires Python 3.9+. Older versions are not supported. The C
 extension requires CPython.
 
 Versioning

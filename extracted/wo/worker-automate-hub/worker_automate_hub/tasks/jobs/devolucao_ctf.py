@@ -876,7 +876,6 @@ async def devolucao_ctf(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO:
                 
 
                 pop_up_status = await status_trasmissao()
-                win32clipboard.CloseClipboard()
                 console.print(f"Status copiado: {pop_up_status}")
 
 

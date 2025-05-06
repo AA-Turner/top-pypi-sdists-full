@@ -1,0 +1,55 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=77.0.3"]
+
+[project]
+name = "types-openpyxl"
+version = "3.1.5.20250506"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+description = "Typing stubs for openpyxl"
+readme = { text = """\
+## Typing stubs for openpyxl
+
+This is a [PEP 561](https://peps.python.org/pep-0561/)
+type stub package for the [`openpyxl`](https://foss.heptapod.net/openpyxl/openpyxl) package.
+It can be used by type-checking tools like
+[mypy](https://github.com/python/mypy/),
+[pyright](https://github.com/microsoft/pyright),
+[pytype](https://github.com/google/pytype/),
+[Pyre](https://pyre-check.org/),
+PyCharm, etc. to check code that uses `openpyxl`. This version of
+`types-openpyxl` aims to provide accurate annotations for
+`openpyxl==3.1.5`.
+
+This package is part of the [typeshed project](https://github.com/python/typeshed).
+All fixes for types and metadata should be contributed there.
+See [the README](https://github.com/python/typeshed/blob/main/README.md)
+for more details. The source for this package can be found in the
+[`stubs/openpyxl`](https://github.com/python/typeshed/tree/main/stubs/openpyxl)
+directory.
+
+This package was tested with
+mypy 1.15.0,
+pyright 1.1.400,
+and pytype 2024.10.11.
+It was generated from typeshed commit
+[`4265ee7c72f476e7156949e55784fd82b40e6953`](https://github.com/python/typeshed/commit/4265ee7c72f476e7156949e55784fd82b40e6953).
+""", content-type = "text/markdown" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Typing :: Stubs Only",
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.urls]
+"Homepage" = "https://github.com/python/typeshed"
+"GitHub" = "https://github.com/python/typeshed"
+"Changes" = "https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/openpyxl.md"
+"Issue tracker" = "https://github.com/python/typeshed/issues"
+"Chat" = "https://gitter.im/python/typing"
+
+[tool.setuptools]
+packages = ['openpyxl-stubs']
+include-package-data = false

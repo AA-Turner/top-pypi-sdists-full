@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: botocore-stubs
-Version: 1.38.8
+Version: 1.38.9
 Summary: Type annotations and code completion for botocore
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License: MIT License

@@ -2,7 +2,6 @@ import os
 from typing import Any, Dict, List, Optional
 
 import click
-import tabulate
 import yaml
 
 from anyscale import AnyscaleSDK
@@ -13,9 +12,6 @@ from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.api.default_api import DefaultApi as InternalApi
 from anyscale.client.openapi_client.models.decorated_list_service_api_model import (
     DecoratedListServiceAPIModel,
-)
-from anyscale.client.openapi_client.models.decorated_production_service_v2_api_model import (
-    DecoratedProductionServiceV2APIModel,
 )
 from anyscale.controllers.base_controller import BaseController
 from anyscale.models.service_model import ServiceConfig
@@ -81,6 +77,12 @@ class ServiceController(BaseController):
             max_surge_percent=config.max_surge_percent,
         )
 
+    def get_authenticated_user_id(self) -> str:
+        user_info_response = (
+            self.internal_api_client.get_user_info_api_v2_userinfo_get()
+        )
+        return user_info_response.result.id
+
     def _get_services_by_name(
         self,
         *,
@@ -93,12 +95,7 @@ class ServiceController(BaseController):
 
         Note that "name" is an *exact match* (different from the REST API semantics).
         """
-        creator_id = None
-        if created_by_me:
-            user_info_response = (
-                self.internal_api_client.get_user_info_api_v2_userinfo_get()
-            )
-            creator_id = user_info_response.result.id
+        creator_id = self.get_authenticated_user_id() if created_by_me else None
 
         paging_token = None
         services_list: List[DecoratedListServiceAPIModel] = []
@@ -364,75 +361,6 @@ class ServiceController(BaseController):
                 log=self.log,
             )
 
-    def list(
-        self,
-        *,
-        name: Optional[str] = None,
-        service_id: Optional[str] = None,
-        project_id: Optional[str] = None,
-        created_by_me: bool = False,
-        max_items: int = 10,
-    ) -> None:
-        self._list_via_service_list_endpoint(
-            name=name,
-            service_id=service_id,
-            project_id=project_id,
-            created_by_me=created_by_me,
-            max_items=max_items,
-        )
-
-    def _list_via_service_list_endpoint(
-        self,
-        *,
-        name: Optional[str] = None,
-        service_id: Optional[str] = None,
-        project_id: Optional[str] = None,
-        created_by_me: bool = False,
-        max_items: int,
-    ):
-        services = []
-        if service_id:
-            service_v2_result: DecoratedProductionServiceV2APIModel = (
-                self.internal_api_client.get_service_api_v2_services_v2_service_id_get(
-                    service_id
-                ).result
-            )
-            services.append(
-                [
-                    service_v2_result.name,
-                    service_v2_result.id,
-                    service_v2_result.current_state,
-                    # TODO: change to email once https://github.com/anyscale/product/pull/18189 is merged
-                    service_v2_result.creator_id,
-                ]
-            )
-
-        else:
-            services_data = self._get_services_by_name(
-                name=name,
-                project_id=project_id,
-                created_by_me=created_by_me,
-                max_items=max_items,
-            )
-
-            services = [
-                [
-                    service.name,
-                    service.id,
-                    service.current_state,
-                    service.creator.email,
-                ]
-                for service in services_data
-            ]
-
-        table = tabulate.tabulate(
-            services,
-            headers=["NAME", "ID", "CURRENT STATE", "CREATOR"],
-            tablefmt="plain",
-        )
-        self.log.info(f'View your Services in the UI at {get_endpoint("/services")}')
-        self.log.info(f"Services:\n{table}")
-
     def rollback(self, service_id: str, max_surge_percent: Optional[int] = None):
         service: ServiceModel = self.sdk.rollback_service(
             service_id,
@@ -442,13 +370,6 @@ class ServiceController(BaseController):
         ).result
 
         self.log.info(f"Service {service.id} rollback initiated.")
-        self.log.info(
-            f'View the service in the UI at {get_endpoint(f"/services/{service.id}")}'
-        )
-
-    def terminate(self, service_id: str):
-        service: ServiceModel = self.sdk.terminate_service(service_id).result
-        self.log.info(f"Service {service.id} terminate initiated.")
         self.log.info(
             f'View the service in the UI at {get_endpoint(f"/services/{service.id}")}'
         )

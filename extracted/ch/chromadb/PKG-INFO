@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: chromadb
-Version: 1.0.7
+Version: 1.0.8
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Dist: build>=1.0.3
 Requires-Dist: pydantic>=1.9
-Requires-Dist: chroma-hnswlib==0.7.6
 Requires-Dist: fastapi==0.115.9
 Requires-Dist: uvicorn[standard]>=0.18.3
 Requires-Dist: numpy>=1.22.5
@@ -34,6 +33,8 @@ Requires-Dist: orjson>=3.9.12
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: rich>=10.11.0
 Requires-Dist: jsonschema>=4.19.0
+Requires-Dist: chroma-hnswlib==0.7.6 ; extra == 'dev'
+Provides-Extra: dev
 License-File: LICENSE
 Summary: Chroma.
 Author-email: Jeff Huber <jeff@trychroma.com>, Anton Troynikov <anton@trychroma.com>

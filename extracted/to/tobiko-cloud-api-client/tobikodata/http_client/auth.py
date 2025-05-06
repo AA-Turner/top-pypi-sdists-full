@@ -146,7 +146,7 @@ class SSOAuth:
             return self._create_token_info(self.session.token)["id_token"]
         except Exception:
             raise ValueError(
-                "Error logging in with client credentials. Please make sure that the TCLOUD_CLIENT_ID and TCLOUD_CLIENT_SECRET environment variables are set to the right values."
+                "Error logging in with client credentials from sqlmesh. Please make sure that the TCLOUD_CLIENT_ID and TCLOUD_CLIENT_SECRET environment variables are set to the right values."
             )
 
     def refresh_token(self) -> t.Optional[str]:
